@@ -331,41 +331,81 @@ with tool_container:
         draft = db.load_draft(pid, tool) or {}
         stored = draft.get("voc_vob") or project_state.get("voc_vob") or {"voc": [], "vob": [], "notes": ""}
 
-        def build_df(rows: List[Dict[str, Any]], n: int = 6) -> pd.DataFrame:
-            if rows:
-                df = pd.DataFrame(rows)
-            else:
-                df = pd.DataFrame([{c: "" for c in VOCVOB_COLUMNS} for _ in range(n)])
-            for c in VOCVOB_COLUMNS:
-                if c not in df.columns:
-                    df[c] = ""
-            return df[VOCVOB_COLUMNS]
+        def render_custom_grid(data_list: List[Dict[str, Any]], prefix_key: str) -> List[Dict[str, Any]]:
+            # Se não tiver linhas, inicia com 3 vazias
+            if not data_list:
+                data_list = [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (como medir)": ""} for _ in range(3)]
+                
+            # Cabeçalhos fixos com negrito
+            st.markdown(
+                '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
+                '<div style="display: flex;">'
+                '<div style="flex: 1; padding: 0 10px;"><b>Voz (necessidade)</b></div>'
+                '<div style="flex: 1; padding: 0 10px;"><b>Problema</b></div>'
+                '<div style="flex: 1; padding: 0 10px;"><b>Requisito crítico</b></div>'
+                '<div style="flex: 1; padding: 0 10px;"><b>Y (como medir)</b></div>'
+                '</div></div><br>', 
+                unsafe_allow_html=True
+            )
+            
+            out_rows = []
+            for i, row in enumerate(data_list):
+                c1, c2, c3, c4 = st.columns(4)
+                # Caixas de texto configuradas para wrap
+                v1 = c1.text_area("v1", value=row.get("Voz (necessidade)", ""), key=f"{prefix_key}_v_{i}", height=120, label_visibility="collapsed", disabled=read_only)
+                v2 = c2.text_area("v2", value=row.get("Problema", ""), key=f"{prefix_key}_p_{i}", height=120, label_visibility="collapsed", disabled=read_only)
+                v3 = c3.text_area("v3", value=row.get("Requisito crítico", ""), key=f"{prefix_key}_c_{i}", height=120, label_visibility="collapsed", disabled=read_only)
+                v4 = c4.text_area("v4", value=row.get("Y (como medir)", ""), key=f"{prefix_key}_y_{i}", height=120, label_visibility="collapsed", disabled=read_only)
+                out_rows.append({"Voz (necessidade)": v1, "Problema": v2, "Requisito crítico": v3, "Y (como medir)": v4})
+                
+            return out_rows
 
         tab1, tab2 = st.tabs(["Voz do Cliente (VOC)", "Voz do Negócio (VOB)"])
         
         with tab1:
-            df_voc = build_df(stored.get("voc", []))
-            df_voc_edit = st.data_editor(
-                df_voc, 
-                num_rows="dynamic", 
-                use_container_width=True, 
-                key=f"voc_{pid}", 
-                disabled=read_only
-            )
+            voc_list = stored.get("voc", [])
+            voc_out_raw = render_custom_grid(voc_list, "voc")
+            
+            # Botões de Adicionar/Remover Linhas
+            if not read_only:
+                b1, b2, _ = st.columns([1, 1, 4])
+                with b1:
+                    if st.button("➕ Adicionar Linha", key="btn_add_voc", use_container_width=True):
+                        stored["voc"] = voc_out_raw + [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (como medir)": ""}]
+                        project_state["voc_vob"] = stored
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                with b2:
+                    if len(voc_out_raw) > 1:
+                        if st.button("🗑️ Remover Última", key="btn_rem_voc", use_container_width=True):
+                            stored["voc"] = voc_out_raw[:-1]
+                            project_state["voc_vob"] = stored
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.rerun()
+            voc_out = voc_out_raw
+
         with tab2:
-            df_vob = build_df(stored.get("vob", []))
-            df_vob_edit = st.data_editor(
-                df_vob, 
-                num_rows="dynamic", 
-                use_container_width=True, 
-                key=f"vob_{pid}", 
-                disabled=read_only
-            )
+            vob_list = stored.get("vob", [])
+            vob_out_raw = render_custom_grid(vob_list, "vob")
+            
+            if not read_only:
+                b1, b2, _ = st.columns([1, 1, 4])
+                with b1:
+                    if st.button("➕ Adicionar Linha", key="btn_add_vob", use_container_width=True):
+                        stored["vob"] = vob_out_raw + [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (como medir)": ""}]
+                        project_state["voc_vob"] = stored
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                with b2:
+                    if len(vob_out_raw) > 1:
+                        if st.button("🗑️ Remover Última", key="btn_rem_vob", use_container_width=True):
+                            stored["vob"] = vob_out_raw[:-1]
+                            project_state["voc_vob"] = stored
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.rerun()
+            vob_out = vob_out_raw
 
         notes = st.text_area("Anotações Adicionais (opcional)", value=stored.get("notes", ""), height=100, disabled=read_only)
-
-        voc_out = df_voc_edit.fillna("").to_dict(orient="records")
-        vob_out = df_vob_edit.fillna("").to_dict(orient="records")
         
         # Gerar o texto a partir do formulário p/ análise da IA
         new_text = f"VOC Rows: {len(voc_out)}\nVOB Rows: {len(vob_out)}\nNotas: {notes}"
