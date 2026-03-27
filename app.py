@@ -32,10 +32,18 @@ def inject_custom_css(is_logged_in: bool):
                 background-color: #001C59 !important;
                 background-image: radial-gradient(circle at top right, #00AEEF 0%, transparent 35%);
             }
-            /* Garantir que todos os textos fiquem brancos no fundo azul profundo */
+            /* Textos brancos padrão */
             h1, h2, h3, p, label, .stMarkdown, .stTabs [data-baseweb="tab-list"] button {
                 color: #FFFFFF !important;
             }
+            /* Forçar as cores da Logo Box especificamente para sobrepor a regra anterior */
+            .logo-box * {
+                color: #001C59 !important;
+            }
+            .logo-box .azul-claro {
+                color: #00AEEF !important;
+            }
+            
             /* Destaque da aba ativa em Verde Sírio */
             .stTabs [aria-selected="true"] {
                 color: #93E07E !important;
@@ -69,10 +77,9 @@ def inject_custom_css(is_logged_in: bool):
             </style>
         """, unsafe_allow_html=True)
     else:
-        # Fundo claro para área logada (Visualização dos Dados - Estilo Slide Interno)
+        # Fundo claro para área logada (Visualização dos Dados)
         st.markdown("""
             <style>
-            /* Cor de fundo primária do Sidebar: Azul Sírio Libanês */
             [data-testid="stSidebar"] {
                 background-color: #001C59 !important;
                 border-right: 1px solid #E2E8F0;
@@ -80,11 +87,9 @@ def inject_custom_css(is_logged_in: bool):
             [data-testid="stSidebar"] * {
                 color: #FFFFFF !important;
             }
-            /* Header principal (Fundo interno cor Gelo) */
             header { background-color: #F7F7F7 !important; }
             .stApp { background-color: #F7F7F7 !important; }
             
-            /* Botões Primários - Azul Claro */
             div.stButton > button {
                 background-color: #00AEEF !important;
                 color: white !important;
@@ -97,11 +102,6 @@ def inject_custom_css(is_logged_in: bool):
                 background-color: #004992 !important;
                 transform: scale(1.02);
             }
-            div.stButton > button:disabled {
-                background-color: #CCCCCC !important;
-                color: #666666 !important;
-            }
-            /* Títulos principais cor Azul Escuro e Títulos secundários Verde */
             h1, h2 { color: #001C59 !important; font-weight: 700 !important; }
             h3, h4, h5 { color: #00AEEF !important; font-weight: 600 !important; }
             .stDataFrame { border-radius: 10px; border: 1px solid #E6E6E6; }
@@ -115,16 +115,17 @@ if "user" not in st.session_state:
 inject_custom_css(bool(st.session_state.user))
 
 def handle_login():
-    # Logo Box do Sírio-Libanês para a Capa
+    # Logo Box do Sírio-Libanês para a Capa usando as classes corretas
     st.markdown("""
         <div style="display: flex; justify-content: center; align-items: center; padding: 20px;">
-            <div style="background-color: white; padding: 25px 40px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                <h1 style='margin: 0; color: #001C59 !important; font-size: 2.8em; font-family: sans-serif; letter-spacing: -1px;'>
-                    <span style='color: #00AEEF !important;'>SÍRIO</span>·LIBANÊS
+            <div class="logo-box" style="background-color: white; padding: 25px 40px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <h1 style='margin: 0; font-size: 2.8em; font-family: sans-serif; letter-spacing: -1px;'>
+                    <span class="azul-claro">SÍRIO</span>·LIBANÊS
                 </h1>
-                <p style="margin: 0; font-size: 1.1em; text-align: right; color: #001C59 !important; font-weight: 300;">Consultoria</p>
+                <p style="margin: 0; font-size: 1.1em; text-align: right; font-weight: 300;">Consultoria</p>
             </div>
         </div>
+        <br>
         <h3 style='text-align: center; color: #93E07E !important; margin-bottom: 40px; font-weight: 400;'>Copiloto de Melhoria Contínua</h3>
     """, unsafe_allow_html=True)
     
@@ -316,7 +317,7 @@ with tool_col1:
     tool = st.selectbox("Ferramenta Analítica", TOOLS, index=TOOLS.index(default_tool) if default_tool in TOOLS else 0)
     st.session_state.active_tool = tool
 with tool_col2:
-    mode = st.radio("Ação da IA (Coach)", ["review", "generate"], horizontal=True, disabled=read_only)
+    st.empty() # Radio button removido daqui para ficar na lateral direita do Coach
 
 left, right = st.columns([1.6, 1.0], gap="large")
 new_text = ""
@@ -457,30 +458,58 @@ with left:
 
 with right:
     st.subheader("👨🏻‍⚕️ Coach IA - Doutor Lean")
-    if st.button("🔎 Analisar Preenchimento", disabled=read_only):
-        with st.spinner("Analisando gargalos usando gpt-4..."):
-            coach_json, rubric_scores, _ = coach_run(tool, project_state, new_text, mode=mode)
+    
+    # Nova interface intuitiva solicitada:
+    ia_action = st.radio(
+        "Como a IA pode te ajudar agora?",
+        ["Revisão do Coach IA", "Gere uma Sugestão de Preenchimento"],
+        disabled=read_only
+    )
+    
+    ai_context_prompt = ""
+    if ia_action == "Gere uma Sugestão de Preenchimento":
+        st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
+        ai_context_prompt = st.text_area(
+            "Contexto ou Pedido Específico (Opcional):",
+            placeholder="Ex: Foque apenas em redução de tempo na área de triagem...",
+            height=80,
+            disabled=read_only
+        )
+        st.warning("⚠️ **Atenção:** As informações geradas por Inteligência Artificial são apenas sugestões baseadas no contexto e devem obrigatoriamente ser validadas e ajustadas por você.")
+        
+    btn_label = "🔎 Iniciar Revisão" if ia_action == "Revisão do Coach IA" else "✨ Gerar Sugestão"
+
+    if st.button(btn_label, disabled=read_only, use_container_width=True):
+        mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
+        
+        # Injeta o contexto extra do usuário no inicio do texto que a IA vai ler
+        text_for_ai = new_text
+        if mode_str == "generate" and ai_context_prompt.strip():
+             text_for_ai = f"PEDIDO ESPECÍFICO DO USUÁRIO PARA ESTA GERAÇÃO: {ai_context_prompt}\n\nDADOS ATUAIS DA FERRAMENTA:\n{new_text}"
+
+        with st.spinner("Doutor Lean processando os dados..."):
+            coach_json, rubric_scores, _ = coach_run(tool, project_state, text_for_ai, mode=mode_str)
             sid = new_session_id()
             db.add_session_log(
                 session_id=sid, project_id=pid, tool=tool,
-                event_type="REQUEST_REVIEW_NOW", user_delta="Análise de Rotina", coach_payload=coach_json,
+                event_type="REQUEST_COACH", user_delta=f"Modo: {mode_str}", coach_payload=coach_json,
             )
 
-            st.markdown("### ✅ Acertos (OK)")
+            st.markdown("### ✅ Pontos Positivos")
             if coach_json.get("ok"):
                 for ok in coach_json["ok"]:
                     st.success(f"✔ {ok}")
             else:
                 st.write("-")
 
-            st.markdown("### ⚠️ Diagnóstico de Gaps")
+            st.markdown("### ⚠️ Diagnóstico / Sugestões")
             if coach_json.get("gaps"):
                 for g in coach_json["gaps"]:
                     st.error(f"**{pretty_gap_id(g.get('id', ''))}**: {g.get('reason', '')}")
             else:
-                st.write("- Todos os critérios base parecem atendidos.")
+                st.write("- A análise não encontrou gaps ou gerou novas propriedades.")
 
-            st.markdown("### 🏹 Plano de Ação (Próximo Passo)")
+            st.markdown("### 🏹 Plano de Ação ou Conteúdo Gerado")
             st.info(coach_json.get("next_action", ""))
 
     st.markdown("---")
