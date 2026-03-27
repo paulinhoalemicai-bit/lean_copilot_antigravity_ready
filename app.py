@@ -23,72 +23,112 @@ st.set_page_config(page_title="Lean Copilot MVP", layout="wide", page_icon="🏥
 db.init_db()
 
 
-def inject_custom_css():
-    st.markdown("""
-        <style>
-        /* Cor de fundo primária do Sidebar: Azul Sírio Libanês */
-        [data-testid="stSidebar"] {
-            background-color: #001C59 !important;
-            border-right: 1px solid #E2E8F0;
-        }
-        /* Garantir texto branco no sidebar */
-        [data-testid="stSidebar"] * {
-            color: #FFFFFF !important;
-        }
-        /* Header principal branco com texto azul escuro */
-        header {
-            background-color: #F7F7F7 !important;
-        }
-        /* Botões Primários - Azul Claro */
-        div.stButton > button {
-            background-color: #00AEEF;
-            color: white !important;
-            border-radius: 8px;
-            font-weight: 600;
-            border: none;
-            transition: all 0.2s;
-        }
-        div.stButton > button:hover {
-            background-color: #004992;
-            color: white !important;
-            transform: scale(1.02);
-            border: none;
-        }
-        /* Botões desabilitados do Professor */
-        div.stButton > button:disabled {
-            background-color: #CCCCCC;
-            color: #666666 !important;
-            transform: none;
-        }
-        /* Títulos principais cor Azul Escuro e Títulos secundários Verde */
-        h1, h2 {
-            color: #001C59 !important;
-            font-weight: 700 !important;
-        }
-        h3, h4, h5 {
-            color: #00AEEF !important;
-            font-weight: 600 !important;
-        }
-        /* Dataframes com estilo limpo */
-        .stDataFrame {
-            border-radius: 10px;
-            border: 1px solid #E6E6E6;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-
-inject_custom_css()
+def inject_custom_css(is_logged_in: bool):
+    if not is_logged_in:
+        # Fundo Azul Escuro total para a tela de Login (Estilo Capa do PPT)
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #001C59 !important;
+                background-image: radial-gradient(circle at top right, #00AEEF 0%, transparent 35%);
+            }
+            /* Garantir que todos os textos fiquem brancos no fundo azul profundo */
+            h1, h2, h3, p, label, .stMarkdown, .stTabs [data-baseweb="tab-list"] button {
+                color: #FFFFFF !important;
+            }
+            /* Destaque da aba ativa em Verde Sírio */
+            .stTabs [aria-selected="true"] {
+                color: #93E07E !important;
+                border-bottom-color: #93E07E !important;
+                font-weight: bold;
+            }
+            /* Caixas de Texto (Off-white para contraste) */
+            .stTextInput > div > div > input {
+                background-color: #F4F0E3 !important;
+                color: #07223A !important;
+                border-radius: 6px;
+                border: none;
+            }
+            .stTextInput label {
+                color: #F4F0E3 !important;
+            }
+            /* Botões de Ação na Aba Login */
+            div.stButton > button {
+                background-color: #00AEEF !important;
+                color: white !important;
+                border-radius: 8px;
+                font-weight: 600;
+                border: none;
+                transition: all 0.2s;
+            }
+            div.stButton > button:hover {
+                background-color: #93E07E !important;
+                color: #001C59 !important;
+                transform: scale(1.02);
+            }
+            </style>
+        """, unsafe_allow_html=True)
+    else:
+        # Fundo claro para área logada (Visualização dos Dados - Estilo Slide Interno)
+        st.markdown("""
+            <style>
+            /* Cor de fundo primária do Sidebar: Azul Sírio Libanês */
+            [data-testid="stSidebar"] {
+                background-color: #001C59 !important;
+                border-right: 1px solid #E2E8F0;
+            }
+            [data-testid="stSidebar"] * {
+                color: #FFFFFF !important;
+            }
+            /* Header principal (Fundo interno cor Gelo) */
+            header { background-color: #F7F7F7 !important; }
+            .stApp { background-color: #F7F7F7 !important; }
+            
+            /* Botões Primários - Azul Claro */
+            div.stButton > button {
+                background-color: #00AEEF !important;
+                color: white !important;
+                border-radius: 8px;
+                font-weight: 600;
+                border: none;
+                transition: all 0.2s;
+            }
+            div.stButton > button:hover {
+                background-color: #004992 !important;
+                transform: scale(1.02);
+            }
+            div.stButton > button:disabled {
+                background-color: #CCCCCC !important;
+                color: #666666 !important;
+            }
+            /* Títulos principais cor Azul Escuro e Títulos secundários Verde */
+            h1, h2 { color: #001C59 !important; font-weight: 700 !important; }
+            h3, h4, h5 { color: #00AEEF !important; font-weight: 600 !important; }
+            .stDataFrame { border-radius: 10px; border: 1px solid #E6E6E6; }
+            </style>
+        """, unsafe_allow_html=True)
 
 # --- Auth Layer ---
 if "user" not in st.session_state:
     st.session_state.user = None
 
+inject_custom_css(bool(st.session_state.user))
+
 def handle_login():
-    st.markdown("<h1 style='text-align: center; color: #001C59;'>🏥 Copiloto de Melhoria Contínua</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #00AEEF;'>Acesso ao Sistema</h3>", unsafe_allow_html=True)
+    # Logo Box do Sírio-Libanês para a Capa
+    st.markdown("""
+        <div style="display: flex; justify-content: center; align-items: center; padding: 20px;">
+            <div style="background-color: white; padding: 25px 40px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <h1 style='margin: 0; color: #001C59 !important; font-size: 2.8em; font-family: sans-serif; letter-spacing: -1px;'>
+                    <span style='color: #00AEEF !important;'>SÍRIO</span>·LIBANÊS
+                </h1>
+                <p style="margin: 0; font-size: 1.1em; text-align: right; color: #001C59 !important; font-weight: 300;">Consultoria</p>
+            </div>
+        </div>
+        <h3 style='text-align: center; color: #93E07E !important; margin-bottom: 40px; font-weight: 400;'>Copiloto de Melhoria Contínua</h3>
+    """, unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1.5, 2, 1.5])
     with col2:
         tab_login, tab_reg = st.tabs(["Entrar", "Criar Conta"])
         
