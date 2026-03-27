@@ -356,7 +356,7 @@ with left:
         # Gerar o texto a partir do formulário p/ análise da IA
         new_text = f"VOC Rows: {len(voc_out)}\nVOB Rows: {len(vob_out)}\nNotas: {notes}"
 
-        c1, c2, c3 = st.columns([1, 1, 1])
+        c1, c2 = st.columns([1, 3])
         with c1:
             if st.button("💾 Salvar Planilha", disabled=read_only):
                 payload = {"voc_vob": {"voc": voc_out, "vob": vob_out, "notes": notes}, "text": new_text}
@@ -364,30 +364,6 @@ with left:
                 project_state["voc_vob"] = {"voc": voc_out, "vob": vob_out, "notes": notes}
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                 st.success("Salvo com sucesso!")
-        
-        key_charter_sug = f"vocvob_to_charter_sug_{pid}"
-        if key_charter_sug not in st.session_state:
-            st.session_state[key_charter_sug] = None
-
-        with c2:
-            if st.button("🧠 IA: Sugerir Problema", disabled=read_only):
-                st.session_state[key_charter_sug] = suggest_charter_from_vocvob(project_state, new_text)
-                st.success("Analise as opções abaixo.")
-
-        sug = st.session_state.get(key_charter_sug)
-        if sug and sug.get("candidates") and not read_only:
-            st.markdown("### Sugestões para o Project Charter")
-            for idx, c in enumerate(sug["candidates"], start=1):
-                with st.expander(f"📌 Opção {idx}: {c.get('title','(sem título)')}"):
-                    st.write("**Rascunho:**", c.get("draft", ""))
-                    if st.button(f"✅ Aceitar e Aplicar", key=f"apply_{idx}"):
-                        ch = project_state.get("charter", {})
-                        # Fake apply for MVP
-                        ch["problem"] = c.get("draft")
-                        project_state["charter"] = ch
-                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.success("Problema Aplicado no Charter!")
-                        st.rerun()
 
     elif tool == "Project Charter":
         st.subheader("Project Charter (Contrato de Melhoria)")
@@ -480,7 +456,7 @@ with right:
     
     if ia_action == "Gere uma Sugestão de Preenchimento":
         if tool == "VOC/VOB":
-            st.info("💡 **Preenchimento Guiado VOC/VOB:** A IA vai gerar uma linha perfeita para sua tabela baseada nas 3 respostas abaixo.")
+            st.info("💡 **Preenchimento Guiado VOC/VOB:** A IA vai gerar uma linha de referência para sua tabela baseada nas 3 respostas abaixo.")
             target_voc = st.radio("Gerar sugestão para:", ["Voz do Cliente (VOC)", "Voz do Negócio (VOB)"], disabled=read_only)
             q1 = st.text_input("Qual a necessidade do cliente (ou negócio)?", disabled=read_only)
             q2 = st.text_input("Qual é o valor atual / performance atual?", disabled=read_only)
