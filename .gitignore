@@ -1,0 +1,14 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+__pycache__/
+
+# Variáveis de Ambiente e Chaves de API
+.env
+
+# Banco de Dados Local
+leancopilot.db
+
+# Pastas de Sistema
+.DS_Store
