@@ -11,16 +11,18 @@ from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 load_dotenv()
 
 # Tenta usar o banco da nuvem (Postgres) se a variável DATABASE_URL existir.
-# Caso contrário, cai de volta para o SQLite (leancopilot.db) no PC.
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///leancopilot.db")
 
-# Converte URIs para usar o driver puramente Python (pg8000) e evitar falhas de libpq no Streamlit
+# Render/Heroku as vezes passam "postgres://" mas o sqlalchemy exige "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+pg8000://", 1)
-elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+pg8000://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+# A mágica do Supabase Transaction Pooler: Evitar o erro OperationalError de Sessão!
+engine = create_engine(
+    DATABASE_URL, 
+    pool_pre_ping=True, 
+    execution_options={"isolation_level": "AUTOCOMMIT"}
+)
 SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 
 Base = declarative_base()
