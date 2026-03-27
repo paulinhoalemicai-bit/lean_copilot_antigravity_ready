@@ -14,9 +14,11 @@ load_dotenv()
 # Caso contrário, cai de volta para o SQLite (leancopilot.db) no PC.
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///leancopilot.db")
 
-# Render/Heroku as vezes passam "postgres://" mas o sqlalchemy exige "postgresql://"
+# Converte URIs para usar o driver puramente Python (pg8000) e evitar falhas de libpq no Streamlit
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+pg8000://", 1)
+elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+pg8000://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
