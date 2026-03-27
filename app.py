@@ -334,7 +334,7 @@ with tool_container:
         def render_custom_grid(data_list: List[Dict[str, Any]], prefix_key: str) -> List[Dict[str, Any]]:
             # Se não tiver linhas, inicia com 3 vazias
             if not data_list:
-                data_list = [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (como medir)": ""} for _ in range(3)]
+                data_list = [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (indicador)": ""} for _ in range(3)]
                 
             # Cabeçalhos fixos com negrito
             st.markdown(
@@ -343,7 +343,7 @@ with tool_container:
                 '<div style="flex: 1; padding: 0 10px;"><b>Voz (necessidade)</b></div>'
                 '<div style="flex: 1; padding: 0 10px;"><b>Problema</b></div>'
                 '<div style="flex: 1; padding: 0 10px;"><b>Requisito crítico</b></div>'
-                '<div style="flex: 1; padding: 0 10px;"><b>Y (como medir)</b></div>'
+                '<div style="flex: 1; padding: 0 10px;"><b>Y (indicador)</b></div>'
                 '</div></div><br>', 
                 unsafe_allow_html=True
             )
@@ -355,7 +355,7 @@ with tool_container:
                 v1_txt = str(row.get("Voz (necessidade)", ""))
                 v2_txt = str(row.get("Problema", ""))
                 v3_txt = str(row.get("Requisito crítico", ""))
-                v4_txt = str(row.get("Y (como medir)", ""))
+                v4_txt = str(row.get("Y (indicador)", row.get("Y (como medir)", "")))
                 
                 # Calcular altura ideal baseando-se na caixa mais cheia (aprox. 35 chars por linha visual)
                 max_len = max(len(v1_txt), len(v2_txt), len(v3_txt), len(v4_txt))
@@ -367,7 +367,7 @@ with tool_container:
                 v2 = c2.text_area("v2", value=v2_txt, key=f"{prefix_key}_p_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
                 v3 = c3.text_area("v3", value=v3_txt, key=f"{prefix_key}_c_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
                 v4 = c4.text_area("v4", value=v4_txt, key=f"{prefix_key}_y_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-                out_rows.append({"Voz (necessidade)": v1, "Problema": v2, "Requisito crítico": v3, "Y (como medir)": v4})
+                out_rows.append({"Voz (necessidade)": v1, "Problema": v2, "Requisito crítico": v3, "Y (indicador)": v4})
                 
             return out_rows
 
@@ -382,7 +382,7 @@ with tool_container:
                 b1, b2, _ = st.columns([1, 1, 4])
                 with b1:
                     if st.button("➕ Adicionar Linha", key="btn_add_voc", use_container_width=True):
-                        stored["voc"] = voc_out_raw + [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (como medir)": ""}]
+                        stored["voc"] = voc_out_raw + [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (indicador)": ""}]
                         project_state["voc_vob"] = stored
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
@@ -403,7 +403,7 @@ with tool_container:
                 b1, b2, _ = st.columns([1, 1, 4])
                 with b1:
                     if st.button("➕ Adicionar Linha", key="btn_add_vob", use_container_width=True):
-                        stored["vob"] = vob_out_raw + [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (como medir)": ""}]
+                        stored["vob"] = vob_out_raw + [{"Voz (necessidade)": "", "Problema": "", "Requisito crítico": "", "Y (indicador)": ""}]
                         project_state["voc_vob"] = stored
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()

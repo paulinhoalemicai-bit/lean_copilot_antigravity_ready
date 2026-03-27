@@ -315,13 +315,13 @@ Sua tarefa é preencher EXATAMENTE 1 linha de uma tabela (JSON) com as 4 colunas
 1. "Voz (necessidade)": Resuma a necessidade em linguagem do {target_type}.
 2. "Problema": Aponte o que está falhando com base no valor/performance atual.
 3. "Requisito crítico": Descreva o limite exato de satisfação vs insatisfação (CTQ/CTB).
-4. "Y (como medir)": O indicador mensurável atrelado ao requisito crítico.
+4. "Y (indicador)": O indicador mensurável atrelado ao requisito crítico.
 
 Retorne EXATAMENTE um objeto JSON com as chaves:
 - "Voz (necessidade)": string
 - "Problema": string
 - "Requisito crítico": string
-- "Y (como medir)": string
+- "Y (indicador)": string
 - "observacoes": (Opcional) uma string explicando a sugestão se necessário.
 """.strip()
 
@@ -344,12 +344,12 @@ Preencha a linha.
             "Voz (necessidade)": str(out.get("Voz (necessidade)", "N/A")).strip(),
             "Problema": str(out.get("Problema", "N/A")).strip(),
             "Requisito crítico": str(out.get("Requisito crítico", "N/A")).strip(),
-            "Y (como medir)": str(out.get("Y (como medir)", "N/A")).strip()
+            "Y (indicador)": str(out.get("Y (indicador)", "N/A")).strip()
         }
     except Exception as e:
         return {
             "Voz (necessidade)": "Erro IA",
             "Problema": str(e),
             "Requisito crítico": "",
-            "Y (como medir)": ""
+            "Y (indicador)": ""
         }

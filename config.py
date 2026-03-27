@@ -15,7 +15,7 @@ VOCVOB_COLUMNS = [
     "Voz (necessidade)",
     "Problema",
     "Requisito crítico",
-    "Y (como medir)",
+    "Y (indicador)",
 ]
 
 SIPOC_EDITOR_COLUMNS = [
@@ -33,7 +33,7 @@ TOOL_GUIDANCE = {
 Ferramenta VOC/VOB.
 Objetivo:
 - Estruturar voz do cliente (VOC) e voz do negócio (VOB)
-- Em cada linha: voz/necessidade, problema, requisito crítico e Y (como medir)
+- Em cada linha: voz/necessidade, problema, requisito crítico e Y (indicador)
 - Ajudar a alimentar Project Charter, especialmente problema e objetivo
 """,
     "Project Charter": """
