@@ -17,6 +17,7 @@ from coach import (
     suggest_serpentes_steps,
     suggest_sipoc_by_step,
     suggest_charter_from_vocvob,
+    suggest_vocvob_row,
 )
 
 st.set_page_config(page_title="Lean Copilot MVP", layout="wide", page_icon="🏥")
@@ -459,58 +460,96 @@ with left:
 with right:
     st.subheader("👨🏻‍⚕️ Coach IA - Doutor Lean")
     
+    # Alerta de que uma linha foi gerada com sucesso pela IA na última rodada (após o rerun)
+    if st.session_state.get("ai_generated_warning"):
+        st.warning(st.session_state["ai_generated_warning"])
+        # Limpar para não ficar piscando pra sempre
+        st.session_state["ai_generated_warning"] = ""
+
     # Nova interface intuitiva solicitada:
     ia_action = st.radio(
         "Como a IA pode te ajudar agora?",
         ["Revisão do Coach IA", "Gere uma Sugestão de Preenchimento"],
-        disabled=read_only
+        disabled=read_only,
+        key=f"ia_action_{tool}"
     )
     
     ai_context_prompt = ""
+    target_voc = "Voz do Cliente (VOC)"
+    q1 = q2 = q3 = ""
+    
     if ia_action == "Gere uma Sugestão de Preenchimento":
-        st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
-        ai_context_prompt = st.text_area(
-            "Contexto ou Pedido Específico (Opcional):",
-            placeholder="Ex: Foque apenas em redução de tempo na área de triagem...",
-            height=80,
-            disabled=read_only
-        )
-        st.warning("⚠️ **Atenção:** As informações geradas por Inteligência Artificial são apenas sugestões baseadas no contexto e devem obrigatoriamente ser validadas e ajustadas por você.")
+        if tool == "VOC/VOB":
+            st.info("💡 **Preenchimento Guiado VOC/VOB:** A IA vai gerar uma linha perfeita para sua tabela baseada nas 3 respostas abaixo.")
+            target_voc = st.radio("Gerar sugestão para:", ["Voz do Cliente (VOC)", "Voz do Negócio (VOB)"], disabled=read_only)
+            q1 = st.text_input("Qual a necessidade do cliente (ou negócio)?", disabled=read_only)
+            q2 = st.text_input("Qual é o valor atual / performance atual?", disabled=read_only)
+            q3 = st.text_input("Qual é o valor limite entre a satisfação e a insatisfação?", disabled=read_only)
+        else:
+            st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
+            ai_context_prompt = st.text_area(
+                "Contexto ou Pedido Específico (Opcional):",
+                placeholder="Ex: Foque apenas em redução de tempo na área de triagem...",
+                height=80,
+                disabled=read_only
+            )
+        st.warning("⚠️ **Atenção:** As informações geradas por Inteligência Artificial são exclusivas para direcionamento metodológico e devem obrigatoriamente ser revisadas e validadas na tabela ao lado antes do uso.")
         
     btn_label = "🔎 Iniciar Revisão" if ia_action == "Revisão do Coach IA" else "✨ Gerar Sugestão"
 
     if st.button(btn_label, disabled=read_only, use_container_width=True):
         mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
         
-        # Injeta o contexto extra do usuário no inicio do texto que a IA vai ler
-        text_for_ai = new_text
-        if mode_str == "generate" and ai_context_prompt.strip():
-             text_for_ai = f"PEDIDO ESPECÍFICO DO USUÁRIO PARA ESTA GERAÇÃO: {ai_context_prompt}\n\nDADOS ATUAIS DA FERRAMENTA:\n{new_text}"
+        # --- FLUXO ESPECIAL: Geração (Autocompletar) do VOC/VOB ---
+        if tool == "VOC/VOB" and mode_str == "generate":
+            with st.spinner(f"Doutor Lean gerando linha para {target_voc}..."):
+                new_row = suggest_vocvob_row(target_voc, q1, q2, q3, project_state)
+                # Onde inserir?
+                t_key = "voc" if target_voc == "Voz do Cliente (VOC)" else "vob"
+                if "voc_vob" not in project_state:
+                    project_state["voc_vob"] = {"voc": [], "vob": [], "notes": ""}
+                if t_key not in project_state["voc_vob"]:
+                    project_state["voc_vob"][t_key] = []
+                
+                # Anexa a nova linha gerada
+                project_state["voc_vob"][t_key].append(new_row)
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                
+                # Mostra o alerta de sucesso e forca o reload pra tabela atualizar sozinha
+                st.session_state["ai_generated_warning"] = "✨ ⚠️ Linha inserida automaticamente pela Inteligência Artificial na tabela. Por favor, releia, valide os campos e salve!"
+                st.rerun()
 
-        with st.spinner("Doutor Lean processando os dados..."):
-            coach_json, rubric_scores, _ = coach_run(tool, project_state, text_for_ai, mode=mode_str)
-            sid = new_session_id()
-            db.add_session_log(
-                session_id=sid, project_id=pid, tool=tool,
-                event_type="REQUEST_COACH", user_delta=f"Modo: {mode_str}", coach_payload=coach_json,
-            )
+        # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
+        else:
+            # Injeta o contexto extra do usuário no inicio do texto que a IA vai ler
+            text_for_ai = new_text
+            if mode_str == "generate" and ai_context_prompt.strip():
+                 text_for_ai = f"PEDIDO ESPECÍFICO DO USUÁRIO PARA ESTA GERAÇÃO: {ai_context_prompt}\n\nDADOS ATUAIS DA FERRAMENTA:\n{new_text}"
 
-            st.markdown("### ✅ Pontos Positivos")
-            if coach_json.get("ok"):
-                for ok in coach_json["ok"]:
-                    st.success(f"✔ {ok}")
-            else:
-                st.write("-")
+            with st.spinner("Doutor Lean processando os dados..."):
+                coach_json, rubric_scores, _ = coach_run(tool, project_state, text_for_ai, mode=mode_str)
+                sid = new_session_id()
+                db.add_session_log(
+                    session_id=sid, project_id=pid, tool=tool,
+                    event_type="REQUEST_COACH", user_delta=f"Modo: {mode_str}", coach_payload=coach_json,
+                )
 
-            st.markdown("### ⚠️ Diagnóstico / Sugestões")
-            if coach_json.get("gaps"):
-                for g in coach_json["gaps"]:
-                    st.error(f"**{pretty_gap_id(g.get('id', ''))}**: {g.get('reason', '')}")
-            else:
-                st.write("- A análise não encontrou gaps ou gerou novas propriedades.")
+                st.markdown("### ✅ Pontos Positivos")
+                if coach_json.get("ok"):
+                    for ok in coach_json["ok"]:
+                        st.success(f"✔ {ok}")
+                else:
+                    st.write("-")
 
-            st.markdown("### 🏹 Plano de Ação ou Conteúdo Gerado")
-            st.info(coach_json.get("next_action", ""))
+                st.markdown("### ⚠️ Diagnóstico / Sugestões")
+                if coach_json.get("gaps"):
+                    for g in coach_json["gaps"]:
+                        st.error(f"**{pretty_gap_id(g.get('id', ''))}**: {g.get('reason', '')}")
+                else:
+                    st.write("- A análise não encontrou gaps ou gerou novas propriedades.")
+
+                st.markdown("### 🏹 Plano de Ação ou Conteúdo Gerado")
+                st.info(coach_json.get("next_action", ""))
 
     st.markdown("---")
     st.markdown("### 📜 Memória de Sessões")

@@ -306,3 +306,50 @@ Gere as sugestões.
                 }
             ]
         }
+
+def suggest_vocvob_row(target_type: str, q1: str, q2: str, q3: str, project_state: dict) -> Dict[str, str]:
+    system = f"""
+Você é especialista em Lean Seis Sigma, focando em {target_type}.
+O usuário forneceu respostas cruciais para mapear a Voz.
+Sua tarefa é preencher EXATAMENTE 1 linha de uma tabela (JSON) com as 4 colunas abaixo:
+1. "Voz (necessidade)": Resuma a necessidade em linguagem do {target_type}.
+2. "Problema": Aponte o que está falhando com base no valor/performance atual.
+3. "Requisito crítico": Descreva o limite exato de satisfação vs insatisfação (CTQ/CTB).
+4. "Y (como medir)": O indicador mensurável atrelado ao requisito crítico.
+
+Retorne EXATAMENTE um objeto JSON com as chaves:
+- "Voz (necessidade)": string
+- "Problema": string
+- "Requisito crítico": string
+- "Y (como medir)": string
+- "observacoes": (Opcional) uma string explicando a sugestão se necessário.
+""".strip()
+
+    user = f"""
+Contexto do Projeto:
+{json.dumps(project_state, ensure_ascii=False, indent=2)}
+
+Respostas fornecidas pelo aluno:
+1. Qual a necessidade do cliente/negócio? -> {q1}
+2. Qual o valor/performance atual? -> {q2}
+3. Qual o valor limite entre satisfação e insatisfação? -> {q3}
+
+Preencha a linha.
+""".strip()
+
+    try:
+        out = _chat_json(system, user)
+        # Extrair com chaves exatas exigidas pela interface
+        return {
+            "Voz (necessidade)": str(out.get("Voz (necessidade)", "N/A")).strip(),
+            "Problema": str(out.get("Problema", "N/A")).strip(),
+            "Requisito crítico": str(out.get("Requisito crítico", "N/A")).strip(),
+            "Y (como medir)": str(out.get("Y (como medir)", "N/A")).strip()
+        }
+    except Exception as e:
+        return {
+            "Voz (necessidade)": "Erro IA",
+            "Problema": str(e),
+            "Requisito crítico": "",
+            "Y (como medir)": ""
+        }
