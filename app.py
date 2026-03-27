@@ -351,11 +351,22 @@ with tool_container:
             out_rows = []
             for i, row in enumerate(data_list):
                 c1, c2, c3, c4 = st.columns(4)
-                # Caixas de texto configuradas para wrap
-                v1 = c1.text_area("v1", value=row.get("Voz (necessidade)", ""), key=f"{prefix_key}_v_{i}", height=120, label_visibility="collapsed", disabled=read_only)
-                v2 = c2.text_area("v2", value=row.get("Problema", ""), key=f"{prefix_key}_p_{i}", height=120, label_visibility="collapsed", disabled=read_only)
-                v3 = c3.text_area("v3", value=row.get("Requisito crítico", ""), key=f"{prefix_key}_c_{i}", height=120, label_visibility="collapsed", disabled=read_only)
-                v4 = c4.text_area("v4", value=row.get("Y (como medir)", ""), key=f"{prefix_key}_y_{i}", height=120, label_visibility="collapsed", disabled=read_only)
+                
+                v1_txt = str(row.get("Voz (necessidade)", ""))
+                v2_txt = str(row.get("Problema", ""))
+                v3_txt = str(row.get("Requisito crítico", ""))
+                v4_txt = str(row.get("Y (como medir)", ""))
+                
+                # Calcular altura ideal baseando-se na caixa mais cheia (aprox. 35 chars por linha visual)
+                max_len = max(len(v1_txt), len(v2_txt), len(v3_txt), len(v4_txt))
+                linhas = max(2, (max_len // 35) + 1)
+                altura_sincronizada = min(350, (linhas * 26) + 45) # limite de 350px para não estourar a tela
+                
+                # Caixas de texto configuradas para wrap, todas adotando a mesma altura na linha
+                v1 = c1.text_area("v1", value=v1_txt, key=f"{prefix_key}_v_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                v2 = c2.text_area("v2", value=v2_txt, key=f"{prefix_key}_p_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                v3 = c3.text_area("v3", value=v3_txt, key=f"{prefix_key}_c_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                v4 = c4.text_area("v4", value=v4_txt, key=f"{prefix_key}_y_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
                 out_rows.append({"Voz (necessidade)": v1, "Problema": v2, "Requisito crítico": v3, "Y (como medir)": v4})
                 
             return out_rows
