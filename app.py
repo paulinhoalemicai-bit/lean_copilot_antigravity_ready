@@ -320,10 +320,11 @@ with tool_col1:
 with tool_col2:
     st.empty() # Radio button removido daqui para ficar na lateral direita do Coach
 
-left, right = st.columns([1.6, 1.0], gap="large")
+tool_container = st.container()
+coach_container = st.container()
 new_text = ""
 
-with left:
+with tool_container:
     if tool == "VOC/VOB":
         st.subheader("VOC/VOB (Voz do Cliente e Negócio)")
 
@@ -342,11 +343,6 @@ with left:
 
         tab1, tab2 = st.tabs(["Voz do Cliente (VOC)", "Voz do Negócio (VOB)"])
         
-        # Configurar colunas como "large" ajuda a aumentar vertiginosamente o espaço de leitura
-        col_cfg = {
-            c: st.column_config.TextColumn(c, width="large") for c in VOCVOB_COLUMNS
-        }
-        
         with tab1:
             df_voc = build_df(stored.get("voc", []))
             df_voc_edit = st.data_editor(
@@ -354,8 +350,7 @@ with left:
                 num_rows="dynamic", 
                 use_container_width=True, 
                 key=f"voc_{pid}", 
-                disabled=read_only,
-                column_config=col_cfg
+                disabled=read_only
             )
         with tab2:
             df_vob = build_df(stored.get("vob", []))
@@ -364,8 +359,7 @@ with left:
                 num_rows="dynamic", 
                 use_container_width=True, 
                 key=f"vob_{pid}", 
-                disabled=read_only,
-                column_config=col_cfg
+                disabled=read_only
             )
 
         notes = st.text_area("Anotações Adicionais (opcional)", value=stored.get("notes", ""), height=100, disabled=read_only)
@@ -453,7 +447,8 @@ with left:
             db.save_draft(pid, tool, {"text": new_text})
             st.success("Salvo!")
 
-with right:
+with coach_container:
+    st.markdown("<br><hr>", unsafe_allow_html=True)
     st.subheader("👨🏻‍⚕️ Coach IA - Doutor Lean")
     
     # Alerta de que uma linha foi gerada com sucesso pela IA na última rodada (após o rerun)
