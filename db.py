@@ -1,125 +1,198 @@
-from __future__ import annotations
-
 import json
-import sqlite3
-from pathlib import Path
+import os
+import bcrypt
+from datetime import datetime
 from typing import Any, Dict, List, Optional
+from dotenv import load_dotenv
 
-DB_PATH = Path("leancopilot.db")
+from sqlalchemy import create_engine, Column, String, Integer, Text, Boolean, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
+
+load_dotenv()
+
+# Tenta usar o banco da nuvem (Postgres) se a variável DATABASE_URL existir.
+# Caso contrário, cai de volta para o SQLite (leancopilot.db) no PC.
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///leancopilot.db")
+
+# Render/Heroku as vezes passam "postgres://" mas o sqlalchemy exige "postgresql://"
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
+
+Base = declarative_base()
 
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+class User(Base):
+    __tablename__ = "users"
+    username = Column(String(50), primary_key=True, index=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, default="aluno") # "aluno" ou "professor"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Project(Base):
+    __tablename__ = "projects"
+    project_id = Column(String(50), primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    state_json = Column(Text, nullable=False)
+    user_id = Column(String(50), ForeignKey("users.username"), nullable=False)
+    allow_teacher_edit = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Draft(Base):
+    __tablename__ = "drafts"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String(50), ForeignKey("projects.project_id"), nullable=False)
+    tool = Column(String(50), nullable=False)
+    draft_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('project_id', 'tool', name='_project_tool_uc'),)
+
+
+class SessionLog(Base):
+    __tablename__ = "session_logs"
+    session_id = Column(String(50), primary_key=True)
+    project_id = Column(String(50), nullable=False)
+    tool = Column(String(50), nullable=False)
+    event_type = Column(String(50), nullable=False)
+    user_delta = Column(Text, nullable=True)
+    coach_payload = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 def init_db() -> None:
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS projects (
-        project_id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        state_json TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS drafts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id TEXT NOT NULL,
-        tool TEXT NOT NULL,
-        draft_json TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(project_id, tool)
-    )
-    """)
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS session_logs (
-        session_id TEXT PRIMARY KEY,
-        project_id TEXT NOT NULL,
-        tool TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        user_delta TEXT,
-        coach_payload TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
-    conn.commit()
-    conn.close()
+    Base.metadata.create_all(bind=engine)
+    # Criar um professor padrão se não existir na inicialização (somente para testes/MVP rápido)
+    create_user("prof", "prof123", role="professor")
 
 
-def list_projects() -> List[Dict[str, Any]]:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT project_id, name, updated_at FROM projects ORDER BY updated_at DESC, created_at DESC")
-    rows = cur.fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+# --- User Methods ---
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+
+def create_user(username: str, password: str, role: str = "aluno") -> bool:
+    db = SessionLocal()
+    try:
+        if db.query(User).filter(User.username == username).first():
+            return False # Usuário já existe
+        new_user = User(username=username, password_hash=hash_password(password), role=role)
+        db.add(new_user)
+        db.commit()
+        return True
+    finally:
+        db.close()
+
+def authenticate_user(username: str, password: str) -> Optional[Dict[str, str]]:
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == username).first()
+        if user and verify_password(password, user.password_hash):
+            return {"username": user.username, "role": user.role}
+        return None
+    finally:
+        db.close()
+
+# --- Project Methods ---
+def list_projects(user_role: str, username: str) -> List[Dict[str, Any]]:
+    db = SessionLocal()
+    try:
+        if user_role == "professor":
+            # Professor vê todos
+            projects = db.query(Project).order_by(Project.updated_at.desc()).all()
+        else:
+            projects = db.query(Project).filter(Project.user_id == username).order_by(Project.updated_at.desc()).all()
+        
+        return [
+            {
+                "project_id": p.project_id,
+                "name": p.name,
+                "user_id": p.user_id,
+                "allow_teacher_edit": p.allow_teacher_edit,
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None
+            }
+            for p in projects
+        ]
+    finally:
+        db.close()
 
 
-def upsert_project(project_id: str, name: str, state: Dict[str, Any]) -> None:
-    conn = get_conn()
-    cur = conn.cursor()
-    state_json = json.dumps(state, ensure_ascii=False)
-
-    cur.execute("""
-    INSERT INTO projects (project_id, name, state_json, updated_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(project_id) DO UPDATE SET
-        name=excluded.name,
-        state_json=excluded.state_json,
-        updated_at=CURRENT_TIMESTAMP
-    """, (project_id, name, state_json))
-
-    conn.commit()
-    conn.close()
+def upsert_project(project_id: str, name: str, state: Dict[str, Any], user_id: str, allow_teacher_edit: bool = False) -> None:
+    db = SessionLocal()
+    try:
+        state_json = json.dumps(state, ensure_ascii=False)
+        proj = db.query(Project).filter(Project.project_id == project_id).first()
+        if proj:
+            proj.name = name
+            proj.state_json = state_json
+            # Não atualiza o dono (user_id) de quem criou primeiro.
+            proj.allow_teacher_edit = allow_teacher_edit
+            proj.updated_at = datetime.utcnow()
+        else:
+            new_proj = Project(
+                project_id=project_id,
+                name=name,
+                state_json=state_json,
+                user_id=user_id,
+                allow_teacher_edit=allow_teacher_edit,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.add(new_proj)
+        db.commit()
+    finally:
+        db.close()
 
 
 def get_project_state(project_id: str) -> Optional[Dict[str, Any]]:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT state_json FROM projects WHERE project_id = ?", (project_id,))
-    row = cur.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return json.loads(row["state_json"])
+    db = SessionLocal()
+    try:
+        proj = db.query(Project).filter(Project.project_id == project_id).first()
+        if not proj:
+            return None
+        state = json.loads(proj.state_json)
+        # Injeta as pemissões e autoria no state para a interface saber
+        state["user_id"] = proj.user_id
+        state["allow_teacher_edit"] = proj.allow_teacher_edit
+        return state
+    finally:
+        db.close()
 
 
+# --- Draft and Session Methods ---
 def save_draft(project_id: str, tool: str, payload: Dict[str, Any]) -> None:
-    conn = get_conn()
-    cur = conn.cursor()
-    draft_json = json.dumps(payload, ensure_ascii=False)
-
-    cur.execute("""
-    INSERT INTO drafts (project_id, tool, draft_json, updated_at)
-    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(project_id, tool) DO UPDATE SET
-        draft_json=excluded.draft_json,
-        updated_at=CURRENT_TIMESTAMP
-    """, (project_id, tool, draft_json))
-
-    conn.commit()
-    conn.close()
+    db = SessionLocal()
+    try:
+        draft_json = json.dumps(payload, ensure_ascii=False)
+        draft = db.query(Draft).filter(Draft.project_id == project_id, Draft.tool == tool).first()
+        if draft:
+            draft.draft_json = draft_json
+            draft.updated_at = datetime.utcnow()
+        else:
+            new_draft = Draft(project_id=project_id, tool=tool, draft_json=draft_json)
+            db.add(new_draft)
+        db.commit()
+    finally:
+        db.close()
 
 
 def load_draft(project_id: str, tool: str) -> Optional[Dict[str, Any]]:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT draft_json FROM drafts WHERE project_id = ? AND tool = ?", (project_id, tool))
-    row = cur.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return json.loads(row["draft_json"])
+    db = SessionLocal()
+    try:
+        draft = db.query(Draft).filter(Draft.project_id == project_id, Draft.tool == tool).first()
+        if not draft:
+            return None
+        return json.loads(draft.draft_json)
+    finally:
+        db.close()
 
 
 def add_session_log(
@@ -130,39 +203,38 @@ def add_session_log(
     user_delta: str,
     coach_payload: Dict[str, Any],
 ) -> None:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-    INSERT INTO session_logs (session_id, project_id, tool, event_type, user_delta, coach_payload)
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        session_id,
-        project_id,
-        tool,
-        event_type,
-        user_delta,
-        json.dumps(coach_payload, ensure_ascii=False),
-    ))
-    conn.commit()
-    conn.close()
+    db = SessionLocal()
+    try:
+        log = SessionLog(
+            session_id=session_id,
+            project_id=project_id,
+            tool=tool,
+            event_type=event_type,
+            user_delta=user_delta,
+            coach_payload=json.dumps(coach_payload, ensure_ascii=False)
+        )
+        db.add(log)
+        db.commit()
+    finally:
+        db.close()
 
 
 def list_recent_sessions(project_id: str, limit: int = 6) -> List[Dict[str, Any]]:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-    SELECT session_id, project_id, tool, event_type, user_delta, coach_payload, created_at
-    FROM session_logs
-    WHERE project_id = ?
-    ORDER BY created_at DESC
-    LIMIT ?
-    """, (project_id, limit))
-    rows = cur.fetchall()
-    conn.close()
-
-    out = []
-    for r in rows:
-        d = dict(r)
-        d["coach"] = json.loads(d.pop("coach_payload") or "{}")
-        out.append(d)
-    return out
+    db = SessionLocal()
+    try:
+        logs = db.query(SessionLog).filter(SessionLog.project_id == project_id).order_by(SessionLog.created_at.desc()).limit(limit).all()
+        out = []
+        for l in logs:
+            d = {
+                "session_id": l.session_id,
+                "project_id": l.project_id,
+                "tool": l.tool,
+                "event_type": l.event_type,
+                "user_delta": l.user_delta,
+                "created_at": l.created_at
+            }
+            d["coach"] = json.loads(l.coach_payload or "{}")
+            out.append(d)
+        return out
+    finally:
+        db.close()
