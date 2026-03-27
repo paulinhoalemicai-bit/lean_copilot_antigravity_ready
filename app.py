@@ -341,12 +341,32 @@ with left:
             return df[VOCVOB_COLUMNS]
 
         tab1, tab2 = st.tabs(["Voz do Cliente (VOC)", "Voz do Negócio (VOB)"])
+        
+        # Configurar colunas como "large" ajuda a aumentar vertiginosamente o espaço de leitura
+        col_cfg = {
+            c: st.column_config.TextColumn(c, width="large") for c in VOCVOB_COLUMNS
+        }
+        
         with tab1:
             df_voc = build_df(stored.get("voc", []))
-            df_voc_edit = st.data_editor(df_voc, num_rows="dynamic", use_container_width=True, key=f"voc_{pid}", disabled=read_only)
+            df_voc_edit = st.data_editor(
+                df_voc, 
+                num_rows="dynamic", 
+                use_container_width=True, 
+                key=f"voc_{pid}", 
+                disabled=read_only,
+                column_config=col_cfg
+            )
         with tab2:
             df_vob = build_df(stored.get("vob", []))
-            df_vob_edit = st.data_editor(df_vob, num_rows="dynamic", use_container_width=True, key=f"vob_{pid}", disabled=read_only)
+            df_vob_edit = st.data_editor(
+                df_vob, 
+                num_rows="dynamic", 
+                use_container_width=True, 
+                key=f"vob_{pid}", 
+                disabled=read_only,
+                column_config=col_cfg
+            )
 
         notes = st.text_area("Anotações Adicionais (opcional)", value=stored.get("notes", ""), height=100, disabled=read_only)
 
