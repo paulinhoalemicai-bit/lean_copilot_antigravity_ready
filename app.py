@@ -628,7 +628,7 @@ with tool_container:
                 st.markdown("**Indicador Principal**")
                 main_indicator = st.text_area("hidden_ind", value=charter.get("main_indicator", ""), key="charter_ind", height=120, label_visibility="collapsed", disabled=read_only)
                 
-            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=150, disabled=read_only)
+            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), key="charter_benefits", height=150, disabled=read_only)
         
         with st.container(border=True):
             sA, sB = st.columns(2)
@@ -996,7 +996,12 @@ with coach_container:
                 st.info("💡 **Mapeamento de Direita:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todas as Saídas e Clientes lógicas atreladas a elas.")
         elif tool in ["Saving Projetado", "Saving Realizado"]:
             st.info("💡 **Doutor Lean CFO:** Diga quais os ganhos imaginados neste projeto, e o Coach construirá um formato executivo guiando como precificar (e enquadrar em Hard/Soft) cada um deles.")
-            q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", value=project_state.get("charter", {}).get("benefits", ""), height=250, disabled=read_only)
+            
+            # Garantir que a state session memorize as edições manuais
+            if "coach_saving_desc" not in st.session_state:
+                st.session_state["coach_saving_desc"] = project_state.get("charter", {}).get("benefits", "")
+                
+            q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", key="coach_saving_desc", height=250, disabled=read_only)
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(

@@ -478,11 +478,17 @@ Caso algum balde não faça sentido pro relato, preencha com: "Nenhum fator mape
     user_str = f"Benefícios/Ganhos prováveis citados pelo aluno:\n{expected_gains}"
     try:
         out = _chat_json(system, user_str)
+        
+        def _fmt(val):
+            if isinstance(val, list):
+                return "\n".join("- " + str(v) for v in val)
+            return str(val).strip()
+
         return {
-            "hard": str(out.get("hard_racional", "")).strip(),
-            "soft": str(out.get("soft_racional", "")).strip(),
-            "avoidance": str(out.get("avoidance_racional", "")).strip(),
-            "faturamento": str(out.get("faturamento_racional", "")).strip()
+            "hard": _fmt(out.get("hard_racional", "")),
+            "soft": _fmt(out.get("soft_racional", "")),
+            "avoidance": _fmt(out.get("avoidance_racional", "")),
+            "faturamento": _fmt(out.get("faturamento_racional", ""))
         }
     except Exception as e:
         return {"hard": f"Erro IA: {e}", "soft": "", "avoidance": "", "faturamento": ""}
