@@ -1000,8 +1000,12 @@ with coach_container:
             # Garantir que a state session memorize as edições manuais
             if "coach_saving_desc" not in st.session_state:
                 st.session_state["coach_saving_desc"] = project_state.get("charter", {}).get("benefits", "")
+            
+            def clear_saving_feedback():
+                if "saving_coach_feedback" in st.session_state:
+                    del st.session_state["saving_coach_feedback"]
                 
-            q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", key="coach_saving_desc", height=250, disabled=read_only)
+            q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", key="coach_saving_desc", height=250, disabled=read_only, on_change=clear_saving_feedback)
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
