@@ -666,21 +666,25 @@ with tool_container:
 
     elif tool == "SIPOC (por etapa)":
         st.subheader("SIPOC (Mapeamento de Processo Nível Macro)")
-        st.markdown("Preencha de fora para dentro: **Comece pelo Processo (P)**, indicando a etapa mestre. Depois, liste as múltiplas Entradas (I) e Saídas (O) necessárias. Por fim, liste os Fornecedores (S) e Clientes (C). Use a tecla **Enter** para criar várias entradas na mesma célula mesclada.")
+        st.markdown("Preencha de *Dentro para Fora*: **Comece pela Etapa do Processo (P)** no centro. Depois, liste as múltiplas Entradas (I) e seus Fornecedores (S) de um lado, e as Saídas (O) e Clientes (C) do outro, clicando nos botões de ➕.")
         
         draft = db.load_draft(pid, tool) or {}
         stored_sipoc = draft.get("sipoc") or project_state.get("sipoc") or []
-
-        def render_sipoc_grid(data_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        
+        # Correção do BUG fantasma: Se puxou um rascunho em texto do app antigo, limpa e inicializa os blocos
+        if isinstance(stored_sipoc, str) or (isinstance(stored_sipoc, list) and len(stored_sipoc) > 0 and isinstance(stored_sipoc[0], str)):
+            stored_sipoc = []
+            
+        def render_sipoc_blocks(data_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if not data_list:
-                data_list = [{"S (Fornecedores)": "", "I (Entradas)": "", "P (Etapa do processo)": "", "O (Saídas)": "", "C (Clientes)": ""} for _ in range(5)]
+                data_list = [{"P": "", "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]}]
                 
             st.markdown(
                 '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
                 '<div style="display: flex; text-align: center;">'
                 '<div style="flex: 1; padding: 0 5px;"><b>S (Fornecedores)</b></div>'
                 '<div style="flex: 1; padding: 0 5px;"><b>I (Entradas)</b></div>'
-                '<div style="flex: 1; padding: 0 5px;"><b>P (Etapa do processo)</b></div>'
+                '<div style="flex: 1; padding: 0 5px;"><b>P (Processo Central)</b></div>'
                 '<div style="flex: 1; padding: 0 5px;"><b>O (Saídas)</b></div>'
                 '<div style="flex: 1; padding: 0 5px;"><b>C (Clientes)</b></div>'
                 '</div></div><br>', 
@@ -688,53 +692,74 @@ with tool_container:
             )
             
             out_rows = []
-            for i, row in enumerate(data_list):
-                c1, c2, c3, c4, c5 = st.columns(5)
-                
-                v1_txt = str(row.get("S (Fornecedores)", ""))
-                v2_txt = str(row.get("I (Entradas)", ""))
-                v3_txt = str(row.get("P (Etapa do processo)", ""))
-                v4_txt = str(row.get("O (Saídas)", ""))
-                v5_txt = str(row.get("C (Clientes)", ""))
-                
-                # Inteligência de espelhamento de altura visual: Capta cada [Enter] do usuário perfeitamente!
-                def calc_lines(t):
-                    lines = t.split('\n')
-                    return sum(max(1, len(line)//30 + 1) for line in lines)
-                
-                max_lines = max(calc_lines(v1_txt), calc_lines(v2_txt), calc_lines(v3_txt), calc_lines(v4_txt), calc_lines(v5_txt))
-                max_lines = max(3, max_lines) # Mantém pelo menos um bloco alto de 3 linhas visualmente
-                altura_sincronizada = min(600, (max_lines * 24) + 40)
-                
-                v1 = c1.text_area("sp1", value=v1_txt, key=f"s_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-                v2 = c2.text_area("sp2", value=v2_txt, key=f"i_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-                v3 = c3.text_area("sp3", value=v3_txt, key=f"p_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-                v4 = c4.text_area("sp4", value=v4_txt, key=f"o_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-                v5 = c5.text_area("sp5", value=v5_txt, key=f"c_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-                
-                out_rows.append({
-                    "S (Fornecedores)": v1,
-                    "I (Entradas)": v2,
-                    "P (Etapa do processo)": v3,
-                    "O (Saídas)": v4,
-                    "C (Clientes)": v5
-                })
-                
+            for i, step in enumerate(data_list):
+                with st.container(border=True):
+                    c_s, c_i, c_p, c_o, c_c = st.columns(5)
+                    
+                    # Coluna do Meio (Mãe): Processo
+                    with c_p:
+                        st.markdown("**Etapa do Processo**", help="Ação mestre que transforma Entradas em Saídas")
+                        p_val = st.text_area(f"p_{i}", value=step.get("P", ""), height=150, label_visibility="collapsed", disabled=read_only)
+                        
+                    # Lado Esquerdo: Entradas e Fornecedores
+                    inps = step.get("inputs", [])
+                    if not isinstance(inps, list) or len(inps) == 0: inps = [{"S": "", "I": ""}]
+                    
+                    new_inps = []
+                    for j, inp in enumerate(inps):
+                        with c_s:
+                            s_v = st.text_input(f"s_{i}_{j}", value=inp.get("S", ""), placeholder="Fornecedor...", label_visibility="collapsed", disabled=read_only)
+                        with c_i:
+                            i_v = st.text_input(f"i_{i}_{j}", value=inp.get("I", ""), placeholder="Entrada / Matéria...", label_visibility="collapsed", disabled=read_only)
+                        new_inps.append({"S": s_v, "I": i_v})
+                        
+                    with c_i:
+                        if not read_only:
+                            if st.button("➕ Entrada", key=f"btn_add_inp_{i}"):
+                                inps.append({"S": "", "I": ""})
+                                project_state["sipoc"] = data_list
+                                project_state["sipoc"][i]["inputs"] = inps
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
+                                
+                    # Lado Direito: Saídas e Clientes
+                    outs = step.get("outputs", [])
+                    if not isinstance(outs, list) or len(outs) == 0: outs = [{"O": "", "C": ""}]
+                    
+                    new_outs = []
+                    for k, out in enumerate(outs):
+                        with c_o:
+                            o_v = st.text_input(f"o_{i}_{k}", value=out.get("O", ""), placeholder="Saída / Produto...", label_visibility="collapsed", disabled=read_only)
+                        with c_c:
+                            c_v = st.text_input(f"c_{i}_{k}", value=out.get("C", ""), placeholder="Cliente...", label_visibility="collapsed", disabled=read_only)
+                        new_outs.append({"O": o_v, "C": c_v})
+                        
+                    with c_o:
+                        if not read_only:
+                            if st.button("➕ Saída", key=f"btn_add_out_{i}"):
+                                outs.append({"O": "", "C": ""})
+                                project_state["sipoc"] = data_list
+                                project_state["sipoc"][i]["outputs"] = outs
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
+                                
+                    out_rows.append({"P": p_val, "inputs": new_inps, "outputs": new_outs})
+                    
             return out_rows
 
-        sipoc_out = render_sipoc_grid(stored_sipoc)
+        sipoc_out = render_sipoc_blocks(stored_sipoc)
         
         if not read_only:
-            b1, b2, _ = st.columns([1, 1, 4])
+            b1, b2, _ = st.columns([1.5, 1.5, 3])
             with b1:
-                if st.button("➕ Adicionar Etapa", key="btn_add_sipoc", use_container_width=True):
-                    stored_sipoc = sipoc_out + [{"S (Fornecedores)": "", "I (Entradas)": "", "P (Etapa do processo)": "", "O (Saídas)": "", "C (Clientes)": ""}]
+                if st.button("➕ Nova Etapa de Processo Mestre", key="btn_add_sipoc_master", use_container_width=True):
+                    stored_sipoc = sipoc_out + [{"P": "", "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]}]
                     project_state["sipoc"] = stored_sipoc
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
             with b2:
                 if len(sipoc_out) > 1:
-                    if st.button("🗑️ Remover Última", key="btn_rem_sipoc", use_container_width=True):
+                    if st.button("🗑️ Remover Último Processo", key="btn_rem_sipoc_master", use_container_width=True):
                         stored_sipoc = sipoc_out[:-1]
                         project_state["sipoc"] = stored_sipoc
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -743,11 +768,11 @@ with tool_container:
         notes = draft.get("notes", project_state.get("sipoc_notes", ""))
         notas_out = st.text_area("Comentários; Notas; Questões (Opcional)", value=notes, height=80, disabled=read_only)
 
-        new_text = f"SIPOC Rows: {len(sipoc_out)}\nNotas: {notas_out}"
+        new_text = f"SIPOC Master Rows: {len(sipoc_out)}\nNotas: {notas_out}"
 
         c1, c2 = st.columns([1, 3])
         with c1:
-            if st.button("💾 Salvar SIPOC", disabled=read_only):
+            if st.button("💾 Salvar SIPOC Completo", disabled=read_only):
                 payload = {"sipoc": sipoc_out, "notes": notas_out, "text": new_text}
                 db.save_draft(pid, tool, payload)
                 project_state["sipoc"] = sipoc_out
