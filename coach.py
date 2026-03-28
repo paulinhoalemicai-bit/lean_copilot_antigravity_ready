@@ -124,27 +124,29 @@ def coach_run(
 ) -> Tuple[Dict[str, Any], Dict[str, int], List[Dict[str, Any]]]:
     system = _base_system(tool)
     user = f"""
-Ferramenta atual: {tool}
-Modo: {mode}
+Instrução CRÍTICA: Você deve avaliar ÚNICA E EXCLUSIVAMENTE o "Conteúdo Desta Ferramenta".
+Use o "Estado Todo" apenas para contexto de leitura, mas NÃO aponte erros que o aluno cometeu em outras partes ou ferramentas passadas. Foque o seu feedback somente no que está construído para a ferramenta atual que ele está acessando.
 
-Estado resumido do projeto:
-{json.dumps(project_state, ensure_ascii=False, indent=2)}
+Ferramenta atual sendo trabalhada: {tool}
 
-Conteúdo atual do aluno:
+Conteúdo Desta Ferramenta (FOCO TOTAL DO FEEDBACK):
 {draft_text}
 
+Estado Todo do Projeto (Apenas Consulta para ler contexto, ignorar defeitos deste JSON em sua avaliação):
+{json.dumps(project_state, ensure_ascii=False, indent=2)}
+
 Tarefa:
-1. Liste 2 a 5 coisas que estão boas em "ok"
-2. Liste lacunas em "gaps"
-3. Faça 1 a 3 perguntas prioritárias
-4. Dê 1 próximo passo concreto em "next_action"
-5. Defina "allow_generate"
-6. Se mode="generate", inclua até 4 "candidates"
+1. Liste pontualmente coisas que estão boas (apenas no conteúdo da ferramenta atual) em "ok"
+2. Liste lacunas lógicas, metodológicas ou defeitos da ferramenta atual sendo preenchida em "gaps"
+3. Faça 1 a 3 perguntas essenciais para provocar a reflexão
+4. Dê 1 próximo passo sugerido em "next_action"
+5. Defina "allow_generate" (bool)
+6. Se mode="generate", inclua até 4 sugestões de complemento em "candidates"
 
 Formatação dos gaps:
 - id: algo curto e claro, de preferência no padrão RUBRIC.<Ferramenta>.<Campo>
 - severity: high, medium ou low
-- reason: em português, começando por "Gap ..."
+- reason: em português, começando por "Atenção: ..." ou "Problema: ..."
 """.strip()
 
     try:
@@ -464,10 +466,10 @@ O aluno descreveu os ganhos que espera obter no projeto no texto "expected_gains
 Você deve estruturá-los em um Racional base (Memorial de Cálculo textual) para orientar a precificação exata.
 
 Regras Estritas para os 4 baldes financeiros (Responda estritamente em JSON com as chaves exatas informadas abaixo):
-- "hard_racional": Textos indicando redução de custos DIRETOS e orçados no DRE (ex: redução de conta de material, corte de desperdício real). Diga ao aluno ONDE e COMO buscar na contabilidade.
-- "soft_racional": Textos mitigando horas (Ganho Operacional), produtividade ou custos que não aliviam o caixa diretamente hoje.
-- "avoidance_racional": Fuga de custo, evitar contratação futura que seria necessária ou multas prevenidas.
-- "faturamento_racional": Ganhos de REVENUE, aumento de Ticket Médio, Novos Clientes obtidos, Produção extra faturada.
+- "hard_racional": Dinheiro que a empresa GASTAVA e não vai gastar mais. Redução comprovada no custo da operação que reduz despesas (DRE).
+- "faturamento_racional": Dinheiro NOVO entrando no caixa da empresa. Todo Aumento de Faturamento, Vendas extra, ticket médio.
+- "soft_racional": Impactos indiretos. Ex: Ganho operacional, liberação de horas-homem transferida (horas pagas que agora cobrem novas tarefas), evitar desperdício de tempo.
+- "avoidance_racional": Fuga de custo, evitar contratação futura que seria necessária se o processo continuasse ineficiente.
 
 Retorne no máximo 3 ou 4 linhas detalhadas por campo. Comece provocando as contas matemáticas vazias que o aluno deve ir atrás de descobrir para fechar o número da tela.
 Caso algum balde não faça sentido pro relato, preencha com: "Nenhum fator mapeado pelo seu relato."
