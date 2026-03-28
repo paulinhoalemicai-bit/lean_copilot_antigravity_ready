@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 TOOLS = [
+    "Capa do Projeto",
     "VOC/VOB",
     "Project Charter",
     "SIPOC (por etapa)",

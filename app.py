@@ -327,7 +327,33 @@ coach_container = st.container()
 new_text = ""
 
 with tool_container:
-    if tool == "VOC/VOB":
+    if tool == "Capa do Projeto":
+        st.subheader("Capa do Projeto")
+        st.markdown("Bem-vindo! Documente a identidade oficial da sua iniciativa de melhoria.")
+        
+        with st.container(border=True):
+            novo_nome = st.text_input("Nome Oficial do Projeto", value=project_state.get("name", ""), disabled=read_only)
+            lider = st.text_input("Líder do Projeto (Green Belt / Black Belt)", value=project_state.get("leader", ""), disabled=read_only)
+            sponsor = st.text_input("Patrocinador (Sponsor)", value=project_state.get("sponsor", ""), disabled=read_only)
+            
+            resumo = st.text_area("Resumo Executivo (Elevator Pitch)", value=project_state.get("executive_summary", ""), height=120, disabled=read_only, help="Opcional. Uma breve descrição executiva do seu propósito.")
+            
+            c1, c2 = st.columns([1, 4])
+            with c1:
+                if st.button("💾 Salvar Capa", disabled=read_only, use_container_width=True):
+                    if not novo_nome.strip():
+                        st.error("⚠️ O nome do projeto não pode ficar em branco!")
+                    else:
+                        project_state["name"] = novo_nome.strip()
+                        project_state["leader"] = lider.strip()
+                        project_state["sponsor"] = sponsor.strip()
+                        project_state["executive_summary"] = resumo.strip()
+                        
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.success("Tudo salvo! Seu projeto foi atualizado.")
+                        st.rerun()
+
+    elif tool == "VOC/VOB":
         st.subheader("VOC/VOB (Voz do Cliente e Negócio)")
 
         draft = db.load_draft(pid, tool) or {}
