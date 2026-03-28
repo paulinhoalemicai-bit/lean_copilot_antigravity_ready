@@ -447,24 +447,44 @@ with tool_container:
             with col_p1:
                 st.markdown("**Problema / Justificativa**")
             with col_p2:
-                if st.button("📥 Importar do VOC/VOB", help="Importa o Problema (Se vazio)", use_container_width=True, disabled=read_only):
-                    # Só puxa o que estiver realmente vazio em vez de bloquear a ação inteira
+                if st.button("📥 Importar do VOC/VOB", help="Importa dados do VOC/VOB apenas para os campos ainda vazios", use_container_width=True, disabled=read_only):
                     v_state = project_state.get("voc_vob", {})
                     
                     tem_problema = bool(charter.get("problem", "").strip())
+                    tem_ind = bool(charter.get("main_indicator", "").strip())
                     
-                    if tem_problema:
-                        st.warning("⚠️ O Problema já estava preenchido, então não foi sobrescrito.")
+                    goal_txt = charter.get("goal", "").strip()
+                    tem_goal = bool(goal_txt and not goal_txt.startswith("[INCOMPLETO"))
+                    
+                    extraidos = []
+                    indicadores = []
+                    requisitos = []
+                    
+                    for row in v_state.get("voc", []) + v_state.get("vob", []):
+                        if not tem_problema and row.get("Problema"): 
+                            extraidos.append(f"- {row.get('Problema')}")
+                        if not tem_ind: 
+                            y_val = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
+                            if y_val: indicadores.append(y_val)
+                        if not tem_goal and row.get("Requisito crítico"): 
+                            requisitos.append(row.get("Requisito crítico"))
+                    
+                    if extraidos or indicadores or requisitos:
+                        if extraidos: charter["problem"] = "\n".join(extraidos)
+                        if indicadores: charter["main_indicator"] = "\n".join(f"- {i}" for i in list(dict.fromkeys(indicadores)))
+                        if requisitos:
+                            lista_reqs = "\n".join(f"- {r}" for r in list(dict.fromkeys(requisitos)))
+                            charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
+                            
+                        project_state["charter"] = charter
+                        db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
                     else:
-                        extraidos = []
-                        for row in v_state.get("voc", []) + v_state.get("vob", []):
-                            if row.get("Problema"): extraidos.append(f"- {row.get('Problema')}")
-                        if extraidos:
-                            charter["problem"] = "\n".join(extraidos)
-                            project_state["charter"] = charter
-                            db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
-                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                            st.rerun()
+                        if tem_problema and tem_ind and tem_goal:
+                            st.warning("⚠️ Todos os campos (Problema, Objetivo, Indicador) já estavam preenchidos. Nada foi sobrescrito.", icon="⚠️")
+                        else:
+                            st.toast("Nenhum dado novo encontrado no formato VOC/VOB para importação.", icon="🔍")
 
             problem = st.text_area("hidden_problem", value=charter.get("problem", ""), height=150, label_visibility="collapsed", disabled=read_only)
             
@@ -473,30 +493,10 @@ with tool_container:
                 st.markdown("**Objetivo (SMART)**")
                 goal = st.text_area("hidden_goal", value=charter.get("goal", ""), height=120, label_visibility="collapsed", disabled=read_only)
             with c2:
-                # Título Indicador com seu Botão Dedicado Pequeno
-                ind1, ind2 = st.columns([4, 1.2], vertical_alignment="center")
-                with ind1:
-                    st.markdown("**Indicador Principal**")
-                with ind2:
-                    if st.button("🔄 Puxar", help="Copiar diretamente a leitura de indicadores (Y) do VOC/VOB.", use_container_width=True, disabled=read_only):
-                        v_state = project_state.get("voc_vob", {})
-                        indicadores = []
-                        for row in v_state.get("voc", []) + v_state.get("vob", []):
-                            y_val = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
-                            if y_val: indicadores.append(y_val)
-                        
-                        if indicadores:
-                            charter["main_indicator"] = "\n".join(f"- {i}" for i in list(dict.fromkeys(indicadores)))
-                            project_state["charter"] = charter
-                            db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
-                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                            st.rerun()
-                        else:
-                            st.toast("⚠️ Nenhum Y preenchido no VOC/VOB!", icon="⚠️")
-                
+                st.markdown("**Indicador Principal**")
                 main_indicator = st.text_area("hidden_ind", value=charter.get("main_indicator", ""), height=120, label_visibility="collapsed", disabled=read_only)
                 
-            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=120, disabled=read_only)
+            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=150, disabled=read_only)
         
         with st.container(border=True):
             sA, sB = st.columns(2)
