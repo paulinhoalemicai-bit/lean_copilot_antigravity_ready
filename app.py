@@ -448,28 +448,43 @@ with tool_container:
                 st.markdown("**Problema / Justificativa**")
             with col_p2:
                 if st.button("📥 Importar do VOC/VOB", help="Puxar os problemas diagnosticados previamenteno VOC/VOB para cá", use_container_width=True, disabled=read_only):
-                    v_state = project_state.get("voc_vob", {})
-                    extraidos = []
-                    indicadores = []
-                    requisitos = []
-                    for row in v_state.get("voc", []) + v_state.get("vob", []):
-                        if row.get("Problema"): extraidos.append(f"- {row.get('Problema')}")
-                        if row.get("Y (indicador)"): indicadores.append(row.get("Y (indicador)"))
-                        if row.get("Requisito crítico"): requisitos.append(row.get("Requisito crítico"))
-                    
-                    if extraidos or indicadores or requisitos:
-                        if extraidos: charter["problem"] = "\n".join(extraidos)
-                        # Remove duplicatas preservando a ordem
-                        if indicadores: charter["main_indicator"] = " / ".join(list(dict.fromkeys(indicadores)))
-                        if requisitos: 
-                            lista_reqs = "\n".join(f"- {r}" for r in list(dict.fromkeys(requisitos)))
-                            charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
+                    filled_fields = []
+                    if charter.get("problem", "").strip(): filled_fields.append("Problema")
+                    if charter.get("main_indicator", "").strip(): filled_fields.append("Indicador Principal")
+                    # Só considera o goal preenchido se não for aquele placeholder do bot
+                    goal_txt = charter.get("goal", "").strip()
+                    if goal_txt and not goal_txt.startswith("[INCOMPLETO"):
+                        filled_fields.append("Objetivo")
                         
-                        project_state["charter"] = charter
-                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.rerun()
+                    if filled_fields:
+                        st.error(f"⚠️ Campo já preenchido ({', '.join(filled_fields)}). Apague o conteúdo da caixa de texto e Salve antes de importar para evitar perder o texto atual.")
                     else:
-                        st.warning("Nenhum dado cadastrado no VOC/VOB!")
+                        v_state = project_state.get("voc_vob", {})
+                        extraidos = []
+                        indicadores = []
+                        requisitos = []
+                        for row in v_state.get("voc", []) + v_state.get("vob", []):
+                            if row.get("Problema"): extraidos.append(f"- {row.get('Problema')}")
+                            
+                            # Suporte retroativo para linhas criadas antes da mudança de nome da coluna Y
+                            y_val = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
+                            if y_val: indicadores.append(y_val)
+                                
+                            if row.get("Requisito crítico"): requisitos.append(row.get("Requisito crítico"))
+                        
+                        if extraidos or indicadores or requisitos:
+                            if extraidos: charter["problem"] = "\n".join(extraidos)
+                            # Remove duplicatas preservando a ordem
+                            if indicadores: charter["main_indicator"] = " / ".join(list(dict.fromkeys(indicadores)))
+                            if requisitos: 
+                                lista_reqs = "\n".join(f"- {r}" for r in list(dict.fromkeys(requisitos)))
+                                charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
+                            
+                            project_state["charter"] = charter
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.rerun()
+                        else:
+                            st.warning("Nenhum dado cadastrado no VOC/VOB!")
 
             problem = st.text_area("hidden_problem", value=charter.get("problem", ""), height=150, label_visibility="collapsed", disabled=read_only)
             
