@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- BPMN.io dependencies -->
+    <link rel="stylesheet" href="https://unpkg.com/bpmn-js@13.0.2/dist/assets/diagram-js.css" />
+    <link rel="stylesheet" href="https://unpkg.com/bpmn-js@13.0.2/dist/assets/bpmn-font/css/bpmn-embedded.css" />
+    <script src="https://unpkg.com/bpmn-js@13.0.2/dist/bpmn-modeler.development.js"></script>
+
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      #canvas {
+        width: 100%;
+        height: 100%;
+        background-color: #f7f9fc;
+      }
+      #save-button {
+        position: absolute;
+        bottom: 25px;
+        right: 25px;
+        z-index: 100;
+        padding: 12px 20px;
+        background-color: #001C59;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        transition: background-color 0.2s;
+        font-size: 14px;
+      }
+      #save-button:hover { background-color: #0033a0; }
+    </style>
+  </head>
+  <body>
+    <div id="canvas"></div>
+    <button id="save-button">💾 Extrair Diagrama para o Doutor Lean</button>
+
+    <script>
+      // ==========================================
+      // Minimal Streamlit Component Library
+      // ==========================================
+      function sendMessageToStreamlitClient(type, data) {
+          var outData = Object.assign({
+              isStreamlitMessage: true,
+              type: type,
+          }, data);
+          window.parent.postMessage(outData, "*");
+      }
+
+      const Streamlit = {
+          setComponentReady: function() {
+              sendMessageToStreamlitClient("streamlit:componentReady", {apiVersion: 1});
+          },
+          setFrameHeight: function(height) {
+              sendMessageToStreamlitClient("streamlit:setFrameHeight", {height: height});
+          },
+          setComponentValue: function(value) {
+              sendMessageToStreamlitClient("streamlit:setComponentValue", {value: value, dataType: "json"});
+          },
+          RENDER_EVENT: "streamlit:render",
+          events: {
+              addEventListener: function(type, callback) {
+                  window.addEventListener("message", function(event) {
+                      if (event.data.type === type) {
+                          var simulatedEvent = new CustomEvent(type, {detail: event.data});
+                          callback(simulatedEvent);
+                      }
+                  });
+              }
+          }
+      };
+
+      // ==========================================
+      // BPMN Application Logic
+      // ==========================================
+      let modeler = null;
+      let initialized = false;
+
+      function onRender(event) {
+        const data = event.detail.args;
+        const initialXml = data.xml || "";
+        const requestedHeight = data.height || 600;
+
+        // Sempre sincronizamos a altura com o widget Streamlit
+        Streamlit.setFrameHeight(requestedHeight);
+
+        if (!initialized) {
+            initialized = true;
+
+            modeler = new BpmnJS({
+              container: '#canvas',
+              keyboard: { bindTo: document }
+            });
+
+            if (initialXml && initialXml.trim().length > 0) {
+                modeler.importXML(initialXml).catch(err => console.error("Erro render BPMN:", err));
+            } else {
+                modeler.createDiagram().catch(err => console.error("Erro render BPMN novo:", err));
+            }
+            
+            document.getElementById('save-button').addEventListener('click', async () => {
+                try {
+                    const result = await modeler.saveXML({ format: true });
+                    Streamlit.setComponentValue(result.xml); // Envia para o backend Python (o st_bpmn)
+                    
+                    const btn = document.getElementById('save-button');
+                    const oldText = btn.innerText;
+                    btn.innerText = "✅ Salvo Temporariamente";
+                    btn.style.backgroundColor = "#28a745";
+                    
+                    setTimeout(() => {
+                        btn.innerText = oldText;
+                        btn.style.backgroundColor = "#001C59";
+                    }, 2000);
+                } catch (err) {
+                    console.error("Save error", err);
+                }
+            });
+        }
+      }
+
+      Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, onRender);
+      Streamlit.setComponentReady();
+    </script>
+  </body>
+</html>

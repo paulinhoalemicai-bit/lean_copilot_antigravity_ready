@@ -301,6 +301,7 @@ def default_project_state(name: str, uid: str) -> dict:
         },
         "raci": [],
         "sipoc": {"serpentes": [], "rows": [], "notes": ""},
+        "fluxograma_xml": "",
         "saving_projetado": {
             "hard": 0.0, "hard_racional": "",
             "soft": 0.0, "soft_racional": "",
@@ -968,6 +969,27 @@ with tool_container:
                 db.save_draft(pid, tool, {"text": str(edited_raci)})
                 st.success("Matriz RACI salva!")
 
+    elif tool == "Fluxograma":
+        st.subheader("Modelador de Fluxograma BPMN (As-Is / To-Be)")
+        st.info("💡 Desenhe o processo arrastando Swimlanes (Raias), Tarefas, Decisões e Conectores da paleta do Bizagi-JS (BPMN.io) à esquerda.")
+        
+        # O Componente recebe espaço de tela grande (800px)
+        xml_state = project_state.get("fluxograma_xml", "")
+        
+        if st_bpmn:
+            # Renderiza o visual customizado
+            new_xml = st_bpmn(xml=xml_state, height=750, key="bpmn_editor_instance")
+            
+            # Se a string XML retornou preenchida através de botões nativos do JS e for diferente do salvo
+            if new_xml and new_xml != xml_state:
+                project_state["fluxograma_xml"] = new_xml
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                
+                # Salvamos draft text com length/status apenas
+                db.save_draft(pid, tool, {"text": f"BPMN Model: {len(new_xml)} chars"})
+        else:
+            st.error("Componente BPMN editor não carregado. Contate o administrador do sistema.")
+
     else:
         st.info("Outras ferramentas (Ishikawa, etc.) estão na fila de atualização para a nuvem.")
         draft = db.load_draft(pid, tool) or {}
@@ -978,7 +1000,7 @@ with tool_container:
             st.success("Salvo!")
 
 with coach_container:
-    if tool == "Matriz RACI":
+    if tool in ["Matriz RACI", "Fluxograma"]:
         st.stop()
         
     st.markdown("<br><hr>", unsafe_allow_html=True)

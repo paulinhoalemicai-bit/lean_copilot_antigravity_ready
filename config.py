@@ -7,6 +7,7 @@ TOOLS = [
     "Matriz RACI",
     "Saving Projetado",
     "SIPOC (por etapa)",
+    "Fluxograma",
     "Ishikawa",
     "CauseEvidenceMatrix",
     "Solution",
