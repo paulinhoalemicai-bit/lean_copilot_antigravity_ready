@@ -481,6 +481,7 @@ with tool_container:
                                 charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
                             
                             project_state["charter"] = charter
+                            db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
                             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                             st.rerun()
                         else:
@@ -647,6 +648,7 @@ with coach_container:
                     project_state["charter"]["problem"] = new_data.get("problem", "")
                     project_state["charter"]["benefits"] = new_data.get("benefits", "")
                     
+                    db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (Problem)"})
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Problema e Benefícios gerados automaticamente associando o impacto da necessidade original transcrita do VOC/VOB! Releia e verifique se as premissas estão corretas."
@@ -663,6 +665,7 @@ with coach_container:
                         project_state["charter"] = {}
                     project_state["charter"]["goal"] = smart_goal
                     
+                    db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (SMART Goal)"})
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Objetivo construído segundo o padrão SMART! Releia e edite se necessário."
                     st.rerun()
