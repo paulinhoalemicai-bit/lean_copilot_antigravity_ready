@@ -664,8 +664,99 @@ with tool_container:
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.success("Charter salvo no sistema.")
 
+    elif tool == "SIPOC (por etapa)":
+        st.subheader("SIPOC (Mapeamento de Processo Nível Macro)")
+        st.markdown("Preencha de fora para dentro: **Comece pelo Processo (P)**, indicando a etapa mestre. Depois, liste as múltiplas Entradas (I) e Saídas (O) necessárias. Por fim, liste os Fornecedores (S) e Clientes (C). Use a tecla **Enter** para criar várias entradas na mesma célula mesclada.")
+        
+        draft = db.load_draft(pid, tool) or {}
+        stored_sipoc = draft.get("sipoc") or project_state.get("sipoc") or []
+
+        def render_sipoc_grid(data_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            if not data_list:
+                data_list = [{"S (Fornecedores)": "", "I (Entradas)": "", "P (Etapa do processo)": "", "O (Saídas)": "", "C (Clientes)": ""} for _ in range(5)]
+                
+            st.markdown(
+                '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
+                '<div style="display: flex; text-align: center;">'
+                '<div style="flex: 1; padding: 0 5px;"><b>S (Fornecedores)</b></div>'
+                '<div style="flex: 1; padding: 0 5px;"><b>I (Entradas)</b></div>'
+                '<div style="flex: 1; padding: 0 5px;"><b>P (Etapa do processo)</b></div>'
+                '<div style="flex: 1; padding: 0 5px;"><b>O (Saídas)</b></div>'
+                '<div style="flex: 1; padding: 0 5px;"><b>C (Clientes)</b></div>'
+                '</div></div><br>', 
+                unsafe_allow_html=True
+            )
+            
+            out_rows = []
+            for i, row in enumerate(data_list):
+                c1, c2, c3, c4, c5 = st.columns(5)
+                
+                v1_txt = str(row.get("S (Fornecedores)", ""))
+                v2_txt = str(row.get("I (Entradas)", ""))
+                v3_txt = str(row.get("P (Etapa do processo)", ""))
+                v4_txt = str(row.get("O (Saídas)", ""))
+                v5_txt = str(row.get("C (Clientes)", ""))
+                
+                # Inteligência de espelhamento de altura visual: Capta cada [Enter] do usuário perfeitamente!
+                def calc_lines(t):
+                    lines = t.split('\n')
+                    return sum(max(1, len(line)//30 + 1) for line in lines)
+                
+                max_lines = max(calc_lines(v1_txt), calc_lines(v2_txt), calc_lines(v3_txt), calc_lines(v4_txt), calc_lines(v5_txt))
+                max_lines = max(3, max_lines) # Mantém pelo menos um bloco alto de 3 linhas visualmente
+                altura_sincronizada = min(600, (max_lines * 24) + 40)
+                
+                v1 = c1.text_area("sp1", value=v1_txt, key=f"s_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                v2 = c2.text_area("sp2", value=v2_txt, key=f"i_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                v3 = c3.text_area("sp3", value=v3_txt, key=f"p_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                v4 = c4.text_area("sp4", value=v4_txt, key=f"o_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                v5 = c5.text_area("sp5", value=v5_txt, key=f"c_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+                
+                out_rows.append({
+                    "S (Fornecedores)": v1,
+                    "I (Entradas)": v2,
+                    "P (Etapa do processo)": v3,
+                    "O (Saídas)": v4,
+                    "C (Clientes)": v5
+                })
+                
+            return out_rows
+
+        sipoc_out = render_sipoc_grid(stored_sipoc)
+        
+        if not read_only:
+            b1, b2, _ = st.columns([1, 1, 4])
+            with b1:
+                if st.button("➕ Adicionar Etapa", key="btn_add_sipoc", use_container_width=True):
+                    stored_sipoc = sipoc_out + [{"S (Fornecedores)": "", "I (Entradas)": "", "P (Etapa do processo)": "", "O (Saídas)": "", "C (Clientes)": ""}]
+                    project_state["sipoc"] = stored_sipoc
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+            with b2:
+                if len(sipoc_out) > 1:
+                    if st.button("🗑️ Remover Última", key="btn_rem_sipoc", use_container_width=True):
+                        stored_sipoc = sipoc_out[:-1]
+                        project_state["sipoc"] = stored_sipoc
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+        
+        notes = draft.get("notes", project_state.get("sipoc_notes", ""))
+        notas_out = st.text_area("Comentários; Notas; Questões (Opcional)", value=notes, height=80, disabled=read_only)
+
+        new_text = f"SIPOC Rows: {len(sipoc_out)}\nNotas: {notas_out}"
+
+        c1, c2 = st.columns([1, 3])
+        with c1:
+            if st.button("💾 Salvar SIPOC", disabled=read_only):
+                payload = {"sipoc": sipoc_out, "notes": notas_out, "text": new_text}
+                db.save_draft(pid, tool, payload)
+                project_state["sipoc"] = sipoc_out
+                project_state["sipoc_notes"] = notas_out
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                st.success("SIPOC salvo com sucesso!")
+
     else:
-        st.info("Outras ferramentas (SIPOC, Ishikawa, etc.) estão na fila de atualização para a nuvem.")
+        st.info("Outras ferramentas (Ishikawa, etc.) estão na fila de atualização para a nuvem.")
         draft = db.load_draft(pid, tool) or {}
         draft_text = draft.get("text", "")
         new_text = st.text_area("Borrão da Ferramenta (Para Análise da IA):", value=draft_text, height=420, disabled=read_only)
