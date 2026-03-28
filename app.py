@@ -448,51 +448,65 @@ with tool_container:
                 st.markdown("**Problema / Justificativa**")
             with col_p2:
                 if st.button("📥 Importar do VOC/VOB", help="Importa dados do VOC/VOB apenas para os campos ainda vazios", use_container_width=True, disabled=read_only):
+                    # Força a leitura do que está escrito agora na tela (caso tenha apagado)
+                    v_prob = str(st.session_state.get("charter_problem", charter.get("problem", ""))).strip()
+                    v_ind = str(st.session_state.get("charter_ind", charter.get("main_indicator", ""))).strip()
+                    v_goal = str(st.session_state.get("charter_goal", charter.get("goal", ""))).strip()
+                    
+                    tem_prob = (len(v_prob) > 0)
+                    tem_ind = (len(v_ind) > 0)
+                    tem_goal = (len(v_goal) > 0) and not v_goal.startswith("[INCOMPLETO")
+                    
                     v_state = project_state.get("voc_vob", {})
+                    linhas = v_state.get("voc", []) + v_state.get("vob", [])
                     
-                    # Usa a session_state live para checar se o usuário realmente apagou fisicamente na tela
-                    val_prob = st.session_state.get("charter_problem") if st.session_state.get("charter_problem") is not None else charter.get("problem", "")
-                    val_ind = st.session_state.get("charter_ind") if st.session_state.get("charter_ind") is not None else charter.get("main_indicator", "")
-                    val_goal = st.session_state.get("charter_goal") if st.session_state.get("charter_goal") is not None else charter.get("goal", "")
-                    
-                    tem_problema = bool(val_prob.strip())
-                    tem_ind = bool(val_ind.strip())
-                    tem_goal = bool(val_goal.strip() and not val_goal.strip().startswith("[INCOMPLETO"))
-                    
-                    extraidos = []
-                    indicadores = []
-                    requisitos = []
-                    
-                    for row in v_state.get("voc", []) + v_state.get("vob", []):
-                        if not tem_problema and row.get("Problema"): 
-                            extraidos.append(f"- {row.get('Problema')}")
-                        if not tem_ind: 
-                            y_val = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
-                            if y_val: indicadores.append(y_val)
-                        if not tem_goal and row.get("Requisito crítico"): 
-                            requisitos.append(row.get("Requisito crítico"))
-                    
-                    if extraidos or indicadores or requisitos:
-                        if extraidos: charter["problem"] = "\n".join(extraidos)
-                        if indicadores: charter["main_indicator"] = "\n".join(f"- {i}" for i in list(dict.fromkeys(indicadores)))
-                        if requisitos:
-                            lista_reqs = "\n".join(f"- {r}" for r in list(dict.fromkeys(requisitos)))
-                            charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
-                            
-                        # Mantém as alterações live do usuário recém digitadas
-                        if tem_problema: charter["problem"] = val_prob
-                        if tem_ind: charter["main_indicator"] = val_ind
-                        if tem_goal: charter["goal"] = val_goal
-                            
-                        project_state["charter"] = charter
-                        db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
-                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.rerun()
+                    if not linhas:
+                        st.error("⚠️ O banco de dados do seu VOC/VOB está vazio! Você preencheu mas esqueceu de Clicar em Salvar no final da página do VOC/VOB!")
                     else:
-                        if tem_problema and tem_ind and tem_goal:
-                            st.warning("⚠️ Todos os campos (Problema, Objetivo, Indicador) já estavam preenchidos. Nada foi sobrescrito.", icon="⚠️")
+                        extraidos = []
+                        indicadores = []
+                        requisitos = []
+                        
+                        for row in linhas:
+                            # Tenta caçar o Problema
+                            p = str(row.get("Problema", "")).strip()
+                            if p: extraidos.append(f"- {p}")
+                            
+                            # Tenta caçar o Indicador usando a coluna oficial nova ou a velha
+                            y = str(row.get("Y (indicador)", "")).strip()
+                            if not y: y = str(row.get("Y (como medir)", "")).strip()
+                            if y: indicadores.append(y)
+                                
+                            # Tenta caçar Requisitos CTQ
+                            r = str(row.get("Requisito crítico", "")).strip()
+                            if r: requisitos.append(f"- {r}")
+                            
+                        atualizou = False
+                        
+                        # Só preenchemos o que o usuário não preencheu/apagou
+                        if not tem_prob and extraidos:
+                            charter["problem"] = "\n".join(extraidos)
+                            atualizou = True
+                            
+                        if not tem_ind and indicadores:
+                            charter["main_indicator"] = "\n".join(list(dict.fromkeys(indicadores)))
+                            atualizou = True
+                            
+                        if not tem_goal and requisitos:
+                            lista_reqs = "\n".join(list(dict.fromkeys(requisitos)))
+                            charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
+                            atualizou = True
+                            
+                        if atualizou:
+                            project_state["charter"] = charter
+                            db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.rerun()
                         else:
-                            st.toast("Nenhum dado novo encontrado no formato VOC/VOB para importação.", icon="🔍")
+                            if tem_prob and tem_ind and tem_goal:
+                                st.warning("⚠️ Todos os campos vitais já estão preenchidos na tela.", icon="⚠️")
+                            else:
+                                st.toast("Não encontrei palavras preenchidas dentro das colunas lá do VOC/VOB para as lacunas daqui.", icon="🔍")
 
             problem = st.text_area("hidden_problem", value=charter.get("problem", ""), key="charter_problem", height=150, label_visibility="collapsed", disabled=read_only)
             
