@@ -333,7 +333,7 @@ with tool_container:
         
         with st.container(border=True):
             novo_nome = st.text_input("Nome Oficial do Projeto", value=project_state.get("name", ""), disabled=read_only)
-            lider = st.text_input("Líder do Projeto (Green Belt / Black Belt)", value=project_state.get("leader", ""), disabled=read_only)
+            lider = st.text_input("Líder do Projeto (Yellow / Green / Black Belt)", value=project_state.get("leader", ""), disabled=read_only)
             sponsor = st.text_input("Patrocinador (Sponsor)", value=project_state.get("sponsor", ""), disabled=read_only)
             
             resumo = st.text_area("Resumo Executivo (Elevator Pitch)", value=project_state.get("executive_summary", ""), height=120, disabled=read_only, help="Opcional. Uma breve descrição executiva do seu propósito.")
@@ -554,7 +554,19 @@ with tool_container:
                 scope_out = st.text_area("Fora do Escopo (OUT)", value=charter.get("scope_out", ""), height=80, disabled=read_only)
 
         with st.container(border=True):
-            st.markdown("#### Matriz de Envolvidos (Stakeholders)")
+            hdr1, hdr2 = st.columns([4, 1.5], vertical_alignment="center")
+            with hdr1:
+                st.markdown("#### Matriz de Envolvidos (Stakeholders)")
+            with hdr2:
+                if st.button("📥 Preencher da Capa", help="Copiar o Líder e o Sponsor oficiais definidos na Capa do Projeto", use_container_width=True, disabled=read_only):
+                    st_struct["sponsor"] = project_state.get("sponsor", "")
+                    st_struct["lider_projeto"] = project_state.get("leader", "")
+                    charter["stakeholders_struct"] = st_struct
+                    project_state["charter"] = charter
+                    db.save_draft(pid, tool, {"charter": charter, "text": "Stakeholders Importados"})
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+                    
             sA, sB = st.columns(2)
             with sA:
                 sponsor = st.text_input("Patrocinador (Sponsor)", value=st_struct.get("sponsor", ""), disabled=read_only)
