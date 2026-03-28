@@ -25,6 +25,11 @@ from coach import (
     suggest_saving_rationale
 )
 
+try:
+    from custom_components.bpmn_editor import st_bpmn
+except ImportError:
+    st_bpmn = None
+
 st.set_page_config(page_title="Lean Copilot MVP", layout="wide", page_icon="🏥")
 db.init_db()
 
