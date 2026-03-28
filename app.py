@@ -877,24 +877,24 @@ with tool_container:
         c1, c2, c3 = st.columns(3)
         with c1:
             st.markdown("#### Hard Saving")
-            st.caption("(Impacto Direto no DRE - Ex: Materiais, Faturado)")
+            st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Impacto Direto no DRE - Ex: Materiais, Faturado)</div>", unsafe_allow_html=True)
             h_val = st.number_input("Valor (R$)", value=float(sav.get("hard", 0.0)), disabled=read_only, key=f"hard_{state_key}")
             h_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("hard_racional", ""), height=150, disabled=read_only, key=f"hr_{state_key}")
         with c2:
             st.markdown("#### Soft Saving")
-            st.caption("(Impacto Indireto - Ex: Horas Homem transferidas)")
+            st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Ganho Operacional / Liberação de Capacidade)</div>", unsafe_allow_html=True)
             s_val = st.number_input("Valor (R$)", value=float(sav.get("soft", 0.0)), disabled=read_only, key=f"soft_{state_key}")
             s_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("soft_racional", ""), height=150, disabled=read_only, key=f"sr_{state_key}")
         with c3:
             st.markdown("#### Cost Avoidance")
-            st.caption("(Fuga de Custo - Ex: Evitou contratar, Multas)")
+            st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Fuga de Custo - Ex: Evitou contratar, Multas)</div>", unsafe_allow_html=True)
             a_val = st.number_input("Valor (R$)", value=float(sav.get("avoidance", 0.0)), disabled=read_only, key=f"avoid_{state_key}")
             a_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("avoidance_racional", ""), height=150, disabled=read_only, key=f"ar_{state_key}")
             
         total = h_val + s_val + a_val
         st.markdown(f"**Total Saving Combinado (Estimativa da Aba):** `R$ {total:,.2f}`".replace(",", "X").replace(".", ",").replace("X", "."))
         
-        notas = st.text_area("Notas Gerais / Justificativa Lógica de Negócio (Business Case)", value=sav.get("notas_gerais", project_state.get("charter", {}).get("benefits", "")), height=100, disabled=read_only)
+        notas = st.text_area("Notas Gerais / Justificativa Lógica de Negócio (Business Case)", value=sav.get("notas_gerais", project_state.get("charter", {}).get("benefits", "")), height=200, disabled=read_only)
 
         c1_b, c2_b = st.columns([1, 3])
         with c1_b:
@@ -1116,15 +1116,9 @@ with coach_container:
             else:
                 with st.spinner("O CFO Virtual está analisando as possibilidades de ganhos..."):
                     new_sav = suggest_saving_rationale(project_state, q_desc)
-                    state_key = "saving_projetado" if tool == "Saving Projetado" else "saving_realizado"
-                    if state_key not in project_state:
-                        project_state[state_key] = {"hard": 0, "soft": 0, "avoidance": 0}
-                    project_state[state_key]["hard_racional"] = new_sav["hard"]
-                    project_state[state_key]["soft_racional"] = new_sav["soft"]
-                    project_state[state_key]["avoidance_racional"] = new_sav["avoidance"]
-                    project_state[state_key]["notas_gerais"] = q_desc
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Análise Financeira Concluída. Leia os Racionais preenchidos na tela de Cima, busque a contabilidade real e preencha os números finais (R$)."
+                    # Exibir apenas no rodapé da IA provisoriamente
+                    st.session_state["saving_coach_feedback"] = new_sav
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Análise Financeira Concluída. Veja a classificação das oportunidades logo abaixo!"
                     st.rerun()
 
         # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
@@ -1158,6 +1152,19 @@ with coach_container:
 
                 st.markdown("### 🏹 Plano de Ação ou Conteúdo Gerado")
                 st.info(coach_json.get("next_action", ""))
+
+    if st.session_state.get("saving_coach_feedback") and tool in ["Saving Projetado", "Saving Realizado"]:
+        st.markdown("---")
+        st.markdown("### 🏦 Classificação de Oportunidades do CFO Virtual")
+        st.info("O Coach categorizou as suas ideias. Copie os racionais matemáticos que fizerem sentido e preencha nos blocos editáveis no topo desta página.")
+        _sav = st.session_state["saving_coach_feedback"]
+        cc1, cc2, cc3 = st.columns(3)
+        with cc1:
+            st.text_area("🔴 Sugestão Hard Saving", value=_sav.get("hard", ""), height=250, disabled=True, key="sav_h")
+        with cc2:
+            st.text_area("🟡 Sugestão Soft Saving", value=_sav.get("soft", ""), height=250, disabled=True, key="sav_s")
+        with cc3:
+            st.text_area("🟢 Sugestão Cost Avoidance", value=_sav.get("avoidance", ""), height=250, disabled=True, key="sav_a")
 
     st.markdown("---")
     st.markdown("### 📜 Memória de Sessões")
