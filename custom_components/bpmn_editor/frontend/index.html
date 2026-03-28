@@ -40,8 +40,8 @@
       
       .zoom-controls {
         position: absolute;
-        bottom: 25px;
-        left: 25px;
+        bottom: 85px;
+        right: 25px;
         z-index: 100;
         display: flex;
         flex-direction: column;
@@ -73,6 +73,7 @@
     
     <!-- Painel de Zoom Lateral -->
     <div class="zoom-controls">
+      <button class="zoom-btn" id="zoom-origin" title="Ir para o Ponto Zero de Desenho (Eixo 0)">0</button>
       <button class="zoom-btn" id="zoom-in" title="Mais Zoom (Aproximar)">+</button>
       <button class="zoom-btn" id="zoom-out" title="Menos Zoom (Afastar)">-</button>
       <button class="zoom-btn" id="zoom-reset" title="Centralizar Fluxograma">✥</button>
@@ -175,6 +176,17 @@
             
             document.getElementById('zoom-reset').addEventListener('click', () => {
                 bpmnCanvas.zoom('fit-viewport');
+            });
+            
+            document.getElementById('zoom-origin').addEventListener('click', () => {
+                const vb = bpmnCanvas.viewbox();
+                bpmnCanvas.viewbox({
+                    x: 0,
+                    y: 0,
+                    width: vb.outer.width,
+                    height: vb.outer.height
+                });
+                bpmnCanvas.zoom(1.0); // Retorna a visualização exata de 100% no eixo-0
             });
         }
       }
