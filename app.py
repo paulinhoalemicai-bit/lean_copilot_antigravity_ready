@@ -186,14 +186,16 @@ with st.sidebar:
         st.caption("Configurações Globais (Afeta todos os alunos)")
         current_ai = db.get_global_model()
         
-        # Mapeamento oficial 2026
+        # Mapeamento oficial 2026 (Atualizado pela Doc OpenAI - ChatGPT)
         model_options = {
-            "gpt-5.4-nano": "🟢 gpt-5.4-nano (Extrema economia - Mais Barato)",
-            "gpt-5.4-mini": "🟡 gpt-5.4-mini (Mais barato/Rápido)",
-            "gpt-4o-mini": "🛜 gpt-4o-mini (Estável / Padrão Antigo)",
-            "o3-mini": "🔵 o3-mini (Raciocínio Avançado - Custo Médio)",
-            "gpt-4o": "🟠 gpt-4o (Legacy / Equilíbrio - Caro)",
-            "gpt-5.4-pro": "🔴 gpt-5.4-pro (Alta inteligência - Mais Caro)",
+            "gpt-5.4": "🟣 gpt-5.4 (Padrão 2026 - Uso Geral)",
+            "gpt-5.4-pro": "🔴 gpt-5.4-pro (Alta inteligência - Problemas Difíceis)",
+            "gpt-5.4-mini": "🟡 gpt-5.4-mini (Rápido e Barato - Automações)",
+            "gpt-5.4-nano": "🟢 gpt-5.4-nano (Extrema economia - Alto Volume)",
+            "gpt-4.1": "🟤 gpt-4.1 (Manter Compatibilidade)",
+            "gpt-4.1-mini": "🟠 gpt-4.1-mini (Menor e mais rápida do 4.1)",
+            "gpt-4o-mini": "🛜 gpt-4o-mini (Modelo leve 2024)",
+            "o3-mini": "🔵 o3-mini (Raciocínio Avançado)",
             "Outro": "⚙️ Outro (Digitar Manualmente)"
         }
         
