@@ -442,13 +442,35 @@ with tool_container:
 
         # Ajuste de layout de blocos para visual Sírio Premium
         with st.container(border=True):
-            problem = st.text_area("Problema / Justificativa", value=charter.get("problem", ""), height=80, disabled=read_only)
-            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=80, disabled=read_only)
+            col_p1, col_p2 = st.columns([5, 1.5])
+            with col_p1:
+                st.markdown("**Problema / Justificativa**")
+            with col_p2:
+                if st.button("📥 Importar do VOC/VOB", help="Puxar os problemas diagnosticados previamenteno VOC/VOB para cá", use_container_width=True, disabled=read_only):
+                    v_state = project_state.get("voc_vob", {})
+                    extraidos = []
+                    for row in v_state.get("voc", []):
+                        if row.get("Problema"): extraidos.append(f"- [Cliente] {row.get('Problema')}")
+                    for row in v_state.get("vob", []):
+                        if row.get("Problema"): extraidos.append(f"- [Negócio] {row.get('Problema')}")
+                    
+                    if extraidos:
+                        charter["problem"] = "\n".join(extraidos)
+                        project_state["charter"] = charter
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                    else:
+                        st.warning("Nenhum problema cadastrado no VOC/VOB!")
+
+            problem = st.text_area("hidden_problem", value=charter.get("problem", ""), height=100, label_visibility="collapsed", disabled=read_only)
+            
             c1, c2 = st.columns(2)
             with c1:
                 goal = st.text_area("O Objetivo Desejado (Critério SMART)", value=charter.get("goal", ""), height=80, disabled=read_only)
             with c2:
                 main_indicator = st.text_input("Indicador Principal", value=charter.get("main_indicator", ""), disabled=read_only)
+                
+            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=80, disabled=read_only)
         
         with st.container(border=True):
             sA, sB = st.columns(2)
