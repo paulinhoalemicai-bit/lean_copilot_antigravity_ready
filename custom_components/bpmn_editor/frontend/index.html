@@ -37,10 +37,47 @@
         font-size: 14px;
       }
       #save-button:hover { background-color: #0033a0; }
+      
+      .zoom-controls {
+        position: absolute;
+        bottom: 25px;
+        left: 25px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        padding: 5px;
+      }
+      .zoom-btn {
+        width: 35px;
+        height: 35px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 20px;
+        font-weight: bold;
+        color: #001C59;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+      }
+      .zoom-btn:hover {
+        background-color: #e2e8f0;
+      }
     </style>
   </head>
   <body>
     <div id="canvas"></div>
+    
+    <!-- Painel de Zoom Lateral -->
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="zoom-in" title="Mais Zoom (Aproximar)">+</button>
+      <button class="zoom-btn" id="zoom-out" title="Menos Zoom (Afastar)">-</button>
+      <button class="zoom-btn" id="zoom-reset" title="Centralizar Fluxograma">✥</button>
+    </div>
+
     <button id="save-button">💾 Extrair Diagrama para o Doutor Lean</button>
 
     <script>
@@ -123,6 +160,21 @@
                 } catch (err) {
                     console.error("Save error", err);
                 }
+            });
+
+            // Controles de Zoom
+            const bpmnCanvas = modeler.get('canvas');
+            
+            document.getElementById('zoom-in').addEventListener('click', () => {
+                bpmnCanvas.zoom(bpmnCanvas.zoom() * 1.25);
+            });
+            
+            document.getElementById('zoom-out').addEventListener('click', () => {
+                bpmnCanvas.zoom(bpmnCanvas.zoom() * 0.8);
+            });
+            
+            document.getElementById('zoom-reset').addEventListener('click', () => {
+                bpmnCanvas.zoom('fit-viewport');
             });
         }
       }
