@@ -110,10 +110,10 @@ def list_projects(user_role: str, username: str) -> List[Dict[str, Any]]:
     db = SessionLocal()
     try:
         if user_role == "professor":
-            # Professor vê todos
-            projects = db.query(Project).order_by(Project.updated_at.desc()).all()
+            # Professor vê todos (exceto a gaveta de configs)
+            projects = db.query(Project).filter(Project.project_id != "SYSTEM_CONFIG").order_by(Project.updated_at.desc()).all()
         else:
-            projects = db.query(Project).filter(Project.user_id == username).order_by(Project.updated_at.desc()).all()
+            projects = db.query(Project).filter(Project.user_id == username, Project.project_id != "SYSTEM_CONFIG").order_by(Project.updated_at.desc()).all()
         
         return [
             {
