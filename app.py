@@ -678,7 +678,7 @@ with tool_container:
             
         def render_sipoc_blocks(data_list):
             if not data_list:
-                data_list = [{"P": "", "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]}]
+                data_list = [{"P": "", "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]} for _ in range(4)]
                 
             st.markdown(
                 '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
@@ -699,8 +699,7 @@ with tool_container:
                     
                     # Coluna do Meio (Mãe): Processo
                     with c_p:
-                        st.markdown("**Etapa do Processo**", help="Ação mestre que transforma Entradas em Saídas")
-                        p_val = st.text_area(f"p_{i}", value=step.get("P", ""), height=150, label_visibility="collapsed", disabled=read_only)
+                        p_val = st.text_area(f"p_{i}", value=step.get("P", ""), placeholder="Descreva a Etapa do Processo...", height=150, label_visibility="collapsed", disabled=read_only)
                         
                     # Lado Esquerdo: Entradas e Fornecedores
                     inps = step.get("inputs", [])
@@ -716,7 +715,7 @@ with tool_container:
                         
                     with c_i:
                         if not read_only:
-                            if st.button("➕ Entrada", key=f"btn_add_inp_{i}"):
+                            if st.button("➕", help="Adicionar nova linha de Fornecedor/Entrada", key=f"btn_add_inp_{i}", use_container_width=True):
                                 inps.append({"S": "", "I": ""})
                                 project_state["sipoc"] = data_list
                                 project_state["sipoc"][i]["inputs"] = inps
@@ -737,7 +736,7 @@ with tool_container:
                         
                     with c_o:
                         if not read_only:
-                            if st.button("➕ Saída", key=f"btn_add_out_{i}"):
+                            if st.button("➕", help="Adicionar nova linha de Saída/Cliente", key=f"btn_add_out_{i}", use_container_width=True):
                                 outs.append({"O": "", "C": ""})
                                 project_state["sipoc"] = data_list
                                 project_state["sipoc"][i]["outputs"] = outs
