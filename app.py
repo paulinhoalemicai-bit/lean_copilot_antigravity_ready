@@ -18,6 +18,7 @@ from coach import (
     suggest_sipoc_by_step,
     suggest_charter_from_vocvob,
     generate_problem_benefits_from_vocvob,
+    generate_smart_goal_from_charter_context,
     suggest_vocvob_row,
 )
 
@@ -442,35 +443,43 @@ with tool_container:
 
         # Ajuste de layout de blocos para visual Sírio Premium
         with st.container(border=True):
-            col_p1, col_p2 = st.columns([5, 1.5])
+            col_p1, col_p2 = st.columns([5, 1.8])
             with col_p1:
                 st.markdown("**Problema / Justificativa**")
             with col_p2:
                 if st.button("📥 Importar do VOC/VOB", help="Puxar os problemas diagnosticados previamenteno VOC/VOB para cá", use_container_width=True, disabled=read_only):
                     v_state = project_state.get("voc_vob", {})
                     extraidos = []
-                    for row in v_state.get("voc", []):
-                        if row.get("Problema"): extraidos.append(f"- [Cliente] {row.get('Problema')}")
-                    for row in v_state.get("vob", []):
-                        if row.get("Problema"): extraidos.append(f"- [Negócio] {row.get('Problema')}")
+                    indicadores = []
+                    requisitos = []
+                    for row in v_state.get("voc", []) + v_state.get("vob", []):
+                        if row.get("Problema"): extraidos.append(f"- {row.get('Problema')}")
+                        if row.get("Y (indicador)"): indicadores.append(row.get("Y (indicador)"))
+                        if row.get("Requisito crítico"): requisitos.append(row.get("Requisito crítico"))
                     
-                    if extraidos:
-                        charter["problem"] = "\n".join(extraidos)
+                    if extraidos or indicadores or requisitos:
+                        if extraidos: charter["problem"] = "\n".join(extraidos)
+                        # Remove duplicatas preservando a ordem
+                        if indicadores: charter["main_indicator"] = " / ".join(list(dict.fromkeys(indicadores)))
+                        if requisitos: 
+                            lista_reqs = "\n".join(f"- {r}" for r in list(dict.fromkeys(requisitos)))
+                            charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
+                        
                         project_state["charter"] = charter
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
                     else:
-                        st.warning("Nenhum problema cadastrado no VOC/VOB!")
+                        st.warning("Nenhum dado cadastrado no VOC/VOB!")
 
-            problem = st.text_area("hidden_problem", value=charter.get("problem", ""), height=100, label_visibility="collapsed", disabled=read_only)
+            problem = st.text_area("hidden_problem", value=charter.get("problem", ""), height=150, label_visibility="collapsed", disabled=read_only)
             
             c1, c2 = st.columns(2)
             with c1:
-                goal = st.text_area("O Objetivo Desejado (Critério SMART)", value=charter.get("goal", ""), height=80, disabled=read_only)
+                goal = st.text_area("O Objetivo Desejado (Critério SMART)", value=charter.get("goal", ""), height=120, disabled=read_only)
             with c2:
-                main_indicator = st.text_input("Indicador Principal", value=charter.get("main_indicator", ""), disabled=read_only)
+                main_indicator = st.text_area("Indicador Principal", value=charter.get("main_indicator", ""), height=120, disabled=read_only)
                 
-            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=80, disabled=read_only)
+            benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=120, disabled=read_only)
         
         with st.container(border=True):
             sA, sB = st.columns(2)
@@ -548,6 +557,9 @@ with coach_container:
     target_voc = "Voz do Cliente (VOC)"
     q1 = q2 = q3 = ""
     q_impact = ""
+    q_tempo = ""
+    q_meta = ""
+    target_charter = ""
     
     if ia_action == "Gere uma Sugestão de Preenchimento":
         if tool == "VOC/VOB":
@@ -557,16 +569,22 @@ with coach_container:
             q2 = st.text_input("Qual é o valor atual / performance atual?", disabled=read_only)
             q3 = st.text_input("Qual é o valor limite entre a satisfação e a insatisfação?", disabled=read_only)
         elif tool == "Project Charter":
-            st.info("💡 **Geração Guiada (via VOC/VOB):** O Doutor Lean lerá sua tabela do VOC/VOB e comporá o Problema e os Benefícios de forma metodológica baseados no impacto listado abaixo.")
+            target_charter = st.radio("O que o Doutor Lean deve estruturar?", ["Problema e Benefícios", "Objetivo SMART"], disabled=read_only)
             
-            v_state = project_state.get("voc_vob", {})
-            has_voc_vob = (len(v_state.get("voc", [])) > 0) or (len(v_state.get("vob", [])) > 0)
-            
-            if not has_voc_vob:
-                st.warning("⚠️ **Bloqueado:** Para que o Doutor Lean construa o Problema e os Benefícios de forma coerente, você precisa preencher o **VOC/VOB** obrigatoriamente primeiro. Volte e salve o VOC/VOB.")
-                read_only = True
+            if target_charter == "Problema e Benefícios":
+                st.info("💡 **Geração Guiada (via VOC/VOB):** O Doutor Lean irá ler o VOC/VOB para narrar o Problema baseando-se no impacto no Negócio/Cliente.")
+                v_state = project_state.get("voc_vob", {})
+                has_voc_vob = (len(v_state.get("voc", [])) > 0) or (len(v_state.get("vob", [])) > 0)
+                
+                if not has_voc_vob:
+                    st.warning("⚠️ **Bloqueado:** Para que o Doutor Lean construa o Problema e os Benefícios de forma coerente, você precisa preencher o **VOC/VOB** obrigatoriamente primeiro. Volte e salve o VOC/VOB.")
+                    read_only = True
+                else:
+                    q_impact = st.text_area("Qual o impacto sofrido pelo cliente de não ter a sua necessidade atendida?", height=80, disabled=read_only)
             else:
-                q_impact = st.text_area("Qual o impacto sofrido pelo cliente de não ter a sua necessidade atendida?", height=100, disabled=read_only)
+                st.info("💡 **Geração SMART:** O Doutor Lean reescreverá o que estiver importado na caixa do Objetivo do seu Charter transformando numa meta oficial de excelência.")
+                q_tempo = st.text_input("Prazo: Em quanto tempo atingiremos o objetivo? (Ex: até Dez/2024)", disabled=read_only)
+                q_meta = st.text_input("Meta: Qual o número a ser atingido? (Ex: Reduzir tempo para 15min)", disabled=read_only)
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -601,20 +619,38 @@ with coach_container:
                 st.session_state["ai_generated_warning"] = "✨ ⚠️ Linha inserida automaticamente pela Inteligência Artificial na tabela. Por favor, releia, valide os campos e salve!"
                 st.rerun()
 
-        # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB ---
-        elif tool == "Project Charter" and mode_str == "generate" and q_impact:
-            with st.spinner("Doutor Lean processando seu VOC/VOB e descrevendo o Problema..."):
-                new_data = generate_problem_benefits_from_vocvob(project_state, q_impact)
-                
-                if "charter" not in project_state:
-                    project_state["charter"] = {}
-                project_state["charter"]["problem"] = new_data.get("problem", "")
-                project_state["charter"]["benefits"] = new_data.get("benefits", "")
-                
-                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                
-                st.session_state["ai_generated_warning"] = "✨ ⚠️ Problema e Benefícios gerados automaticamente associando o impacto da necessidade original transcrita do VOC/VOB! Releia e verifique se as premissas estão corretas."
-                st.rerun()
+        # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (Problema) ---
+        elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Problema e Benefícios":
+            if not q_impact:
+                st.warning("Por favor, preencha o impacto percebido antes de gerar sugestões.")
+            else:
+                with st.spinner("Doutor Lean processando seu VOC/VOB e descrevendo o Problema..."):
+                    new_data = generate_problem_benefits_from_vocvob(project_state, q_impact)
+                    
+                    if "charter" not in project_state:
+                        project_state["charter"] = {}
+                    project_state["charter"]["problem"] = new_data.get("problem", "")
+                    project_state["charter"]["benefits"] = new_data.get("benefits", "")
+                    
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Problema e Benefícios gerados automaticamente associando o impacto da necessidade original transcrita do VOC/VOB! Releia e verifique se as premissas estão corretas."
+                    st.rerun()
+
+        # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (SMART Goal) ---
+        elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Objetivo SMART":
+            if not q_tempo or not q_meta:
+                 st.warning("Por favor, preencha o prazo e a meta numérica para construirmos o SMART!")
+            else:
+                with st.spinner("Estruturando meta SMART e consolidando objetivo..."):
+                    smart_goal = generate_smart_goal_from_charter_context(project_state, q_tempo, q_meta)
+                    if "charter" not in project_state:
+                        project_state["charter"] = {}
+                    project_state["charter"]["goal"] = smart_goal
+                    
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Objetivo construído segundo o padrão SMART! Releia e edite se necessário."
+                    st.rerun()
 
         # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
         else:

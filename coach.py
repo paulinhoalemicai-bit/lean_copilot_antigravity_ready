@@ -351,6 +351,49 @@ Gere o Problema e os Benefícios.
             "benefits": f"Erro IA"
         }
 
+def generate_smart_goal_from_charter_context(project_state: dict, tempo: str, meta: str) -> str:
+    charter_data = project_state.get("charter", {})
+    
+    system = """
+Você é um Master Black Belt de Lean Seis Sigma construindo Projetos de Melhoria.
+Sua missão é gerar APENAS UMA ÚNICA FRASE unificada formatada perfeitamente como uma Meta SMART (Specific, Measurable, Achievable, Relevant, Time-bound).
+
+Regras da Meta SMART para Seis Sigma:
+- Iniciar sempre com um verbo de ação (Reduzir, Aumentar, Eliminar, Maximizar).
+- Declarar o objeto/indicador focado (O que está sendo medido).
+- Declarar o valor/baseline atual se for dedutível do contexto, e a Meta numérica providenciada pelo usuário.
+- Finalizar taxativamente com o Prazo limite providenciado pelo usuário.
+Exemplo Perfeito: "Reduzir a taxa de refugo no setor de embalagem de 15% para 5% até o final de dezembro de 2024".
+
+Retorne APENAS o texto livre (string pura) da frase final gerada, sem formatações markdown, sem aspas, e sem explicações e conversas adicionais.
+""".strip()
+
+    user = f"""
+CONTEXTO DO PROJECT CHARTER (Use para entender o que está sendo resolvido):
+- Justificativa/Problema: {charter_data.get('problem', '')}
+- Indicador Principal (Y): {charter_data.get('main_indicator', '')}
+- Rascunho/Escopo prévio do objetivo: {charter_data.get('goal', '')}
+
+DADOS MANDATÓRIOS DO USUÁRIO (Use-os taxativamente para o 'M' e 'T' do SMART):
+- Meta de Resultado (M): {meta}
+- Prazo Estipulado (T): {tempo}
+
+Gere EXATAMENTE a frase final da Meta SMART.
+""".strip()
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            temperature=0.2,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        return str(response.choices[0].message.content or "A IA não retornou um texto válido.").strip()
+    except Exception as e:
+        return f"Erro IA ao gerar SMART: {str(e)}"
+
 def suggest_vocvob_row(target_type: str, q1: str, q2: str, q3: str, project_state: dict) -> Dict[str, str]:
     system = f"""
 Você é especialista em Lean Seis Sigma, focando em {target_type}.
