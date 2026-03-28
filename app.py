@@ -435,8 +435,11 @@ with tool_container:
                         project_state["executive_summary"] = resumo.strip()
                         
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Linhas geradas automaticamente com base no processo (P) preenchido. Valide!"
                         st.rerun()
+
+        # Alimenta o contexto do Doutor Lean com os campos exclusivos da Capa
+        new_text = f"Nome do Projeto: {novo_nome}\nLíder: {lider}\nSponsor: {sponsor}\nInício: {start_date}\nResumo Executivo: {resumo}"
+
 
     elif tool == "VOC/VOB":
         st.subheader("VOC/VOB (Voz do Cliente e Negócio)")
