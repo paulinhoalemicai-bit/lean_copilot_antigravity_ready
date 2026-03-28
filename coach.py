@@ -307,6 +307,50 @@ Gere as sugestões.
             ]
         }
 
+def generate_problem_benefits_from_vocvob(project_state: dict, impact_answer: str) -> Dict[str, str]:
+    vocvob_data = project_state.get("voc_vob", {})
+    
+    system = """
+Você é um Master Black Belt orientando a escrita de um Project Charter corporativo.
+Sua missão é gerar duas coisas baseadas nas necessidades estruturadas (VOC/VOB) preenchidas pelo usuário e no "Impacto" relatado por ele.
+
+1. "problem": Escreva um texto narrativo e coeso definindo o Problema/Justificativa. O padrão metodológico EXIGE:
+- Introdução sobre o cenário atual.
+- O valor atual de performance do processo.
+- Como o cliente está sendo afetado por isso (consequências).
+
+2. "benefits": Descreva os benefícios esperados, focando em declarar o oposto direto das consequências do problema citadas (ganhos financeiros, operacionais ou satisfação).
+
+Retorne EXATAMENTE um objeto JSON:
+{
+  "problem": "texto do problema",
+  "benefits": "texto dos benefícios"
+}
+""".strip()
+
+    user = f"""
+DADOS DA TABELA VOC/VOB DO PROJETO:
+{json.dumps(vocvob_data, ensure_ascii=False, indent=2)}
+
+PERGUNTA DE DIRECIONAMENTO:
+Qual o impacto sofrido pelo cliente de não ter a sua necessidade atendida?
+Resposta do Aluno: {impact_answer}
+
+Gere o Problema e os Benefícios.
+""".strip()
+
+    try:
+        out = _chat_json(system, user)
+        return {
+            "problem": str(out.get("problem", "N/A")).strip(),
+            "benefits": str(out.get("benefits", "N/A")).strip()
+        }
+    except Exception as e:
+        return {
+            "problem": f"Erro IA: {str(e)}",
+            "benefits": f"Erro IA"
+        }
+
 def suggest_vocvob_row(target_type: str, q1: str, q2: str, q3: str, project_state: dict) -> Dict[str, str]:
     system = f"""
 Você é especialista em Lean Seis Sigma, focando em {target_type}.
