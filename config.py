@@ -4,6 +4,7 @@ TOOLS = [
     "Capa do Projeto",
     "VOC/VOB",
     "Project Charter",
+    "Matriz RACI",
     "Saving Projetado",
     "SIPOC (por etapa)",
     "Ishikawa",

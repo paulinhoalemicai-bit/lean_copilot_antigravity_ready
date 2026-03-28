@@ -299,6 +299,7 @@ def default_project_state(name: str, uid: str) -> dict:
                 "Define": 0, "Measure": 0, "Analyze": 0, "Improve": 0, "Control": 0,
             },
         },
+        "raci": [],
         "sipoc": {"serpentes": [], "rows": [], "notes": ""},
         "saving_projetado": {
             "hard": 0.0, "hard_racional": "",
@@ -922,6 +923,48 @@ with tool_container:
                 st.success("Cálculo e racional salvos com sucesso!")
                 st.rerun()
 
+    elif tool == "Matriz RACI":
+        st.subheader("Matriz RACI (Papéis e Responsabilidades)")
+        st.info("💡 Defina quem são as pessoas envolvidas em cada fase do seu projeto (DMAIC).")
+        
+        raci_data = project_state.get("raci", [])
+        if not raci_data:
+            raci_data = [{"Nome": "", "Posição / Cargo": "", "Definição": "", "Medição": "", "Análise": "", "Melhoria": "", "Controle": ""}]
+            
+        edited_raci = st.data_editor(
+            raci_data,
+            num_rows="dynamic",
+            use_container_width=True,
+            column_config={
+                "Nome": st.column_config.TextColumn("Nome Regulamentar (ou Área)"),
+                "Posição / Cargo": st.column_config.TextColumn("Posição / Cargo"),
+                "Definição": st.column_config.SelectboxColumn("Definição", options=["R", "A", "C", "I", ""]),
+                "Medição": st.column_config.SelectboxColumn("Medição", options=["R", "A", "C", "I", ""]),
+                "Análise": st.column_config.SelectboxColumn("Análise", options=["R", "A", "C", "I", ""]),
+                "Melhoria": st.column_config.SelectboxColumn("Melhoria", options=["R", "A", "C", "I", ""]),
+                "Controle": st.column_config.SelectboxColumn("Controle", options=["R", "A", "C", "I", ""])
+            },
+            disabled=read_only
+        )
+        
+        with st.expander("❔ Entenda o que significa R, A, C, I", expanded=True):
+            st.markdown("""
+            **Legenda da Matriz RACI:**
+            - **[R] Responsible (Responsável):** Quem de fato executa a tarefa/atividade. Quem "põe a mão na massa".
+            - **[A] Accountable (Aprovador/Autoridade):** Quem tem a palavra final e responde pelo resultado da etapa. (Para evitar paralisia decisória, o ideal é ter apenas 1 "A" por fase).
+            - **[C] Consulted (Consultado):** Quem precisa ser consultado para dar opiniões técnicas, fornecer dados ou validar o que está sendo construído (Comunicação de via dupla).
+            - **[I] Informed (Informado):** Quem apenas precisa receber comunicados sobre o andamento e decisões daquela etapa, mas sem gerência de voto (Comunicação de via única).
+            """)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        cR1, cR2 = st.columns([1, 4])
+        with cR1:
+            if st.button("💾 Salvar Matriz", disabled=read_only, use_container_width=True):
+                project_state["raci"] = edited_raci
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                db.save_draft(pid, tool, {"text": str(edited_raci)})
+                st.success("Matriz RACI salva!")
+
     else:
         st.info("Outras ferramentas (Ishikawa, etc.) estão na fila de atualização para a nuvem.")
         draft = db.load_draft(pid, tool) or {}
@@ -932,6 +975,9 @@ with tool_container:
             st.success("Salvo!")
 
 with coach_container:
+    if tool == "Matriz RACI":
+        st.stop()
+        
     st.markdown("<br><hr>", unsafe_allow_html=True)
     st.subheader("👨🏻‍⚕️ Coach IA - Doutor Lean")
     
