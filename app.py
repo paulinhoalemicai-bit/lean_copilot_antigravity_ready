@@ -450,11 +450,14 @@ with tool_container:
                 if st.button("📥 Importar do VOC/VOB", help="Importa dados do VOC/VOB apenas para os campos ainda vazios", use_container_width=True, disabled=read_only):
                     v_state = project_state.get("voc_vob", {})
                     
-                    tem_problema = bool(charter.get("problem", "").strip())
-                    tem_ind = bool(charter.get("main_indicator", "").strip())
+                    # Usa a session_state live para checar se o usuário realmente apagou fisicamente na tela
+                    val_prob = st.session_state.get("charter_problem") if st.session_state.get("charter_problem") is not None else charter.get("problem", "")
+                    val_ind = st.session_state.get("charter_ind") if st.session_state.get("charter_ind") is not None else charter.get("main_indicator", "")
+                    val_goal = st.session_state.get("charter_goal") if st.session_state.get("charter_goal") is not None else charter.get("goal", "")
                     
-                    goal_txt = charter.get("goal", "").strip()
-                    tem_goal = bool(goal_txt and not goal_txt.startswith("[INCOMPLETO"))
+                    tem_problema = bool(val_prob.strip())
+                    tem_ind = bool(val_ind.strip())
+                    tem_goal = bool(val_goal.strip() and not val_goal.strip().startswith("[INCOMPLETO"))
                     
                     extraidos = []
                     indicadores = []
@@ -476,6 +479,11 @@ with tool_container:
                             lista_reqs = "\n".join(f"- {r}" for r in list(dict.fromkeys(requisitos)))
                             charter["goal"] = f"[INCOMPLETO - Falta estrutura SMART]\nObjetivo final deve atingir os seguintes CTQs importados:\n{lista_reqs}"
                             
+                        # Mantém as alterações live do usuário recém digitadas
+                        if tem_problema: charter["problem"] = val_prob
+                        if tem_ind: charter["main_indicator"] = val_ind
+                        if tem_goal: charter["goal"] = val_goal
+                            
                         project_state["charter"] = charter
                         db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -486,15 +494,15 @@ with tool_container:
                         else:
                             st.toast("Nenhum dado novo encontrado no formato VOC/VOB para importação.", icon="🔍")
 
-            problem = st.text_area("hidden_problem", value=charter.get("problem", ""), height=150, label_visibility="collapsed", disabled=read_only)
+            problem = st.text_area("hidden_problem", value=charter.get("problem", ""), key="charter_problem", height=150, label_visibility="collapsed", disabled=read_only)
             
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("**Objetivo (SMART)**")
-                goal = st.text_area("hidden_goal", value=charter.get("goal", ""), height=120, label_visibility="collapsed", disabled=read_only)
+                goal = st.text_area("hidden_goal", value=charter.get("goal", ""), key="charter_goal", height=120, label_visibility="collapsed", disabled=read_only)
             with c2:
                 st.markdown("**Indicador Principal**")
-                main_indicator = st.text_area("hidden_ind", value=charter.get("main_indicator", ""), height=120, label_visibility="collapsed", disabled=read_only)
+                main_indicator = st.text_area("hidden_ind", value=charter.get("main_indicator", ""), key="charter_ind", height=120, label_visibility="collapsed", disabled=read_only)
                 
             benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=150, disabled=read_only)
         
