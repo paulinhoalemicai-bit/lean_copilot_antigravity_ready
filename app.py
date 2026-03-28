@@ -648,6 +648,16 @@ with coach_container:
                     project_state["charter"]["problem"] = new_data.get("problem", "")
                     project_state["charter"]["benefits"] = new_data.get("benefits", "")
                     
+                    # Se o aluno pulou o botão de importação, vamos sugar o indicador quietamente pra ajudá-lo
+                    if not project_state["charter"].get("main_indicator"):
+                        v_state = project_state.get("voc_vob", {})
+                        indics = []
+                        for row in v_state.get("voc", []) + v_state.get("vob", []):
+                            y_v = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
+                            if y_v: indics.append(y_v)
+                        if indics:
+                            project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
+                    
                     db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (Problem)"})
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     
@@ -664,6 +674,16 @@ with coach_container:
                     if "charter" not in project_state:
                         project_state["charter"] = {}
                     project_state["charter"]["goal"] = smart_goal
+                    
+                    # Força a captura do indicador caso ainda esteja vazia
+                    if not project_state["charter"].get("main_indicator"):
+                        v_state = project_state.get("voc_vob", {})
+                        indics = []
+                        for row in v_state.get("voc", []) + v_state.get("vob", []):
+                            y_v = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
+                            if y_v: indics.append(y_v)
+                        if indics:
+                            project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
                     
                     db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (SMART Goal)"})
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
