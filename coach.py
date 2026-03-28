@@ -394,6 +394,67 @@ Gere EXATAMENTE a frase final da Meta SMART.
     except Exception as e:
         return f"Erro IA ao gerar SMART: {str(e)}"
 
+def suggest_sipoc_macro(project_state: dict, desc: str) -> List[str]:
+    system = """
+Você é um especialista Master Black Belt focado em mapeamento SIPOC.
+O aluno relatará uma descrição textual de um processo. Extraia de 4 a 8 MACRO ETAPAS (P - Process) dessa descrição.
+Regras:
+1. Comece cada etapa com um verbo no infinitivo ou substantivo de ação forte (ex: "Receber Paciente").
+2. Nível macro (não inclua micro-tarefas da mesma estação).
+3. Responda APENAS em JSON estrito.
+- "macro_etapas": lista de strings curtas em ordem cronológica.
+""".strip()
+    
+    user_str = f"Contexto do Projeto:\n{json.dumps(project_state.get('name', ''), ensure_ascii=False)}\n\nDescrição Livre:\n{desc}"
+    try:
+        out = _chat_json(system, user_str)
+        return [str(x).strip() for x in out.get("macro_etapas", []) if str(x).strip()]
+    except Exception:
+        return []
+
+def suggest_sipoc_io(project_state: dict, target: str) -> list:
+    current_sipoc = project_state.get("sipoc", [])
+    if not current_sipoc: 
+        return []
+    
+    steps_txt = [s.get("P", f"Etapa {i+1}") for i, s in enumerate(current_sipoc)]
+    
+    if target == "inputs":
+        system = """
+Você é um Master Black Belt. O aluno lhe passará uma lista de Etapas de um Processo (P).
+Para CADA etapa sequencial da array, defina 1 a 3 Entradas vitais (I) e seus Fornecedores (S).
+- Sja muito curto, no máximo 4 palavras por S e I.
+- Responda JSON com a chave "rows".
+- "rows": array de arrays de objetos {"S": "Fornecedor", "I": "Entrada"}.
+Importante: O tamanho do array "rows" MUST BE EXATAMENTE IGUAL ao tamanho do array de Etapas enviado.
+"""
+    else:
+        system = """
+Você é um Master Black Belt. O aluno lhe passará uma lista de Etapas de um Processo (P).
+Para CADA etapa sequencial da array, defina 1 a 3 Saídas resultantes (O) e o Cliente recebedor (C).
+- Seja muito curto, no máximo 4 palavras por O e C.
+- Responda JSON com a chave "rows".
+- "rows": array de arrays de objetos {"O": "Saída", "C": "Cliente"}.
+Importante: O tamanho do array "rows" MUST BE EXATAMENTE IGUAL ao tamanho do array de Etapas enviado.
+"""
+
+    user_str = f"Lista Estrita de ETAPAS (tamanho {len(steps_txt)}):\n{json.dumps(steps_txt, ensure_ascii=False)}"
+    
+    try:
+        out = _chat_json(system, user_str)
+        rows_ai = out.get("rows", [])
+        
+        # Sincroniza e sobrescreve
+        for idx, step in enumerate(current_sipoc):
+            if idx < len(rows_ai) and isinstance(rows_ai[idx], list):
+                if target == "inputs":
+                    step["inputs"] = rows_ai[idx]
+                else:
+                    step["outputs"] = rows_ai[idx]
+        return current_sipoc
+    except Exception:
+        return current_sipoc
+
 def suggest_vocvob_row(target_type: str, q1: str, q2: str, q3: str, project_state: dict) -> Dict[str, str]:
     system = f"""
 Você é especialista em Lean Seis Sigma, focando em {target_type}.

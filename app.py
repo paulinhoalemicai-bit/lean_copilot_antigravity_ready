@@ -20,6 +20,8 @@ from coach import (
     generate_problem_benefits_from_vocvob,
     generate_smart_goal_from_charter_context,
     suggest_vocvob_row,
+    suggest_sipoc_macro,
+    suggest_sipoc_io,
 )
 
 st.set_page_config(page_title="Lean Copilot MVP", layout="wide", page_icon="🏥")
@@ -715,12 +717,21 @@ with tool_container:
                         
                     with c_i:
                         if not read_only:
-                            if st.button("➕", help="Adicionar nova linha de Fornecedor/Entrada", key=f"btn_add_inp_{i}", use_container_width=True):
-                                inps.append({"S": "", "I": ""})
-                                project_state["sipoc"] = data_list
-                                project_state["sipoc"][i]["inputs"] = inps
-                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                                st.rerun()
+                            c_add, c_rem = st.columns(2)
+                            with c_add:
+                                if st.button("➕", help="Adicionar Fornecedor/Entrada", key=f"btn_add_inp_{i}", use_container_width=True):
+                                    inps.append({"S": "", "I": ""})
+                                    project_state["sipoc"] = data_list
+                                    project_state["sipoc"][i]["inputs"] = inps
+                                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                    st.rerun()
+                            with c_rem:
+                                if st.button("➖", help="Remover última Entrada", key=f"btn_rem_inp_{i}", use_container_width=True, disabled=(len(inps) <= 1)):
+                                    inps.pop()
+                                    project_state["sipoc"] = data_list
+                                    project_state["sipoc"][i]["inputs"] = inps
+                                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                    st.rerun()
                                 
                     # Lado Direito: Saídas e Clientes
                     outs = step.get("outputs", [])
@@ -736,12 +747,21 @@ with tool_container:
                         
                     with c_o:
                         if not read_only:
-                            if st.button("➕", help="Adicionar nova linha de Saída/Cliente", key=f"btn_add_out_{i}", use_container_width=True):
-                                outs.append({"O": "", "C": ""})
-                                project_state["sipoc"] = data_list
-                                project_state["sipoc"][i]["outputs"] = outs
-                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                                st.rerun()
+                            c_add2, c_rem2 = st.columns(2)
+                            with c_add2:
+                                if st.button("➕", help="Adicionar Saída/Cliente", key=f"btn_add_out_{i}", use_container_width=True):
+                                    outs.append({"O": "", "C": ""})
+                                    project_state["sipoc"] = data_list
+                                    project_state["sipoc"][i]["outputs"] = outs
+                                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                    st.rerun()
+                            with c_rem2:
+                                if st.button("➖", help="Remover última Saída", key=f"btn_rem_out_{i}", use_container_width=True, disabled=(len(outs) <= 1)):
+                                    outs.pop()
+                                    project_state["sipoc"] = data_list
+                                    project_state["sipoc"][i]["outputs"] = outs
+                                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                    st.rerun()
                                 
                     out_rows.append({"P": p_val, "inputs": new_inps, "outputs": new_outs})
                     
@@ -814,6 +834,8 @@ with coach_container:
     q_tempo = ""
     q_meta = ""
     target_charter = ""
+    target_sipoc = ""
+    q_desc = ""
     
     if ia_action == "Gere uma Sugestão de Preenchimento":
         if tool == "VOC/VOB":
@@ -839,6 +861,17 @@ with coach_container:
                 st.info("💡 **Geração SMART:** O Doutor Lean reescreverá o que estiver importado na caixa do Objetivo do seu Charter transformando numa meta oficial de excelência.")
                 q_tempo = st.text_input("Prazo: Em quanto tempo atingiremos o objetivo? (Ex: até Dez/2024)", disabled=read_only)
                 q_meta = st.text_input("Meta: Qual o número a ser atingido? (Ex: Reduzir tempo para 15min)", disabled=read_only)
+        elif tool == "SIPOC (por etapa)":
+            st.info("💡 **Mapeamento Modular:** Diga qual parte do fluxo o Doutor Lean deve estruturar ativamente para você.")
+            target_sipoc = st.radio("O que preencher automaticamente?", ["Etapas Mestre do Processo (P)", "Linhas de Entrada e Fornecedores (S/I)", "Linhas de Saídas e Clientes (O/C)"], disabled=read_only)
+
+            if target_sipoc == "Etapas Mestre do Processo (P)":
+                st.warning("⚠️ **Aviso de Sobrescrição:** A geração baseada em texto livre vai inicializar o tabuleiro do zero com novas Grandes Fases deduzidas, substituindo tudo atual.")
+                q_desc = st.text_area("Descreva de forma simples como funciona o seu processo atual do início ao fim (Textão Livre):", disabled=read_only, height=100)
+            elif target_sipoc == "Linhas de Entrada e Fornecedores (S/I)":
+                st.info("💡 **Mapeamento de Esquerda:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todos os Fornecedores e Entradas lógicas atreladas a elas.")
+            else:
+                st.info("💡 **Mapeamento de Direita:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todas as Saídas e Clientes lógicas atreladas a elas.")
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -926,6 +959,39 @@ with coach_container:
                     db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (SMART Goal)"})
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Objetivo construído segundo o padrão SMART! Releia e edite se necessário."
+                    st.rerun()
+
+        # --- FLUXO ESPECIAL: Geração (Autocompletar) do SIPOC ---
+        elif tool == "SIPOC (por etapa)" and mode_str == "generate":
+            if target_sipoc == "Etapas Mestre do Processo (P)":
+                if not q_desc.strip():
+                    st.warning("Forneça pelo menos 1 frase ou passo-a-passo para a IA extrair a lógica macro!")
+                else:
+                    with st.spinner("Dedução Ativa: Mapeando macro etapas..."):
+                        macro_etapas = suggest_sipoc_macro(project_state, q_desc)
+                        new_sipoc = [{"P": m, "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]} for m in macro_etapas]
+                        if not new_sipoc:
+                            st.error("Falha na geração das etapas lógicas. Tente reformular a descrição.")
+                        else:
+                            project_state["sipoc"] = new_sipoc
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.session_state["ai_generated_warning"] = "✨ ⚠️ Etapas centrais do processo mapeadas! Agora preencha os lados ou peça pra IA completar."
+                            st.rerun()
+
+            elif target_sipoc == "Linhas de Entrada e Fornecedores (S/I)":
+                with st.spinner("Análise Combinatória: Gerando entradas baseando-se nos nós centrais vigentes..."):
+                    updated_sipoc = suggest_sipoc_io(project_state, "inputs")
+                    project_state["sipoc"] = updated_sipoc
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Fornecedores e Entradas associados com sucesso aos blocos estruturais de processo da esquerda."
+                    st.rerun()
+
+            elif target_sipoc == "Linhas de Saídas e Clientes (O/C)":
+                with st.spinner("Análise Combinatória: Gerando saídas baseando-se nos nós centrais vigentes..."):
+                    updated_sipoc = suggest_sipoc_io(project_state, "outputs")
+                    project_state["sipoc"] = updated_sipoc
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Saídas e Clientes resolvidos com sucesso nos blocos de direita. Finalize seu tabuleiro e salve."
                     st.rerun()
 
         # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
