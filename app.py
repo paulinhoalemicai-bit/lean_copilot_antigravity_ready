@@ -190,24 +190,25 @@ with st.sidebar:
         model_options = {
             "gpt-5.4-nano": "🟢 gpt-5.4-nano (Extrema economia - Mais Barato)",
             "gpt-5.4-mini": "🟡 gpt-5.4-mini (Mais barato/Rápido)",
+            "gpt-4o-mini": "🛜 gpt-4o-mini (Estável / Padrão Antigo)",
             "o3-mini": "🔵 o3-mini (Raciocínio Avançado - Custo Médio)",
             "gpt-4o": "🟠 gpt-4o (Legacy / Equilíbrio - Caro)",
             "gpt-5.4-pro": "🔴 gpt-5.4-pro (Alta inteligência - Mais Caro)",
             "Outro": "⚙️ Outro (Digitar Manualmente)"
         }
         
-        # Inverter para achar pelo valor no dropdown
         options_list = list(model_options.values())
         
         # Qual o index do modelo atual?
-        default_idx = 1 # gpt-5.4-mini ou gpt-4o-mini default
-        for idx, (k, v) in enumerate(model_options.items()):
+        default_idx = 2 # Padrão cai no gpt-4o-mini se não achar
+        for idx, k in enumerate(model_options.keys()):
             if k == current_ai:
                 default_idx = idx
                 break
         
-        if current_ai not in model_options and current_ai != "gpt-4o-mini":
-            default_idx = len(options_list) - 1 # Outro
+        # Se for um modelo alienígena que o prof digitou antes, força cair no 'Outro'
+        if current_ai not in model_options:
+            default_idx = len(options_list) - 1 
             
         selected_display = st.selectbox("Selecione a Engine de IA:", options_list, index=default_idx)
         
@@ -218,9 +219,14 @@ with st.sidebar:
                 new_ai = k
                 break
                 
-        if new_ai == "Outro" or current_ai not in model_options:
-            custom_input = st.text_input("Digite o nome exato da versão:", value=current_ai if current_ai not in model_options else "")
-            if custom_input: new_ai = custom_input.strip()
+        # Só exibe a caixa de texto se o Dropdown estiver fisicamente selecionado na opção 'Outro'
+        if new_ai == "Outro":
+            custom_input = st.text_input(
+                "Digite o nome exato da versão:", 
+                value=current_ai if current_ai not in model_options else ""
+            )
+            if custom_input.strip(): 
+                new_ai = custom_input.strip()
 
         if st.button("Salvar Modelo para Todos", use_container_width=True):
             if new_ai and new_ai != "Outro":
