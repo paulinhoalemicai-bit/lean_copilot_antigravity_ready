@@ -304,6 +304,7 @@ def default_project_state(name: str, uid: str) -> dict:
             "hard": 0.0, "hard_racional": "",
             "soft": 0.0, "soft_racional": "",
             "avoidance": 0.0, "avoidance_racional": "",
+            "faturamento": 0.0, "faturamento_racional": "",
             "notas_gerais": ""
         },
         "metrics": [],
@@ -316,6 +317,7 @@ def default_project_state(name: str, uid: str) -> dict:
             "hard": 0.0, "hard_racional": "",
             "soft": 0.0, "soft_racional": "",
             "avoidance": 0.0, "avoidance_racional": "",
+            "faturamento": 0.0, "faturamento_racional": "",
             "notas_gerais": ""
         },
         "open_gaps": [],
@@ -874,7 +876,7 @@ with tool_container:
         state_key = "saving_projetado" if tool == "Saving Projetado" else "saving_realizado"
         sav = project_state.get(state_key) or {}
         
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
         with c1:
             st.markdown("#### Hard Saving")
             st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Impacto Direto no DRE - Ex: Materiais, Faturado)</div>", unsafe_allow_html=True)
@@ -885,13 +887,20 @@ with tool_container:
             st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Ganho Operacional / Liberação de Capacidade)</div>", unsafe_allow_html=True)
             s_val = st.number_input("Valor (R$)", value=float(sav.get("soft", 0.0)), disabled=read_only, key=f"soft_{state_key}")
             s_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("soft_racional", ""), height=150, disabled=read_only, key=f"sr_{state_key}")
+        
+        c3, c4 = st.columns(2)
         with c3:
             st.markdown("#### Cost Avoidance")
             st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Fuga de Custo - Ex: Evitou contratar, Multas)</div>", unsafe_allow_html=True)
             a_val = st.number_input("Valor (R$)", value=float(sav.get("avoidance", 0.0)), disabled=read_only, key=f"avoid_{state_key}")
             a_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("avoidance_racional", ""), height=150, disabled=read_only, key=f"ar_{state_key}")
+        with c4:
+            st.markdown("#### Ganho de Faturamento")
+            st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Novas Receitas - Ex: Aumento de Capacidade e Venda)</div>", unsafe_allow_html=True)
+            f_val = st.number_input("Valor (R$)", value=float(sav.get("faturamento", 0.0)), disabled=read_only, key=f"fatu_{state_key}")
+            f_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("faturamento_racional", ""), height=150, disabled=read_only, key=f"fr_{state_key}")
             
-        total = h_val + s_val + a_val
+        total = h_val + s_val + a_val + f_val
         st.markdown(f"**Total Saving Combinado (Estimativa da Aba):** `R$ {total:,.2f}`".replace(",", "X").replace(".", ",").replace("X", "."))
         
         notas = st.text_area("Notas Gerais / Justificativa Lógica de Negócio (Business Case)", value=sav.get("notas_gerais", project_state.get("charter", {}).get("benefits", "")), height=200, disabled=read_only)
@@ -903,6 +912,7 @@ with tool_container:
                     "hard": h_val, "hard_racional": h_rac,
                     "soft": s_val, "soft_racional": s_rac,
                     "avoidance": a_val, "avoidance_racional": a_rac,
+                    "faturamento": f_val, "faturamento_racional": f_rac,
                     "notas_gerais": notas
                 }
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -986,7 +996,7 @@ with coach_container:
                 st.info("💡 **Mapeamento de Direita:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todas as Saídas e Clientes lógicas atreladas a elas.")
         elif tool in ["Saving Projetado", "Saving Realizado"]:
             st.info("💡 **Doutor Lean CFO:** Diga quais os ganhos imaginados neste projeto, e o Coach construirá um formato executivo guiando como precificar (e enquadrar em Hard/Soft) cada um deles.")
-            q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", value=project_state.get("charter", {}).get("benefits", ""), height=100, disabled=read_only)
+            q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", value=project_state.get("charter", {}).get("benefits", ""), height=250, disabled=read_only)
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -1158,13 +1168,17 @@ with coach_container:
         st.markdown("### 🏦 Classificação de Oportunidades do CFO Virtual")
         st.info("O Coach categorizou as suas ideias. Copie os racionais matemáticos que fizerem sentido e preencha nos blocos editáveis no topo desta página.")
         _sav = st.session_state["saving_coach_feedback"]
-        cc1, cc2, cc3 = st.columns(3)
+        cc1, cc2 = st.columns(2)
         with cc1:
             st.text_area("🔴 Sugestão Hard Saving", value=_sav.get("hard", ""), height=250, disabled=True, key="sav_h")
         with cc2:
             st.text_area("🟡 Sugestão Soft Saving", value=_sav.get("soft", ""), height=250, disabled=True, key="sav_s")
+        
+        cc3, cc4 = st.columns(2)
         with cc3:
             st.text_area("🟢 Sugestão Cost Avoidance", value=_sav.get("avoidance", ""), height=250, disabled=True, key="sav_a")
+        with cc4:
+            st.text_area("🔵 Sugestão de Faturamento", value=_sav.get("faturamento", ""), height=250, disabled=True, key="sav_f")
 
     st.markdown("---")
     st.markdown("### 📜 Memória de Sessões")

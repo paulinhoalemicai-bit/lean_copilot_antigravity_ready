@@ -463,13 +463,14 @@ Você é um CFO (Diretor Financeiro) de uma super corporação enxuta, especiali
 O aluno descreveu os ganhos que espera obter no projeto no texto "expected_gains".
 Você deve estruturá-los em um Racional base (Memorial de Cálculo textual) para orientar a precificação exata.
 
-Regras Estritas para os 3 baldes financeiros (Responda estritamente em JSON):
-- "hard_racional": Textos indicando impactos DIRETOS no DRE (ex: redução de material, aumento de tarifa aprovada). Diga ao aluno ONDE e COMO buscar na contabilidade, ex: "[Ganho] * [Preço Unitário]".
-- "soft_racional": Textos mitigando horas, produtividade, ou liberações não-em-caixa imediato.
-- "avoidance_racional": Fuga de custo, evitar contratação futura ou multas preventidas.
+Regras Estritas para os 4 baldes financeiros (Responda estritamente em JSON com as chaves exatas informadas abaixo):
+- "hard_racional": Textos indicando redução de custos DIRETOS e orçados no DRE (ex: redução de conta de material, corte de desperdício real). Diga ao aluno ONDE e COMO buscar na contabilidade.
+- "soft_racional": Textos mitigando horas (Ganho Operacional), produtividade ou custos que não aliviam o caixa diretamente hoje.
+- "avoidance_racional": Fuga de custo, evitar contratação futura que seria necessária ou multas prevenidas.
+- "faturamento_racional": Ganhos de REVENUE, aumento de Ticket Médio, Novos Clientes obtidos, Produção extra faturada.
 
 Retorne no máximo 3 ou 4 linhas detalhadas por campo. Comece provocando as contas matemáticas vazias que o aluno deve ir atrás de descobrir para fechar o número da tela.
-Caso algum balde não faça sentido pro relato, preencha com: "Nenhum mapeado no relato. (Explique se há algo oculto a ser pensado)".
+Caso algum balde não faça sentido pro relato, preencha com: "Nenhum fator mapeado pelo seu relato."
 """.strip()
 
     user_str = f"Benefícios/Ganhos prováveis citados pelo aluno:\n{expected_gains}"
@@ -478,10 +479,11 @@ Caso algum balde não faça sentido pro relato, preencha com: "Nenhum mapeado no
         return {
             "hard": str(out.get("hard_racional", "")).strip(),
             "soft": str(out.get("soft_racional", "")).strip(),
-            "avoidance": str(out.get("avoidance_racional", "")).strip()
+            "avoidance": str(out.get("avoidance_racional", "")).strip(),
+            "faturamento": str(out.get("faturamento_racional", "")).strip()
         }
     except Exception as e:
-        return {"hard": f"Erro IA: {e}", "soft": "", "avoidance": ""}
+        return {"hard": f"Erro IA: {e}", "soft": "", "avoidance": "", "faturamento": ""}
 
 def suggest_vocvob_row(target_type: str, q1: str, q2: str, q3: str, project_state: dict) -> Dict[str, str]:
     system = f"""
