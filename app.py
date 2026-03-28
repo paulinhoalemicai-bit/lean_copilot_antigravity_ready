@@ -671,11 +671,12 @@ with tool_container:
         draft = db.load_draft(pid, tool) or {}
         stored_sipoc = draft.get("sipoc") or project_state.get("sipoc") or []
         
-        # Correção do BUG fantasma: Se puxou um rascunho em texto do app antigo, limpa e inicializa os blocos
-        if isinstance(stored_sipoc, str) or (isinstance(stored_sipoc, list) and len(stored_sipoc) > 0 and isinstance(stored_sipoc[0], str)):
+        # Correção Blindada do BUG Fantasma / Migração do Legado:
+        # Se a interface mudou e o que está salvo no banco não reflete o novo modelo de Dict focado no Node 'P', zera e dá o overwrite.
+        if not isinstance(stored_sipoc, list) or (len(stored_sipoc) > 0 and not isinstance(stored_sipoc[0], dict)) or (len(stored_sipoc) > 0 and "P" not in stored_sipoc[0]):
             stored_sipoc = []
             
-        def render_sipoc_blocks(data_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        def render_sipoc_blocks(data_list):
             if not data_list:
                 data_list = [{"P": "", "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]}]
                 
