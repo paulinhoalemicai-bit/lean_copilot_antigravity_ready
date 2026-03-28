@@ -185,11 +185,47 @@ with st.sidebar:
         st.markdown("### 🛠️ Painel Admin")
         st.caption("Configurações Globais (Afeta todos os alunos)")
         current_ai = db.get_global_model()
-        new_ai = st.text_input("Modelo OpenAI Atual:", value=current_ai, help="Modelos suportados: gpt-4o-mini, gpt-4o, o1-preview, gpt-4.5-preview, etc.")
+        
+        # Mapeamento oficial 2026
+        model_options = {
+            "gpt-5.4-nano": "🟢 gpt-5.4-nano (Extrema economia - Mais Barato)",
+            "gpt-5.4-mini": "🟡 gpt-5.4-mini (Mais barato/Rápido)",
+            "o3-mini": "🔵 o3-mini (Raciocínio Avançado - Custo Médio)",
+            "gpt-4o": "🟠 gpt-4o (Legacy / Equilíbrio - Caro)",
+            "gpt-5.4-pro": "🔴 gpt-5.4-pro (Alta inteligência - Mais Caro)",
+            "Outro": "⚙️ Outro (Digitar Manualmente)"
+        }
+        
+        # Inverter para achar pelo valor no dropdown
+        options_list = list(model_options.values())
+        
+        # Qual o index do modelo atual?
+        default_idx = 1 # gpt-5.4-mini ou gpt-4o-mini default
+        for idx, (k, v) in enumerate(model_options.items()):
+            if k == current_ai:
+                default_idx = idx
+                break
+        
+        if current_ai not in model_options and current_ai != "gpt-4o-mini":
+            default_idx = len(options_list) - 1 # Outro
+            
+        selected_display = st.selectbox("Selecione a Engine de IA:", options_list, index=default_idx)
+        
+        # Mapeamento reverso
+        new_ai = ""
+        for k, v in model_options.items():
+            if v == selected_display:
+                new_ai = k
+                break
+                
+        if new_ai == "Outro" or current_ai not in model_options:
+            custom_input = st.text_input("Digite o nome exato da versão:", value=current_ai if current_ai not in model_options else "")
+            if custom_input: new_ai = custom_input.strip()
+
         if st.button("Salvar Modelo para Todos", use_container_width=True):
-            if new_ai.strip():
-                db.set_global_model(new_ai.strip())
-                st.success(f"Plataforma redirecionada para {new_ai.strip()}!")
+            if new_ai and new_ai != "Outro":
+                db.set_global_model(new_ai)
+                st.success(f"Plataforma roteada para {new_ai}!")
         st.markdown("---")
 
 def get_project_list():
