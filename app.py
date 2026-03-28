@@ -181,6 +181,17 @@ with st.sidebar:
         st.rerun()
     st.markdown("---")
 
+    if ROLE == "professor":
+        st.markdown("### 🛠️ Painel Admin")
+        st.caption("Configurações Globais (Afeta todos os alunos)")
+        current_ai = db.get_global_model()
+        new_ai = st.text_input("Modelo OpenAI Atual:", value=current_ai, help="Modelos suportados: gpt-4o-mini, gpt-4o, o1-preview, gpt-4.5-preview, etc.")
+        if st.button("Salvar Modelo para Todos", use_container_width=True):
+            if new_ai.strip():
+                db.set_global_model(new_ai.strip())
+                st.success(f"Plataforma redirecionada para {new_ai.strip()}!")
+        st.markdown("---")
+
 def get_project_list():
     return db.list_projects(ROLE, USERNAME)
 

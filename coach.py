@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from config import TOOL_GUIDANCE
+import db
 
 ENV_PATH = Path(__file__).with_name(".env")
 load_dotenv(dotenv_path=ENV_PATH)
@@ -72,7 +73,7 @@ def _parse_json_from_text(text: str) -> Dict[str, Any]:
 
 def _chat_json(system: str, user: str) -> Dict[str, Any]:
     response = client.chat.completions.create(
-        model=MODEL,
+        model=db.get_global_model(),
         temperature=0.2,
         response_format={"type": "json_object"},
         messages=[
@@ -383,7 +384,7 @@ Gere EXATAMENTE a frase final da Meta SMART.
 
     try:
         response = client.chat.completions.create(
-            model=MODEL,
+            model=db.get_global_model(),
             temperature=0.2,
             messages=[
                 {"role": "system", "content": system},

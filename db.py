@@ -242,3 +242,42 @@ def list_recent_sessions(project_id: str, limit: int = 6) -> List[Dict[str, Any]
         return out
     finally:
         db.close()
+
+# --- Configurações Globais (Professor Admin) ---
+def get_global_model() -> str:
+    db = SessionLocal()
+    try:
+        cfg = db.query(Project).filter(Project.project_id == "SYSTEM_CONFIG").first()
+        if cfg and cfg.state_json:
+            import json
+            state = json.loads(cfg.state_json)
+            return state.get("openai_model", "gpt-4o-mini")
+        return "gpt-4o-mini"
+    except Exception:
+        return "gpt-4o-mini"
+    finally:
+        db.close()
+
+def set_global_model(model_name: str) -> None:
+    db = SessionLocal()
+    try:
+        import json
+        cfg = db.query(Project).filter(Project.project_id == "SYSTEM_CONFIG").first()
+        if not cfg:
+            cfg = Project(
+                project_id="SYSTEM_CONFIG",
+                name="[ADMIN] System Configuration",
+                state_json=json.dumps({"openai_model": model_name}),
+                user_id="prof"
+            )
+            db.add(cfg)
+        else:
+            state = json.loads(cfg.state_json) if cfg.state_json else {}
+            state["openai_model"] = model_name
+            cfg.state_json = json.dumps(state)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
