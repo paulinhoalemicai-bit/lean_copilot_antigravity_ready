@@ -22,6 +22,7 @@ from coach import (
     suggest_vocvob_row,
     suggest_sipoc_macro,
     suggest_sipoc_io,
+    suggest_saving_rationale
 )
 
 st.set_page_config(page_title="Lean Copilot MVP", layout="wide", page_icon="🏥")
@@ -299,12 +300,24 @@ def default_project_state(name: str, uid: str) -> dict:
             },
         },
         "sipoc": {"serpentes": [], "rows": [], "notes": ""},
+        "saving_projetado": {
+            "hard": 0.0, "hard_racional": "",
+            "soft": 0.0, "soft_racional": "",
+            "avoidance": 0.0, "avoidance_racional": "",
+            "notas_gerais": ""
+        },
         "metrics": [],
         "baseline": {"period": "", "values": {}, "notes": ""},
         "hypotheses": [],
         "solutions": [],
         "pilots": [],
         "control_plan": [],
+        "saving_realizado": {
+            "hard": 0.0, "hard_racional": "",
+            "soft": 0.0, "soft_racional": "",
+            "avoidance": 0.0, "avoidance_racional": "",
+            "notas_gerais": ""
+        },
         "open_gaps": [],
         "last_session_summary": "",
     }
@@ -419,7 +432,7 @@ with tool_container:
                         project_state["executive_summary"] = resumo.strip()
                         
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.success("Tudo salvo! Seu projeto foi atualizado.")
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Linhas geradas automaticamente com base no processo (P) preenchido. Valide!"
                         st.rerun()
 
     elif tool == "VOC/VOB":
@@ -855,6 +868,50 @@ with tool_container:
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                 st.success("SIPOC salvo com sucesso!")
 
+    elif tool in ["Saving Projetado", "Saving Realizado"]:
+        st.subheader(f"Cálculo de {tool}")
+        st.info("Desdobre o impacto financeiro. O 'Saving Total' será calculado automaticamente ao salvar.")
+        state_key = "saving_projetado" if tool == "Saving Projetado" else "saving_realizado"
+        sav = project_state.get(state_key) or {}
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown("#### Hard Saving")
+            st.caption("(Impacto Direto no DRE - Ex: Materiais, Faturado)")
+            h_val = st.number_input("Valor (R$)", value=float(sav.get("hard", 0.0)), disabled=read_only, key=f"hard_{state_key}")
+            h_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("hard_racional", ""), height=150, disabled=read_only, key=f"hr_{state_key}")
+        with c2:
+            st.markdown("#### Soft Saving")
+            st.caption("(Impacto Indireto - Ex: Horas Homem transferidas)")
+            s_val = st.number_input("Valor (R$)", value=float(sav.get("soft", 0.0)), disabled=read_only, key=f"soft_{state_key}")
+            s_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("soft_racional", ""), height=150, disabled=read_only, key=f"sr_{state_key}")
+        with c3:
+            st.markdown("#### Cost Avoidance")
+            st.caption("(Fuga de Custo - Ex: Evitou contratar, Multas)")
+            a_val = st.number_input("Valor (R$)", value=float(sav.get("avoidance", 0.0)), disabled=read_only, key=f"avoid_{state_key}")
+            a_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("avoidance_racional", ""), height=150, disabled=read_only, key=f"ar_{state_key}")
+            
+        total = h_val + s_val + a_val
+        st.markdown(f"**Total Saving Combinado (Estimativa da Aba):** `R$ {total:,.2f}`".replace(",", "X").replace(".", ",").replace("X", "."))
+        
+        notas = st.text_area("Notas Gerais / Justificativa Lógica de Negócio (Business Case)", value=sav.get("notas_gerais", project_state.get("charter", {}).get("benefits", "")), height=100, disabled=read_only)
+
+        c1_b, c2_b = st.columns([1, 3])
+        with c1_b:
+            if st.button("💾 Salvar Memória de Cálculo", disabled=read_only, use_container_width=True):
+                project_state[state_key] = {
+                    "hard": h_val, "hard_racional": h_rac,
+                    "soft": s_val, "soft_racional": s_rac,
+                    "avoidance": a_val, "avoidance_racional": a_rac,
+                    "notas_gerais": notas
+                }
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                
+                payload = json.dumps(project_state[state_key], ensure_ascii=False)
+                db.save_draft(pid, tool, {"text": payload})
+                st.success("Cálculo e racional salvos com sucesso!")
+                st.rerun()
+
     else:
         st.info("Outras ferramentas (Ishikawa, etc.) estão na fila de atualização para a nuvem.")
         draft = db.load_draft(pid, tool) or {}
@@ -927,6 +984,9 @@ with coach_container:
                 st.info("💡 **Mapeamento de Esquerda:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todos os Fornecedores e Entradas lógicas atreladas a elas.")
             else:
                 st.info("💡 **Mapeamento de Direita:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todas as Saídas e Clientes lógicas atreladas a elas.")
+        elif tool in ["Saving Projetado", "Saving Realizado"]:
+            st.info("💡 **Doutor Lean CFO:** Diga quais os ganhos imaginados neste projeto, e o Coach construirá um formato executivo guiando como precificar (e enquadrar em Hard/Soft) cada um deles.")
+            q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", value=project_state.get("charter", {}).get("benefits", ""), height=100, disabled=read_only)
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -1047,6 +1107,24 @@ with coach_container:
                     project_state["sipoc"] = updated_sipoc
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Saídas e Clientes resolvidos com sucesso nos blocos de direita. Finalize seu tabuleiro e salve."
+                    st.rerun()
+
+        # --- FLUXO ESPECIAL: Geração do Saving CFO ---
+        elif tool in ["Saving Projetado", "Saving Realizado"] and mode_str == "generate":
+            if not q_desc:
+                st.warning("Eita! Você precisa descrever algum benefício preliminar ou ideia na caixa de texto pro CFO conseguir criar o modelo financeiro de conversão.")
+            else:
+                with st.spinner("O CFO Virtual está analisando as possibilidades de ganhos..."):
+                    new_sav = suggest_saving_rationale(project_state, q_desc)
+                    state_key = "saving_projetado" if tool == "Saving Projetado" else "saving_realizado"
+                    if state_key not in project_state:
+                        project_state[state_key] = {"hard": 0, "soft": 0, "avoidance": 0}
+                    project_state[state_key]["hard_racional"] = new_sav["hard"]
+                    project_state[state_key]["soft_racional"] = new_sav["soft"]
+                    project_state[state_key]["avoidance_racional"] = new_sav["avoidance"]
+                    project_state[state_key]["notas_gerais"] = q_desc
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Análise Financeira Concluída. Leia os Racionais preenchidos na tela de Cima, busque a contabilidade real e preencha os números finais (R$)."
                     st.rerun()
 
         # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---

@@ -4,12 +4,14 @@ TOOLS = [
     "Capa do Projeto",
     "VOC/VOB",
     "Project Charter",
+    "Saving Projetado",
     "SIPOC (por etapa)",
     "Ishikawa",
     "CauseEvidenceMatrix",
     "Solution",
     "Pilot",
     "ControlPlan",
+    "Saving Realizado"
 ]
 
 VOCVOB_COLUMNS = [
@@ -63,4 +65,18 @@ Objetivo:
     "Solution": "Desenho de soluções e contramedidas.",
     "Pilot": "Planejamento do piloto.",
     "ControlPlan": "Plano de controle e sustentação.",
+    "Saving Projetado": """
+Ferramenta Financeira de Cálculo de Saving Projetado (Define).
+Objetivo:
+- Dimensionar monetariamente o ganho prospectado baseado no Business Case do Charter.
+- Separar o racional de cálculo entre Hard Saving, Soft Saving e Cost Avoidance.
+- O Coach deve atuar como Diretor Financeiro, instigando como precificar horas improdutivas, custo de funcionário/hora e mitigadores.
+""",
+    "Saving Realizado": """
+Ferramenta Financeira de Cálculo de Saving Realizado (Control).
+Objetivo:
+- Apuração final contábil.
+- Avaliar se a contabilidade bateu com a meta projetada no início.
+- O Coach ajuda a formatar relatórios financeiros finais fáceis para diretoria.
+"""
 }

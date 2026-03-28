@@ -452,9 +452,36 @@ Importante: O tamanho do array "rows" MUST BE EXATAMENTE IGUAL ao tamanho do arr
                     step["inputs"] = rows_ai[idx]
                 else:
                     step["outputs"] = rows_ai[idx]
+        
         return current_sipoc
-    except Exception:
+    except Exception as e:
         return current_sipoc
+
+def suggest_saving_rationale(project_state: dict, expected_gains: str) -> dict:
+    system = """
+Você é um CFO (Diretor Financeiro) de uma super corporação enxuta, especialista em finanças de projetos Lean Seis Sigma.
+O aluno descreveu os ganhos que espera obter no projeto no texto "expected_gains".
+Você deve estruturá-los em um Racional base (Memorial de Cálculo textual) para orientar a precificação exata.
+
+Regras Estritas para os 3 baldes financeiros (Responda estritamente em JSON):
+- "hard_racional": Textos indicando impactos DIRETOS no DRE (ex: redução de material, aumento de tarifa aprovada). Diga ao aluno ONDE e COMO buscar na contabilidade, ex: "[Ganho] * [Preço Unitário]".
+- "soft_racional": Textos mitigando horas, produtividade, ou liberações não-em-caixa imediato.
+- "avoidance_racional": Fuga de custo, evitar contratação futura ou multas preventidas.
+
+Retorne no máximo 3 ou 4 linhas detalhadas por campo. Comece provocando as contas matemáticas vazias que o aluno deve ir atrás de descobrir para fechar o número da tela.
+Caso algum balde não faça sentido pro relato, preencha com: "Nenhum mapeado no relato. (Explique se há algo oculto a ser pensado)".
+""".strip()
+
+    user_str = f"Benefícios/Ganhos prováveis citados pelo aluno:\n{expected_gains}"
+    try:
+        out = _chat_json(system, user_str)
+        return {
+            "hard": str(out.get("hard_racional", "")).strip(),
+            "soft": str(out.get("soft_racional", "")).strip(),
+            "avoidance": str(out.get("avoidance_racional", "")).strip()
+        }
+    except Exception as e:
+        return {"hard": f"Erro IA: {e}", "soft": "", "avoidance": ""}
 
 def suggest_vocvob_row(target_type: str, q1: str, q2: str, q3: str, project_state: dict) -> Dict[str, str]:
     system = f"""
