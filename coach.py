@@ -23,7 +23,7 @@ if not api_key:
         "OPENAI_API_KEY=sua_chave_aqui\n"
     )
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 client = OpenAI(api_key=api_key)
 
 
