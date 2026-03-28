@@ -333,8 +333,19 @@ with tool_container:
         
         with st.container(border=True):
             novo_nome = st.text_input("Nome Oficial do Projeto", value=project_state.get("name", ""), disabled=read_only)
-            lider = st.text_input("Líder do Projeto (Yellow / Green / Black Belt)", value=project_state.get("leader", ""), disabled=read_only)
-            sponsor = st.text_input("Patrocinador (Sponsor)", value=project_state.get("sponsor", ""), disabled=read_only)
+            
+            cap1, cap2, cap3 = st.columns(3)
+            with cap1:
+                lider = st.text_input("Líder do Projeto (Yellow / Green / Black Belt)", value=project_state.get("leader", ""), disabled=read_only)
+            with cap2:
+                sponsor = st.text_input("Patrocinador (Sponsor)", value=project_state.get("sponsor", ""), disabled=read_only)
+            with cap3:
+                start_str = project_state.get("start_date", "")
+                try:
+                    default_date = datetime.strptime(start_str, "%Y-%m-%d").date() if start_str else datetime.now().date()
+                except:
+                    default_date = datetime.now().date()
+                start_date = st.date_input("Data de Início do Projeto", value=default_date, disabled=read_only, format="DD/MM/YYYY")
             
             resumo = st.text_area("Resumo Executivo (Elevator Pitch)", value=project_state.get("executive_summary", ""), height=120, disabled=read_only, help="Opcional. Uma breve descrição executiva do seu propósito.")
             
@@ -347,6 +358,7 @@ with tool_container:
                         project_state["name"] = novo_nome.strip()
                         project_state["leader"] = lider.strip()
                         project_state["sponsor"] = sponsor.strip()
+                        project_state["start_date"] = start_date.strftime("%Y-%m-%d")
                         project_state["executive_summary"] = resumo.strip()
                         
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -589,6 +601,55 @@ with tool_container:
                 i_w = st.number_input("Improve", value=int(timeline.get("Improve", 0) or 0), step=1, disabled=read_only)
             with cE:
                 c_w = st.number_input("Control", value=int(timeline.get("Control", 0) or 0), step=1, disabled=read_only)
+            
+            from datetime import timedelta
+            start_str = project_state.get("start_date", "")
+            try:
+                current_date = datetime.strptime(start_str, "%Y-%m-%d").date() if start_str else datetime.now().date()
+            except:
+                current_date = datetime.now().date()
+
+            total_weeks = d_w + m_w + a_w + i_w + c_w
+            
+            if total_weeks > 0:
+                phases = [("Define", d_w), ("Measure", m_w), ("Analyze", a_w), ("Improve", i_w), ("Control", c_w)]
+                colors = ["#1f77b4", "#d62728", "#ff7f0e", "#2ca02c", "#9467bd"]
+                
+                tasks = []
+                for i, (p_name, w) in enumerate(phases):
+                    if w > 0:
+                        end_date = current_date + timedelta(weeks=int(w))
+                        tasks.append({
+                            "Fase": p_name,
+                            "Início": current_date,
+                            "Fim": end_date,
+                            "Cor": colors[i]
+                        })
+                        current_date = end_date
+                
+                if tasks:
+                    df_gantt = pd.DataFrame(tasks)
+                    df_gantt["Início"] = pd.to_datetime(df_gantt["Início"])
+                    df_gantt["Fim"] = pd.to_datetime(df_gantt["Fim"])
+                    
+                    chart = alt.Chart(df_gantt).mark_bar(cornerRadius=4, height=20).encode(
+                        x=alt.X('Início:T', title='Data do Cronograma DMAIC', axis=alt.Axis(format='%d/%m/%Y', labelAngle=-45, grid=True)),
+                        x2='Fim:T',
+                        y=alt.Y('Fase:N', sort=["Define", "Measure", "Analyze", "Improve", "Control"], title='', axis=alt.Axis(labelPadding=10, labelFontWeight="bold")),
+                        color=alt.Color('Fase:N', scale=alt.Scale(domain=[p[0] for p in phases], range=colors), legend=None),
+                        tooltip=[
+                            alt.Tooltip('Fase:N', title='Etapa'), 
+                            alt.Tooltip('Início:T', format='%d/%m/%Y', title='Data Início'), 
+                            alt.Tooltip('Fim:T', format='%d/%m/%Y', title='Data Fim')
+                        ]
+                    ).properties(
+                        height=250
+                    ).configure_view(
+                        strokeWidth=0
+                    )
+                    st.markdown("---")
+                    st.markdown("**Gráfico de Gantt do Projeto (Baseado na Capa e nas Semanas)**")
+                    st.altair_chart(chart, use_container_width=True)
 
         charter_obj = {
             "problem": problem, "benefits": benefits, "goal": goal, "main_indicator": main_indicator, "scope_in": scope_in, "scope_out": scope_out,
