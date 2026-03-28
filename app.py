@@ -470,14 +470,15 @@ with tool_container:
             
             c1, c2 = st.columns(2)
             with c1:
-                goal = st.text_area("O Objetivo Desejado (Critério SMART)", value=charter.get("goal", ""), height=120, disabled=read_only)
+                st.markdown("**Objetivo (SMART)**")
+                goal = st.text_area("hidden_goal", value=charter.get("goal", ""), height=120, label_visibility="collapsed", disabled=read_only)
             with c2:
                 # Título Indicador com seu Botão Dedicado Pequeno
-                ind1, ind2 = st.columns([4, 1])
+                ind1, ind2 = st.columns([4, 1.2], vertical_alignment="center")
                 with ind1:
                     st.markdown("**Indicador Principal**")
                 with ind2:
-                    if st.button("🔄 Puxar (Y)", help="Copiar diretamente a leitura de indicadores (Y) do VOC/VOB.", use_container_width=True, disabled=read_only):
+                    if st.button("🔄 Puxar", help="Copiar diretamente a leitura de indicadores (Y) do VOC/VOB.", use_container_width=True, disabled=read_only):
                         v_state = project_state.get("voc_vob", {})
                         indicadores = []
                         for row in v_state.get("voc", []) + v_state.get("vob", []):
@@ -485,16 +486,15 @@ with tool_container:
                             if y_val: indicadores.append(y_val)
                         
                         if indicadores:
-                            # Quebra os indicadores um abaixo do outro
                             charter["main_indicator"] = "\n".join(f"- {i}" for i in list(dict.fromkeys(indicadores)))
                             project_state["charter"] = charter
                             db.save_draft(pid, tool, {"charter": charter, "text": "Charter Data: " + json.dumps(charter)})
                             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                             st.rerun()
                         else:
-                            st.warning("Nenhum Y no VOC/VOB!")
+                            st.toast("⚠️ Nenhum Y preenchido no VOC/VOB!", icon="⚠️")
                 
-                main_indicator = st.text_area("hidden_ind", value=charter.get("main_indicator", ""), height=87, label_visibility="collapsed", disabled=read_only)
+                main_indicator = st.text_area("hidden_ind", value=charter.get("main_indicator", ""), height=120, label_visibility="collapsed", disabled=read_only)
                 
             benefits = st.text_area("Benefícios", value=charter.get("benefits", ""), height=120, disabled=read_only)
         
