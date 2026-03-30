@@ -910,6 +910,7 @@ with tool_container:
                      st.warning("Seu SIPOC parece estar vazio ou sem Etapas P cadastradas.")
                 else:
                     project_state["matriz_indicadores"] = novas_linhas
+                    project_state["matriz_id"] = project_state.get("matriz_id", 0) + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.success("Etapas importadas com sucesso do SIPOC!")
                     st.rerun()
@@ -1014,9 +1015,12 @@ with tool_container:
                     st.rerun()
                         
         edited_ind = out_rows
+        # Sincroniza em memória (transiente) para que o Coach IA consiga ler o que acabou de ser digitado sem precisar salvar no BD
+        project_state["matriz_indicadores"] = edited_ind
         
         # Gerar o texto a partir do formulário p/ análise da IA
         new_text = "Matriz de Indicadores:\n" + json.dumps(edited_ind, ensure_ascii=False)
+
         
         c1, c2 = st.columns([1, 4])
         with c1:
@@ -1374,6 +1378,7 @@ with coach_container:
                 else:
                     # Sobrescreve a matriz com a resposta
                     project_state["matriz_indicadores"] = new_matriz
+                    project_state["matriz_id"] = project_state.get("matriz_id", 0) + 1
                     db.save_draft(pid, tool, {"text": json.dumps(new_matriz, ensure_ascii=False)})
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
