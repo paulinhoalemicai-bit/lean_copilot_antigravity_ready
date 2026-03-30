@@ -1105,17 +1105,19 @@ with tool_container:
         # --- Header da tabela ---
         st.markdown(
             '<style>'
-            '[data-testid="column"] { padding: 0 3px !important; }'
+            '#ce_table_wrap [data-testid="column"] { padding: 0 1px !important; gap: 0 !important; }'
+            '#ce_table_wrap button[kind="secondary"] { padding: 2px 4px !important; font-size: 0.72em !important; min-height: 24px !important; height: 24px !important; line-height: 1 !important; }'
             '</style>'
-            '<div style="background-color: #001C59; color: white; padding: 8px 10px; border-radius: 6px; margin-bottom: 4px;">'
+            '<div id="ce_table_wrap">'
+            '<div style="background-color: #001C59; color: white; padding: 6px 8px; border-radius: 6px; margin-bottom: 2px;">'
             '<div style="display: flex; align-items: center;">'
-            '<div style="width: 42px; font-size: 0.82em;"><b>#</b></div>'
-            '<div style="flex: 2; font-size: 0.82em; padding: 0 4px;"><b>Etapa do Processo</b></div>'
-            '<div style="flex: 3; font-size: 0.82em; padding: 0 4px;"><b>Indicador (X)</b></div>'
-            '<div style="width: 72px; font-size: 0.82em; text-align: center;"><b>Impacto<br>[1-100]</b></div>'
-            '<div style="width: 65px; font-size: 0.82em; text-align: center;"><b>Esforço<br>[1-10]</b></div>'
-            '<div style="flex: 2; font-size: 0.82em; padding: 0 4px;"><b>Justificativa IA</b></div>'
-            '<div style="width: 62px; font-size: 0.82em; text-align: center;"><b>Ações</b></div>'
+            '<div style="width: 36px; font-size: 0.78em;"><b>#</b></div>'
+            '<div style="flex: 2; font-size: 0.78em; padding: 0 2px;"><b>Etapa do Processo</b></div>'
+            '<div style="flex: 3; font-size: 0.78em; padding: 0 2px;"><b>Indicador (X)</b></div>'
+            '<div style="width: 62px; font-size: 0.78em; text-align: center;"><b>Impacto<br>[1-100]</b></div>'
+            '<div style="width: 56px; font-size: 0.78em; text-align: center;"><b>Esforço<br>[1-10]</b></div>'
+            '<div style="flex: 2; font-size: 0.78em; padding: 0 2px;"><b>Justificativa IA</b></div>'
+            '<div style="width: 44px; font-size: 0.78em; text-align: center;"><b>×/+</b></div>'
             '</div></div>',
             unsafe_allow_html=True
         )
@@ -1123,7 +1125,7 @@ with tool_container:
         out_causas = []
         for i, row in enumerate(causa_data):
             label = f"X{i+1}"
-            c_lbl, c_etapa, c_ind, c_imp, c_esf, c_just, c_act = st.columns([0.4, 2, 3, 0.75, 0.65, 2, 0.65])
+            c_lbl, c_etapa, c_ind, c_imp, c_esf, c_just, c_act = st.columns([0.33, 2, 3, 0.62, 0.55, 2, 0.42])
 
             c_lbl.markdown(f"<div style='padding-top:10px; font-weight:bold; color:#001C59;'>{label}</div>", unsafe_allow_html=True)
 
@@ -1162,16 +1164,17 @@ with tool_container:
             )
 
             with c_act:
-                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
                 if not read_only:
-                    if st.button("🗑️", key=f"ce_del_{i}_{ce_id}", help="Apagar linha"):
+                    # Botoes minúsculos lado a lado
+                    ba, bb = st.columns(2)
+                    if ba.button("×", key=f"ce_del_{i}_{ce_id}", help="Apagar esta linha", use_container_width=True):
                         nova = list(causa_data)
                         nova.pop(i)
                         project_state["causa_efeito"] = nova
                         project_state["causa_efeito_id"] = ce_id + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
-                    if st.button("➕", key=f"ce_add_{i}_{ce_id}", help="Inserir linha abaixo"):
+                    if bb.button("+", key=f"ce_add_{i}_{ce_id}", help="Inserir linha abaixo", use_container_width=True):
                         nova = list(causa_data)
                         nova.insert(i + 1, {"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
                         project_state["causa_efeito"] = nova
@@ -1489,8 +1492,8 @@ with coach_container:
             st.info("💡 **Geração Automática de Indicadores:** A IA analisará o problema do projeto e a natureza das etapas listadas (Processo) para sugerir preenchimentos para cada coluna.")
             st.warning("A IA apenas retornará dados preenchidos se detectar que a Tabela de Processos (no painel central) já possui Etapas (P) válidas.")
         elif tool == "Matriz Causa & Efeito":
-            st.info("💡 **Análise de Impacto:** O Doutor Lean analisará cada X listado na tabela e sugerirá os valores de **Impacto [1-100]** e **Esforço [1-10]** baseando-se no Problema registrado no Charter.")
-            st.warning("⚠️ Para uma boa análise, preencha antes os X's do Processo na tabela ao lado e salve o Problema no Project Charter.")
+            st.info("💡 **Análise de Causa & Efeito:** O Doutor Lean analisará cada X e gerará só o **Impacto** ou só o **Esforço**, dependendo do botão escolhido abaixo.")
+            st.warning("⚠️ Preencha os X's na tabela ao lado e certifique-se que o Problema está salvo no Project Charter.")
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -1501,10 +1504,67 @@ with coach_container:
             )
         st.warning("⚠️ **Atenção:** As informações geradas por Inteligência Artificial são exclusivas para direcionamento metodológico e devem obrigatoriamente ser revisadas e validadas na tabela ao lado antes do uso.")
         
-    btn_label = "🔎 Iniciar Revisão" if ia_action == "Revisão do Coach IA" else "✨ Gerar Sugestão"
+    if tool == "Matriz Causa & Efeito" and not read_only:
+        # Tres botoes separados para a ferramenta C&E
+        ce_b1, ce_b2, ce_b3 = st.columns([1, 1, 1])
+        ce_mode = None
+        if ce_b1.button("🎯 Avaliar Impacto", use_container_width=True):
+            ce_mode = "impacto"
+        if ce_b2.button("💪 Avaliar Esforço", use_container_width=True):
+            ce_mode = "esforco"
+        if ce_b3.button("💡 Avaliar Ambos", use_container_width=True):
+            ce_mode = "ambos"
 
-    if st.button(btn_label, disabled=read_only, use_container_width=True):
-        mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
+        if ce_mode:
+            causas_atuais = project_state.get("causa_efeito", [])
+            lista_causas = []
+            for r in causas_atuais:
+                etapa = str(r.get("etapa", r.get("causa", ""))).strip()
+                indicador = str(r.get("indicador", "")).strip()
+                texto = f"{etapa} — {indicador}" if indicador else etapa
+                if texto:
+                    lista_causas.append(texto)
+            if not lista_causas:
+                st.error("Preencha ao menos uma causa (X) na tabela antes de solicitar a análise.")
+            else:
+                spinner_msg = {
+                    "impacto": "Doutor Lean estimando Impacto de cada causa...",
+                    "esforco": "Doutor Lean estimando Esforço de cada causa...",
+                    "ambos": "Doutor Lean avaliando Impacto e Esforço de cada causa...",
+                }.get(ce_mode, "Processando...")
+                with st.spinner(spinner_msg):
+                    ai_rows = suggest_causa_efeito_impacto(project_state, lista_causas)
+                    if not ai_rows:
+                        st.error("A IA não retornou resultados. Tente novamente.")
+                    else:
+                        merged = []
+                        for idx, orig in enumerate(causas_atuais):
+                            match = ai_rows[idx] if idx < len(ai_rows) else None
+                            if match:
+                                novo = {
+                                    "etapa": str(orig.get("etapa", orig.get("causa", ""))),
+                                    "indicador": str(orig.get("indicador", "")),
+                                    "impacto": orig.get("impacto", 0),
+                                    "esforco": orig.get("esforco", 0),
+                                    "justificativa": str(match.get("justificativa", orig.get("justificativa", "")))
+                                }
+                                if ce_mode in ("impacto", "ambos"):
+                                    novo["impacto"] = int(match.get("impacto", orig.get("impacto", 0)))
+                                if ce_mode in ("esforco", "ambos"):
+                                    novo["esforco"] = int(match.get("esforco", orig.get("esforco", 0)))
+                                merged.append(novo)
+                            else:
+                                merged.append(orig)
+                        project_state["causa_efeito"] = merged
+                        project_state["causa_efeito_id"] = project_state.get("causa_efeito_id", 0) + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = f"✨ ⚠️ {'Impacto' if ce_mode == 'impacto' else 'Esforço' if ce_mode == 'esforco' else 'Impacto e Esforço'} estimados! Revise os valores e veja o gráfico."
+                        st.rerun()
+    else:
+        ce_mode = None
+        btn_label = "🔎 Iniciar Revisão" if ia_action == "Revisão do Coach IA" else "✨ Gerar Sugestão"
+        if st.button(btn_label, disabled=read_only, use_container_width=True):
+            mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
         
         # --- FLUXO ESPECIAL: Geração (Autocompletar) do VOC/VOB ---
         if tool == "VOC/VOB" and mode_str == "generate":
@@ -1640,44 +1700,6 @@ with coach_container:
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
                     st.rerun()
 
-        # --- FLUXO ESPECIAL: Análise de Impacto da Matriz Causa & Efeito ---
-        elif tool == "Matriz Causa & Efeito" and mode_str == "generate":
-            causas_atuais = project_state.get("causa_efeito", [])
-            # Montar lista de causas combinando etapa + indicador (novo formato) ou campo causa (legado)
-            lista_causas = []
-            for r in causas_atuais:
-                etapa = str(r.get("etapa", r.get("causa", ""))).strip()
-                indicador = str(r.get("indicador", "")).strip()
-                texto = f"{etapa} — {indicador}" if indicador else etapa
-                if texto:
-                    lista_causas.append(texto)
-            if not lista_causas:
-                st.error("Preencha ao menos uma causa (X) na tabela antes de solicitar a análise.")
-            else:
-                with st.spinner("Doutor Lean avaliando impacto e esforço de cada causa..."):
-                    ai_rows = suggest_causa_efeito_impacto(project_state, lista_causas)
-                    if not ai_rows:
-                        st.error("A IA não retornou resultados. Tente novamente.")
-                    else:
-                        # Mescla resultados por posição (a IA retorna na mesma ordem)
-                        merged = []
-                        for idx, orig in enumerate(causas_atuais):
-                            match = ai_rows[idx] if idx < len(ai_rows) else None
-                            if match:
-                                merged.append({
-                                    "etapa": str(orig.get("etapa", orig.get("causa", ""))),
-                                    "indicador": str(orig.get("indicador", "")),
-                                    "impacto": int(match.get("impacto", orig.get("impacto", 0))),
-                                    "esforco": int(match.get("esforco", orig.get("esforco", 0))),
-                                    "justificativa": str(match.get("justificativa", ""))
-                                })
-                            else:
-                                merged.append(orig)
-                        project_state["causa_efeito"] = merged
-                        project_state["causa_efeito_id"] = project_state.get("causa_efeito_id", 0) + 1
-                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Impacto e Esforço estimados pela IA! Revise os valores e o gráfico abaixo."
-                        st.rerun()
 
         # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
         else:
