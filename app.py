@@ -978,9 +978,27 @@ with tool_container:
             with c8:
                 st.markdown("<div style='height: 45px;'></div>", unsafe_allow_html=True)
                 if len(indicadores_data) > 1 and not read_only:
+                    # Delete current row
                     if st.button("🗑️", key=f"mat_del_{i}_{mat_id}", help="Apagar esta linha"):
                         nova_tabela = list(indicadores_data)
                         nova_tabela.pop(i)
+                        project_state["matriz_indicadores"] = nova_tabela
+                        project_state["matriz_id"] = mat_id + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                    # Add new row below current row
+                    if st.button("➕", key=f"mat_add_below_{i}_{mat_id}", help="Adicionar linha abaixo"):
+                        nova_tabela = list(indicadores_data)
+                        nova_tabela.insert(i + 1, {
+                            "Processo": "",
+                            "Quantidade/Volume": "",
+                            "Quantidade/Recursos": "",
+                            "Quantidade em processamento (WIP)": "",
+                            "Tempo (Lead/Cycle Time)": "",
+                            "Percentual (%)": "",
+                            "Qualidade (Erro/NPS)": "",
+                            "Financeiro (R$)": ""
+                        })
                         project_state["matriz_indicadores"] = nova_tabela
                         project_state["matriz_id"] = mat_id + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
