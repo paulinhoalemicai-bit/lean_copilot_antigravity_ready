@@ -900,6 +900,7 @@ with tool_container:
                         novas_linhas.append({
                             "Processo": p_text,
                             "Quantidade/Volume": "",
+                            "Quantidade/Recursos": "",
                             "Quantidade em processamento (WIP)": "",
                             "Tempo (Lead/Cycle Time)": "",
                             "Percentual (%)": "",
@@ -919,6 +920,7 @@ with tool_container:
             indicadores_data = [{
                 "Processo": "",
                 "Quantidade/Volume": "",
+                "Quantidade/Recursos": "",
                 "Quantidade em processamento (WIP)": "",
                 "Tempo (Lead/Cycle Time)": "",
                 "Percentual (%)": "",
@@ -936,6 +938,7 @@ with tool_container:
             '<div style="display: flex;">'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Processo</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quantidade / Volume</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quantidade / Recursos</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>WIP</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Tempo</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>%</b></div>'
@@ -950,10 +953,11 @@ with tool_container:
         out_rows = []
         
         for i, row in enumerate(indicadores_data):
-            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1, 1, 1, 1, 1, 1, 1, 0.4])
+            c1, c2, c2b, c3, c4, c5, c6, c7, c8 = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 0.4])
             
             p_txt  = str(row.get("Processo", ""))
             q_txt  = str(row.get("Quantidade/Volume", ""))
+            qr_txt = str(row.get("Quantidade/Recursos", ""))
             w_txt  = str(row.get("Quantidade em processamento (WIP)", ""))
             t_txt  = str(row.get("Tempo (Lead/Cycle Time)", ""))
             pc_txt = str(row.get("Percentual (%)", ""))
@@ -964,6 +968,7 @@ with tool_container:
             
             v1 = c1.text_area("p", value=p_txt, key=f"mat_p_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
             v2 = c2.text_area("q", value=q_txt, key=f"mat_q_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v2b = c2b.text_area("qr", value=qr_txt, key=f"mat_qr_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
             v3 = c3.text_area("w", value=w_txt, key=f"mat_w_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
             v4 = c4.text_area("t", value=t_txt, key=f"mat_t_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
             v5 = c5.text_area("pc", value=pc_txt, key=f"mat_pc_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
@@ -984,6 +989,7 @@ with tool_container:
             out_rows.append({
                 "Processo": v1,
                 "Quantidade/Volume": v2,
+                "Quantidade/Recursos": v2b,
                 "Quantidade em processamento (WIP)": v3,
                 "Tempo (Lead/Cycle Time)": v4,
                 "Percentual (%)": v5,
@@ -996,7 +1002,7 @@ with tool_container:
             with b1:
                 if st.button("➕ Adicionar Linha", key="btn_add_matriz", use_container_width=True):
                     out_rows.append({
-                        "Processo": "", "Quantidade/Volume": "", "Quantidade em processamento (WIP)": "",
+                        "Processo": "", "Quantidade/Volume": "", "Quantidade/Recursos": "", "Quantidade em processamento (WIP)": "",
                         "Tempo (Lead/Cycle Time)": "", "Percentual (%)": "", "Qualidade (Erro/NPS)": "", "Financeiro (R$)": ""
                     })
                     project_state["matriz_indicadores"] = out_rows
@@ -1006,7 +1012,7 @@ with tool_container:
             with b3:
                 if st.button("🚨 Apagar Tabela", key="btn_clear_matriz", use_container_width=True):
                     out_rows = [{
-                        "Processo": "", "Quantidade/Volume": "", "Quantidade em processamento (WIP)": "",
+                        "Processo": "", "Quantidade/Volume": "", "Quantidade/Recursos": "", "Quantidade em processamento (WIP)": "",
                         "Tempo (Lead/Cycle Time)": "", "Percentual (%)": "", "Qualidade (Erro/NPS)": "", "Financeiro (R$)": ""
                     }]
                     project_state["matriz_indicadores"] = out_rows

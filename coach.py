@@ -544,13 +544,14 @@ def suggest_matriz_indicadores(project_state: dict) -> list:
     system = """
 Você é um Coach Master Black Belt especialista em mapeamento e identificação de Indicadores de Processos Lean Seis Sigma.
 O aluno relatará as Etapas do Processo (identificadas no SIPOC) bem como o Problema (Charter) que o projeto dele busca resolver.
-Sua missão é gerar os indicadores para medir essas etapas em seis categorias diferentes, criando assim métricas precisas.
+Sua missão é gerar os indicadores para medir essas etapas em sete categorias diferentes, criando assim métricas precisas.
 
 Regras Estritas para a tabela de retorno:
 1. Responda em JSON EXATAMENTE no formato com a chave "rows".
 2. "rows" será uma array de objetos com as seguintes chaves idênticas para cada linha:
    "Processo": a descrição da etapa original que o aluno mandou.
    "Quantidade/Volume": bullet points (prefixados por "•" ou "-") com as métricas contáveis da etapa. Ex: "- Qtd de inscrições analisadas".
+   "Quantidade/Recursos": bullet points focados em capacidade de atendimento. Ex: "- Qtd de salas", "- Qtd de profissionais", "- Qtd de equipamentos alocados".
    "Quantidade em processamento (WIP)": bullet points focados em estoque em processamento/fila daquela etapa. Ex: "- Qtd inscrições aguardando resposta".
    "Tempo (Lead/Cycle Time)": bullet points do tempo entre tarefas atreladas à etapa.
    "Percentual (%)": dimensões proporcionais de controle que fujam de quantidades brutas.
