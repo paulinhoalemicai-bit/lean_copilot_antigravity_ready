@@ -926,6 +926,9 @@ with tool_container:
             }]
             
         st.markdown(
+            '<style>'
+            '[data-testid="stTextArea"] textarea { font-size: 13px !important; line-height: 1.3 !important; resize: both !important; }'
+            '</style>'
             '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
             '<div style="display: flex;">'
             '<div style="flex: 1.5; padding: 0 5px; font-size: 0.85em;"><b>Processo</b></div>'
@@ -941,7 +944,8 @@ with tool_container:
 
         out_rows = []
         for i, row in enumerate(indicadores_data):
-            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.5, 1, 1, 1, 1, 1, 1])
+            # Usando proporções ligeiramente ajustadas para caber visualmente melhor
+            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.5, 1.2, 1.2, 1, 0.8, 1, 1])
             
             p_txt  = str(row.get("Processo", ""))
             q_txt  = str(row.get("Quantidade/Volume", ""))
@@ -972,7 +976,7 @@ with tool_container:
             })
 
         if not read_only:
-            b1, b2, _ = st.columns([1, 1, 4])
+            b1, b2, b3, _ = st.columns([1, 1, 1, 3])
             with b1:
                 if st.button("➕ Adicionar Linha", key="btn_add_matriz", use_container_width=True):
                     out_rows.append({
@@ -989,6 +993,15 @@ with tool_container:
                         project_state["matriz_indicadores"] = out_rows
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
+            with b3:
+                if st.button("🚨 Apagar Tabela", key="btn_clear_matriz", use_container_width=True):
+                    out_rows = [{
+                        "Processo": "", "Quantidade/Volume": "", "Quantidade em processamento (WIP)": "",
+                        "Tempo (Lead/Cycle Time)": "", "Percentual (%)": "", "Qualidade (Erro/NPS)": "", "Financeiro (R$)": ""
+                    }]
+                    project_state["matriz_indicadores"] = out_rows
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
                         
         edited_ind = out_rows
         
