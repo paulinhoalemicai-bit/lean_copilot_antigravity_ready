@@ -927,25 +927,27 @@ with tool_container:
             
         st.markdown(
             '<style>'
-            '[data-testid="stTextArea"] textarea { font-size: 13px !important; line-height: 1.3 !important; resize: both !important; }'
+            '[data-testid="stTextArea"] textarea { font-size: 13px !important; line-height: 1.3 !important; resize: vertical !important; }'
             '</style>'
             '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
             '<div style="display: flex;">'
             '<div style="flex: 1.5; padding: 0 5px; font-size: 0.85em;"><b>Processo</b></div>'
-            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quantidade / Volume</b></div>'
-            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quantidade no Processo</b></div>'
+            '<div style="flex: 1.2; padding: 0 5px; font-size: 0.85em;"><b>Quantidade / Volume</b></div>'
+            '<div style="flex: 1.2; padding: 0 5px; font-size: 0.85em;"><b>WIP</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Tempo</b></div>'
-            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>%</b></div>'
+            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.85em;"><b>%</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Qualidade</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Financeiro</b></div>'
+            '<div style="flex: 0.4; padding: 0 5px; font-size: 0.85em;"><b>Ação</b></div>'
             '</div></div><br>', 
             unsafe_allow_html=True
         )
 
+        mat_id = project_state.get("matriz_id", 0)
         out_rows = []
+        
         for i, row in enumerate(indicadores_data):
-            # Usando proporções ligeiramente ajustadas para caber visualmente melhor
-            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.5, 1.2, 1.2, 1, 0.8, 1, 1])
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1.5, 1.2, 1.2, 1, 0.8, 1, 1, 0.4])
             
             p_txt  = str(row.get("Processo", ""))
             q_txt  = str(row.get("Quantidade/Volume", ""))
@@ -955,16 +957,27 @@ with tool_container:
             qu_txt = str(row.get("Qualidade (Erro/NPS)", ""))
             f_txt  = str(row.get("Financeiro (R$)", ""))
             
-            altura_sincronizada = 140 # Default de altura mais generoso que as linhas emuladas em st.data_editor
+            altura_sincronizada = 140 
             
-            v1 = c1.text_area("p", value=p_txt, key=f"matriz_p_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-            v2 = c2.text_area("q", value=q_txt, key=f"matriz_q_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-            v3 = c3.text_area("w", value=w_txt, key=f"matriz_w_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-            v4 = c4.text_area("t", value=t_txt, key=f"matriz_t_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-            v5 = c5.text_area("pc", value=pc_txt, key=f"matriz_pc_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-            v6 = c6.text_area("qu", value=qu_txt, key=f"matriz_qu_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
-            v7 = c7.text_area("f", value=f_txt, key=f"matriz_f_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v1 = c1.text_area("p", value=p_txt, key=f"mat_p_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v2 = c2.text_area("q", value=q_txt, key=f"mat_q_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v3 = c3.text_area("w", value=w_txt, key=f"mat_w_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v4 = c4.text_area("t", value=t_txt, key=f"mat_t_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v5 = c5.text_area("pc", value=pc_txt, key=f"mat_pc_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v6 = c6.text_area("qu", value=qu_txt, key=f"mat_qu_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v7 = c7.text_area("f", value=f_txt, key=f"mat_f_{i}_{mat_id}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
             
+            with c8:
+                st.markdown("<div style='height: 45px;'></div>", unsafe_allow_html=True)
+                if len(indicadores_data) > 1 and not read_only:
+                    if st.button("🗑️", key=f"mat_del_{i}_{mat_id}", help="Apagar esta linha"):
+                        nova_tabela = list(indicadores_data)
+                        nova_tabela.pop(i)
+                        project_state["matriz_indicadores"] = nova_tabela
+                        project_state["matriz_id"] = mat_id + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+
             out_rows.append({
                 "Processo": v1,
                 "Quantidade/Volume": v2,
@@ -976,7 +989,7 @@ with tool_container:
             })
 
         if not read_only:
-            b1, b2, b3, _ = st.columns([1, 1, 1, 3])
+            b1, b3, _ = st.columns([1.5, 1.5, 4])
             with b1:
                 if st.button("➕ Adicionar Linha", key="btn_add_matriz", use_container_width=True):
                     out_rows.append({
@@ -984,15 +997,9 @@ with tool_container:
                         "Tempo (Lead/Cycle Time)": "", "Percentual (%)": "", "Qualidade (Erro/NPS)": "", "Financeiro (R$)": ""
                     })
                     project_state["matriz_indicadores"] = out_rows
+                    project_state["matriz_id"] = mat_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
-            with b2:
-                if len(out_rows) > 1:
-                    if st.button("🗑️ Remover Última", key="btn_rem_matriz", use_container_width=True):
-                        out_rows = out_rows[:-1]
-                        project_state["matriz_indicadores"] = out_rows
-                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.rerun()
             with b3:
                 if st.button("🚨 Apagar Tabela", key="btn_clear_matriz", use_container_width=True):
                     out_rows = [{
@@ -1000,6 +1007,7 @@ with tool_container:
                         "Tempo (Lead/Cycle Time)": "", "Percentual (%)": "", "Qualidade (Erro/NPS)": "", "Financeiro (R$)": ""
                     }]
                     project_state["matriz_indicadores"] = out_rows
+                    project_state["matriz_id"] = mat_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
                         
