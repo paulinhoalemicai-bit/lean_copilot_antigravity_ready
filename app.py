@@ -925,21 +925,72 @@ with tool_container:
                 "Financeiro (R$)": ""
             }]
             
-        edited_ind = st.data_editor(
-            indicadores_data,
-            num_rows="dynamic",
-            use_container_width=True,
-            disabled=read_only,
-            column_config={
-                "Processo": st.column_config.TextColumn("Processo", help="Copiado do SIPOC", width="medium"),
-                "Quantidade/Volume": st.column_config.TextColumn("Quantidade / Volume", width="medium"),
-                "Quantidade em processamento (WIP)": st.column_config.TextColumn("Quantidade em Processamento (WIP)", width="medium"),
-                "Tempo (Lead/Cycle Time)": st.column_config.TextColumn("Tempo", width="medium"),
-                "Percentual (%)": st.column_config.TextColumn("%", width="small"),
-                "Qualidade (Erro/NPS)": st.column_config.TextColumn("Qualidade", width="small"),
-                "Financeiro (R$)": st.column_config.TextColumn("R$ (Financeiro)", width="small")
-            }
+        st.markdown(
+            '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
+            '<div style="display: flex;">'
+            '<div style="flex: 1.5; padding: 0 5px; font-size: 0.85em;"><b>Processo</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quantidade / Volume</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quantidade no Processo</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Tempo</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>%</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Qualidade</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Financeiro</b></div>'
+            '</div></div><br>', 
+            unsafe_allow_html=True
         )
+
+        out_rows = []
+        for i, row in enumerate(indicadores_data):
+            c1, c2, c3, c4, c5, c6, c7 = st.columns([1.5, 1, 1, 1, 1, 1, 1])
+            
+            p_txt  = str(row.get("Processo", ""))
+            q_txt  = str(row.get("Quantidade/Volume", ""))
+            w_txt  = str(row.get("Quantidade em processamento (WIP)", ""))
+            t_txt  = str(row.get("Tempo (Lead/Cycle Time)", ""))
+            pc_txt = str(row.get("Percentual (%)", ""))
+            qu_txt = str(row.get("Qualidade (Erro/NPS)", ""))
+            f_txt  = str(row.get("Financeiro (R$)", ""))
+            
+            altura_sincronizada = 140 # Default de altura mais generoso que as linhas emuladas em st.data_editor
+            
+            v1 = c1.text_area("p", value=p_txt, key=f"matriz_p_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v2 = c2.text_area("q", value=q_txt, key=f"matriz_q_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v3 = c3.text_area("w", value=w_txt, key=f"matriz_w_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v4 = c4.text_area("t", value=t_txt, key=f"matriz_t_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v5 = c5.text_area("pc", value=pc_txt, key=f"matriz_pc_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v6 = c6.text_area("qu", value=qu_txt, key=f"matriz_qu_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            v7 = c7.text_area("f", value=f_txt, key=f"matriz_f_{i}", height=altura_sincronizada, label_visibility="collapsed", disabled=read_only)
+            
+            out_rows.append({
+                "Processo": v1,
+                "Quantidade/Volume": v2,
+                "Quantidade em processamento (WIP)": v3,
+                "Tempo (Lead/Cycle Time)": v4,
+                "Percentual (%)": v5,
+                "Qualidade (Erro/NPS)": v6,
+                "Financeiro (R$)": v7
+            })
+
+        if not read_only:
+            b1, b2, _ = st.columns([1, 1, 4])
+            with b1:
+                if st.button("➕ Adicionar Linha", key="btn_add_matriz", use_container_width=True):
+                    out_rows.append({
+                        "Processo": "", "Quantidade/Volume": "", "Quantidade em processamento (WIP)": "",
+                        "Tempo (Lead/Cycle Time)": "", "Percentual (%)": "", "Qualidade (Erro/NPS)": "", "Financeiro (R$)": ""
+                    })
+                    project_state["matriz_indicadores"] = out_rows
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+            with b2:
+                if len(out_rows) > 1:
+                    if st.button("🗑️ Remover Última", key="btn_rem_matriz", use_container_width=True):
+                        out_rows = out_rows[:-1]
+                        project_state["matriz_indicadores"] = out_rows
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                        
+        edited_ind = out_rows
         
         # Gerar o texto a partir do formulário p/ análise da IA
         new_text = "Matriz de Indicadores:\n" + json.dumps(edited_ind, ensure_ascii=False)
