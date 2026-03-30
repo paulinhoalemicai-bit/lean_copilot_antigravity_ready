@@ -581,3 +581,37 @@ Regras Estritas para a tabela de retorno:
         return rows_ai
     except Exception as e:
         return []
+
+
+def suggest_causa_efeito_impacto(project_state: dict, causas: list) -> list:
+    """
+    Recebe uma lista de causas (X's) e retorna uma avaliação de Impacto [1-100]
+    e Esforço [1-10] para cada uma, baseado no problema do Charter.
+    """
+    system = """
+Você é um Coach Master Black Belt especialista em Análise de Causa Raiz e priorização por Causa & Efeito (Matriz de Priorização Lean Seis Sigma).
+Sua missão é analisar cada causa (X) informada e estimar:
+  - "impacto": número inteiro de 1 a 100 — o quanto essa causa X contribui diretamente para o Problema relatado no Charter.
+    1 = quase não influencia; 100 = causa principal direta.
+  - "esforco": número inteiro de 1 a 10 — o quanto é difícil/custoso endereçar essa causa.
+    1 = muito fácil (Quick Win); 10 = extremamente complexo/caro.
+  - "justificativa": 1 frase curta explicando o raciocínio do impacto.
+
+Regras Estritas:
+1. Responda APENAS em JSON com chave "rows".
+2. "rows" é uma lista com um objeto por causa recebida, EXATAMENTE na mesma ordem, com as chaves: "causa", "impacto", "esforco", "justificativa".
+3. Impacto e Esforço DEVEM ser inteiros válidos, nunca strings.
+4. Justificativa máximo 15 palavras.
+"""
+    charter_data = project_state.get("charter", {})
+    prob = charter_data.get("problem", "Problema não informado no Charter.")
+    causas_str = json.dumps(causas, ensure_ascii=False)
+    user_str = (
+        f"Problema do projeto (Charter):\n{prob}\n\n"
+        f"Avalie cada uma das causas abaixo com Impacto [1-100] e Esforço [1-10]:\n{causas_str}"
+    )
+    try:
+        out = _chat_json(system, user_str)
+        return out.get("rows", [])
+    except Exception:
+        return []

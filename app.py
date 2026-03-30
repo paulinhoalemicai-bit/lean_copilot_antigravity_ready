@@ -23,7 +23,8 @@ from coach import (
     suggest_sipoc_macro,
     suggest_sipoc_io,
     suggest_saving_rationale,
-    suggest_matriz_indicadores
+    suggest_matriz_indicadores,
+    suggest_causa_efeito_impacto
 )
 
 try:
@@ -308,6 +309,7 @@ def default_project_state(name: str, uid: str) -> dict:
         "raci": [],
         "sipoc": {"serpentes": [], "rows": [], "notes": ""},
         "matriz_indicadores": [],
+        "causa_efeito": [],
         "fluxograma_xml": "",
         "saving_projetado": {
             "hard": 0.0, "hard_racional": "",
@@ -1054,6 +1056,206 @@ with tool_container:
                 db.save_draft(pid, tool, {"text": new_text})
                 st.success("Matriz de Indicadores salva!")
 
+    elif tool == "Matriz Causa & Efeito":
+        st.subheader("📊 Matriz Causa & Efeito (X's do Processo)")
+        st.info("💡 Liste as possíveis causas (X\u2019s) do problema. Pontue o Impacto [1-100] e o Esforço [1-10] de cada uma. O gráfico será atualizado automaticamente.")
+
+        causa_data = project_state.get("causa_efeito", [])
+        ce_id = project_state.get("causa_efeito_id", 0)
+
+        # --- Botão importar da Matriz de Indicadores ---
+        col_imp, col_sp = st.columns([3, 5])
+        with col_imp:
+            if st.button("📥 Importar indicadores da Matriz de Indicadores", use_container_width=True, disabled=read_only):
+                ind_data = project_state.get("matriz_indicadores", [])
+                novas = []
+                for row in ind_data:
+                    processo = str(row.get("Processo", "")).strip()
+                    # Cada coluna de indicador vira um X separado
+                    cols_indicadores = [
+                        "Quantidade/Volume", "Quantidade/Recursos",
+                        "Quantidade em processamento (WIP)", "Tempo (Lead/Cycle Time)",
+                        "Percentual (%)", "Qualidade (Erro/NPS)", "Financeiro (R$)"
+                    ]
+                    for col in cols_indicadores:
+                        val = str(row.get(col, "")).strip()
+                        if val:
+                            # Cada bullet point vira um X
+                            bullets = [b.strip().lstrip("-•· ").strip() for b in val.split("\n") if b.strip().lstrip("-•· ").strip()]
+                            for bullet in bullets:
+                                novas.append({"causa": f"{processo} — {bullet}", "impacto": 50, "esforco": 5, "justificativa": ""})
+                if not novas:
+                    st.warning("⚠️ Matriz de Indicadores está vazia. Preencha-a primeiro.")
+                else:
+                    project_state["causa_efeito"] = novas
+                    project_state["causa_efeito_id"] = ce_id + 1
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.success(f"{len(novas)} indicadores importados como X's!")
+                    st.rerun()
+
+        if not causa_data:
+            causa_data = [{"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""}]
+
+        # --- Header da tabela ---
+        st.markdown(
+            '<style>'
+            '[data-testid="column"] { padding: 0 3px !important; }'
+            '</style>'
+            '<div style="background-color: #001C59; color: white; padding: 8px 10px; border-radius: 6px; margin-bottom: 4px;">'
+            '<div style="display: flex; align-items: center;">'
+            '<div style="width: 48px; font-size: 0.82em;"><b>#</b></div>'
+            '<div style="flex: 4; font-size: 0.82em; padding: 0 4px;"><b>X\u2019s do Processo (Causa)</b></div>'
+            '<div style="width: 110px; font-size: 0.82em; text-align: center;"><b>Impacto<br>[1-100]</b></div>'
+            '<div style="width: 100px; font-size: 0.82em; text-align: center;"><b>Esforço<br>[1-10]</b></div>'
+            '<div style="width: 110px; font-size: 0.82em;"><b>Justificativa IA</b></div>'
+            '<div style="width: 68px; font-size: 0.82em; text-align: center;"><b>Ações</b></div>'
+            '</div></div>',
+            unsafe_allow_html=True
+        )
+
+        out_causas = []
+        for i, row in enumerate(causa_data):
+            label = f"X{i+1}"
+            c_lbl, c_causa, c_imp, c_esf, c_just, c_act = st.columns([0.5, 4, 1.1, 1, 1.2, 0.7])
+
+            c_lbl.markdown(f"<div style='padding-top:10px; font-weight:bold; color:#001C59;'>{label}</div>", unsafe_allow_html=True)
+
+            v_causa = c_causa.text_area(
+                "causa", value=str(row.get("causa", "")),
+                key=f"ce_causa_{i}_{ce_id}", height=80,
+                label_visibility="collapsed", disabled=read_only
+            )
+            v_imp = c_imp.number_input(
+                "imp", min_value=1, max_value=100,
+                value=max(1, min(100, int(row.get("impacto", 50) or 50))),
+                key=f"ce_imp_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
+            )
+            v_esf = c_esf.number_input(
+                "esf", min_value=1, max_value=10,
+                value=max(1, min(10, int(row.get("esforco", 5) or 5))),
+                key=f"ce_esf_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
+            )
+            v_just = c_just.text_area(
+                "just", value=str(row.get("justificativa", "")),
+                key=f"ce_just_{i}_{ce_id}", height=80,
+                label_visibility="collapsed", disabled=True
+            )
+
+            with c_act:
+                st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                if not read_only:
+                    if st.button("🗑️", key=f"ce_del_{i}_{ce_id}", help="Apagar linha"):
+                        nova = list(causa_data)
+                        nova.pop(i)
+                        project_state["causa_efeito"] = nova
+                        project_state["causa_efeito_id"] = ce_id + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                    if st.button("➕", key=f"ce_add_{i}_{ce_id}", help="Inserir linha abaixo"):
+                        nova = list(causa_data)
+                        nova.insert(i + 1, {"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""})
+                        project_state["causa_efeito"] = nova
+                        project_state["causa_efeito_id"] = ce_id + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+
+            out_causas.append({"causa": v_causa, "impacto": int(v_imp), "esforco": int(v_esf), "justificativa": str(row.get("justificativa", ""))})
+
+        # --- Botoões de controle da tabela ---
+        if not read_only:
+            ba1, ba2, _ = st.columns([1.5, 1.5, 5])
+            with ba1:
+                if st.button("➕ Adicionar Linha", key="ce_add_bottom", use_container_width=True):
+                    out_causas.append({"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""})
+                    project_state["causa_efeito"] = out_causas
+                    project_state["causa_efeito_id"] = ce_id + 1
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+            with ba2:
+                if st.button("🚨 Apagar Tabela", key="ce_clear", use_container_width=True):
+                    out_causas = [{"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""}]
+                    project_state["causa_efeito"] = out_causas
+                    project_state["causa_efeito_id"] = ce_id + 1
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+
+        project_state["causa_efeito"] = out_causas
+        new_text = "Matriz Causa Efeito:\n" + json.dumps(out_causas, ensure_ascii=False)
+
+        # --- Gráfico Esforço x Impacto ---
+        st.markdown("---")
+        st.subheader("📈 Gráfico Esforço × Impacto")
+        dados_validos = [r for r in out_causas if r.get("causa", "").strip()]
+        if not dados_validos:
+            st.info("Preencha as causas acima para visualizar o gráfico.")
+        else:
+            import pandas as pd
+            import altair as alt
+            df_plot = pd.DataFrame([
+                {
+                    "X": f"X{i+1}",
+                    "Esforço": int(r.get("esforco", 5)),
+                    "Impacto": int(r.get("impacto", 50)),
+                    "Causa": str(r.get("causa", ""))[:60]
+                }
+                for i, r in enumerate(dados_validos)
+            ])
+            # Quadrantes de fundo
+            quadrantes = pd.DataFrame([
+                {"x1": 1, "x2": 5.5, "y1": 50, "y2": 100, "quad": "Quick Win", "cor": "#d4edda"},
+                {"x1": 5.5, "x2": 10, "y1": 50, "y2": 100, "quad": "Projeto Maior",  "cor": "#fff3cd"},
+                {"x1": 1, "x2": 5.5, "y1": 1,  "y2": 50,  "quad": "Baixa Prioridade", "cor": "#f8d7da"},
+                {"x1": 5.5, "x2": 10, "y1": 1,  "y2": 50,  "quad": "Desconsiderar",    "cor": "#f5c6cb"},
+            ])
+            bg = alt.Chart(quadrantes).mark_rect(opacity=0.35).encode(
+                x=alt.X("x1:Q", scale=alt.Scale(domain=[1, 10])),
+                x2="x2:Q",
+                y=alt.Y("y1:Q", scale=alt.Scale(domain=[1, 100])),
+                y2="y2:Q",
+                color=alt.Color("cor:N", scale=None),
+                tooltip=["quad:N"]
+            )
+            pontos = alt.Chart(df_plot).mark_circle(size=140, opacity=0.85).encode(
+                x=alt.X("Esforço:Q", scale=alt.Scale(domain=[1, 10]), title="Esforço [1-10]"),
+                y=alt.Y("Impacto:Q", scale=alt.Scale(domain=[1, 100]), title="Impacto [1-100]"),
+                color=alt.condition(
+                    alt.datum["Esforço"] <= 5.5,
+                    alt.value("#1a6e36") if True else alt.value("#1a6e36"),
+                    alt.value("#e07b00")
+                ),
+                tooltip=["X:N", "Causa:N", "Impacto:Q", "Esforço:Q"]
+            )
+            rotulos = alt.Chart(df_plot).mark_text(dy=-14, fontSize=12, fontWeight="bold", color="#001C59").encode(
+                x="Esforço:Q", y="Impacto:Q", text="X:N"
+            )
+            linhas = alt.Chart(pd.DataFrame([{"Esforço": 5.5}, {"Impacto": 50}])).mark_rule(
+                color="#aaaaaa", strokeDash=[4, 3]
+            ).encode(x="Esforço:Q")
+            linhas_h = alt.Chart(pd.DataFrame([{"val": 50}])).mark_rule(
+                color="#aaaaaa", strokeDash=[4, 3]
+            ).encode(y=alt.Y("val:Q"))
+            chart = (bg + linhas + linhas_h + pontos + rotulos).properties(
+                width="container", height=420,
+                title=alt.TitleParams("Esforço × Impacto — Priorização de Causas", fontSize=15)
+            ).configure_view(strokeOpacity=0).interactive()
+            st.altair_chart(chart, use_container_width=True)
+
+            # Legenda dos quadrantes
+            l1, l2, l3, l4 = st.columns(4)
+            l1.success("🟢 **Quick Win** (Esforço baixo + Impacto alto)")
+            l2.warning("🟡 **Projeto Maior** (Esforço alto + Impacto alto)")
+            l3.error("🔴 **Baixa Prioridade** (Esforço baixo + Impacto baixo)")
+            l4.error("🔴 **Desconsiderar** (Esforço alto + Impacto baixo)")
+
+        # --- Salvar ---
+        c1, _ = st.columns([1, 5])
+        with c1:
+            if st.button("💾 Salvar Matriz C&E", disabled=read_only, use_container_width=True):
+                project_state["causa_efeito"] = out_causas
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                db.save_draft(pid, tool, {"text": new_text})
+                st.success("Matriz Causa & Efeito salva!")
+
     elif tool in ["Saving Projetado", "Saving Realizado"]:
         st.subheader(f"Cálculo de {tool}")
         st.info("Desdobre o impacto financeiro. O 'Saving Total' será calculado automaticamente ao salvar.")
@@ -1259,6 +1461,9 @@ with coach_container:
         elif tool == "Matriz de Indicadores":
             st.info("💡 **Geração Automática de Indicadores:** A IA analisará o problema do projeto e a natureza das etapas listadas (Processo) para sugerir preenchimentos para cada coluna.")
             st.warning("A IA apenas retornará dados preenchidos se detectar que a Tabela de Processos (no painel central) já possui Etapas (P) válidas.")
+        elif tool == "Matriz Causa & Efeito":
+            st.info("💡 **Análise de Impacto:** O Doutor Lean analisará cada X listado na tabela e sugerirá os valores de **Impacto [1-100]** e **Esforço [1-10]** baseando-se no Problema registrado no Charter.")
+            st.warning("⚠️ Para uma boa análise, preencha antes os X's do Processo na tabela ao lado e salve o Problema no Project Charter.")
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -1407,6 +1612,38 @@ with coach_container:
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
                     st.rerun()
+
+        # --- FLUXO ESPECIAL: Análise de Impacto da Matriz Causa & Efeito ---
+        elif tool == "Matriz Causa & Efeito" and mode_str == "generate":
+            causas_atuais = project_state.get("causa_efeito", [])
+            lista_causas = [r.get("causa", "") for r in causas_atuais if r.get("causa", "").strip()]
+            if not lista_causas:
+                st.error("Preencha ao menos uma causa (X) na tabela antes de solicitar a análise.")
+            else:
+                with st.spinner("Doutor Lean avaliando impacto e esforço de cada causa..."):
+                    ai_rows = suggest_causa_efeito_impacto(project_state, lista_causas)
+                    if not ai_rows:
+                        st.error("A IA não retornou resultados. Tente novamente.")
+                    else:
+                        # Mescla resultados mantendo causas editadas pelo usuário
+                        merged = []
+                        for orig in causas_atuais:
+                            causa_orig = str(orig.get("causa", "")).strip()
+                            match = next((r for r in ai_rows if str(r.get("causa", "")).strip() == causa_orig), None)
+                            if match:
+                                merged.append({
+                                    "causa": causa_orig,
+                                    "impacto": int(match.get("impacto", orig.get("impacto", 50))),
+                                    "esforco": int(match.get("esforco", orig.get("esforco", 5))),
+                                    "justificativa": str(match.get("justificativa", ""))
+                                })
+                            else:
+                                merged.append(orig)
+                        project_state["causa_efeito"] = merged
+                        project_state["causa_efeito_id"] = project_state.get("causa_efeito_id", 0) + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Impacto e Esforço estimados pela IA! Revise os valores e o gráfico abaixo."
+                        st.rerun()
 
         # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
         else:

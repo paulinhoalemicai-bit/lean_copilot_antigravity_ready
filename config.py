@@ -14,7 +14,8 @@ TOOLS = [
     "Pilot",
     "ControlPlan",
     "Saving Realizado",
-    "Matriz de Indicadores"
+    "Matriz de Indicadores",
+    "Matriz Causa & Efeito"
 ]
 
 VOCVOB_COLUMNS = [
@@ -88,5 +89,13 @@ Objetivo:
 - Identificar indicadores de processo focados nas etapas (P) mapeadas no nível Macro ou SIPOC.
 - Fornecer métricas em diferentes dimensões (Quantidade, WIP, Tempo, %, Qualidade, Finanças) formadas a partir do Problema de negócio definido.
 - O Coach deve elencar as métricas de forma curta (em bullet points) na mesma célula da tabela em vez de criar colunas.
+""",
+    "Matriz Causa & Efeito": """
+Ferramenta Matriz Causa & Efeito (Esforço × Impacto).
+Objetivo:
+- Listar as possíveis causas (X's) que impactam o problema central do projeto.
+- Estimar o Impacto de cada causa no problema (escala 1-100): quanto aquela causa contribui para o problema.
+- Estimar o Esforço necessário para endereçá-la (escala 1-10): quanto custa em tempo/recurso/dificuldade resolver aquela causa.
+- Priorizar as causas de maior impacto e menor esforço (Quick Wins) para ação imediata baseado na Teoria das Restrições.
 """
 }
