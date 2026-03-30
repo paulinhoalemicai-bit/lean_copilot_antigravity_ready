@@ -928,14 +928,16 @@ with tool_container:
         st.markdown(
             '<style>'
             '[data-testid="stTextArea"] textarea { font-size: 13px !important; line-height: 1.3 !important; resize: vertical !important; }'
+            '[data-testid="column"] { padding: 0 4px !important; } /* Reduz espaço entre colunas */'
+            'div[data-testid="stHorizontalBlock"] { min-width: 1400px !important; } /* Força barra de rolagem horizontal se tela menor */'
             '</style>'
-            '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
+            '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px; min-width: 1400px; margin-bottom: -10px;">'
             '<div style="display: flex;">'
-            '<div style="flex: 1.5; padding: 0 5px; font-size: 0.85em;"><b>Processo</b></div>'
-            '<div style="flex: 1.2; padding: 0 5px; font-size: 0.85em;"><b>Quantidade / Volume</b></div>'
-            '<div style="flex: 1.2; padding: 0 5px; font-size: 0.85em;"><b>WIP</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Processo</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quantidade / Volume</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>WIP</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Tempo</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.85em;"><b>%</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>%</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Qualidade</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Financeiro</b></div>'
             '<div style="flex: 0.4; padding: 0 5px; font-size: 0.85em;"><b>Ação</b></div>'
@@ -947,7 +949,7 @@ with tool_container:
         out_rows = []
         
         for i, row in enumerate(indicadores_data):
-            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1.5, 1.2, 1.2, 1, 0.8, 1, 1, 0.4])
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1, 1, 1, 1, 1, 1, 1, 0.4])
             
             p_txt  = str(row.get("Processo", ""))
             q_txt  = str(row.get("Quantidade/Volume", ""))
