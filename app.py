@@ -1083,7 +1083,13 @@ with tool_container:
                             # Cada bullet point vira um X
                             bullets = [b.strip().lstrip("-•· ").strip() for b in val.split("\n") if b.strip().lstrip("-•· ").strip()]
                             for bullet in bullets:
-                                novas.append({"causa": f"{processo} — {bullet}", "impacto": 50, "esforco": 5, "justificativa": ""})
+                                novas.append({
+                                    "etapa": processo,
+                                    "indicador": bullet,
+                                    "impacto": 0,
+                                    "esforco": 0,
+                                    "justificativa": ""
+                                })
                 if not novas:
                     st.warning("⚠️ Matriz de Indicadores está vazia. Preencha-a primeiro.")
                 else:
@@ -1094,7 +1100,7 @@ with tool_container:
                     st.rerun()
 
         if not causa_data:
-            causa_data = [{"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""}]
+            causa_data = [{"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
 
         # --- Header da tabela ---
         st.markdown(
@@ -1103,12 +1109,13 @@ with tool_container:
             '</style>'
             '<div style="background-color: #001C59; color: white; padding: 8px 10px; border-radius: 6px; margin-bottom: 4px;">'
             '<div style="display: flex; align-items: center;">'
-            '<div style="width: 48px; font-size: 0.82em;"><b>#</b></div>'
-            '<div style="flex: 4; font-size: 0.82em; padding: 0 4px;"><b>X\u2019s do Processo (Causa)</b></div>'
-            '<div style="width: 110px; font-size: 0.82em; text-align: center;"><b>Impacto<br>[1-100]</b></div>'
-            '<div style="width: 100px; font-size: 0.82em; text-align: center;"><b>Esforço<br>[1-10]</b></div>'
-            '<div style="width: 110px; font-size: 0.82em;"><b>Justificativa IA</b></div>'
-            '<div style="width: 68px; font-size: 0.82em; text-align: center;"><b>Ações</b></div>'
+            '<div style="width: 42px; font-size: 0.82em;"><b>#</b></div>'
+            '<div style="flex: 2; font-size: 0.82em; padding: 0 4px;"><b>Etapa do Processo</b></div>'
+            '<div style="flex: 3; font-size: 0.82em; padding: 0 4px;"><b>Indicador (X)</b></div>'
+            '<div style="width: 72px; font-size: 0.82em; text-align: center;"><b>Impacto<br>[1-100]</b></div>'
+            '<div style="width: 65px; font-size: 0.82em; text-align: center;"><b>Esforço<br>[1-10]</b></div>'
+            '<div style="flex: 2; font-size: 0.82em; padding: 0 4px;"><b>Justificativa IA</b></div>'
+            '<div style="width: 62px; font-size: 0.82em; text-align: center;"><b>Ações</b></div>'
             '</div></div>',
             unsafe_allow_html=True
         )
@@ -1116,23 +1123,36 @@ with tool_container:
         out_causas = []
         for i, row in enumerate(causa_data):
             label = f"X{i+1}"
-            c_lbl, c_causa, c_imp, c_esf, c_just, c_act = st.columns([0.5, 4, 1.1, 1, 1.2, 0.7])
+            c_lbl, c_etapa, c_ind, c_imp, c_esf, c_just, c_act = st.columns([0.4, 2, 3, 0.75, 0.65, 2, 0.65])
 
             c_lbl.markdown(f"<div style='padding-top:10px; font-weight:bold; color:#001C59;'>{label}</div>", unsafe_allow_html=True)
 
-            v_causa = c_causa.text_area(
-                "causa", value=str(row.get("causa", "")),
-                key=f"ce_causa_{i}_{ce_id}", height=80,
+            # Retrocompatibilidade: se vier no formato antigo (campo "causa"), separar
+            etapa_val = str(row.get("etapa", row.get("causa", "")))
+            indicador_val = str(row.get("indicador", ""))
+
+            v_etapa = c_etapa.text_area(
+                "etapa", value=etapa_val,
+                key=f"ce_etapa_{i}_{ce_id}", height=80,
                 label_visibility="collapsed", disabled=read_only
             )
+            v_ind = c_ind.text_area(
+                "ind", value=indicador_val,
+                key=f"ce_ind_{i}_{ce_id}", height=80,
+                label_visibility="collapsed", disabled=read_only
+            )
+
+            imp_raw = row.get("impacto", 0) or 0
+            esf_raw = row.get("esforco", 0) or 0
+
             v_imp = c_imp.number_input(
-                "imp", min_value=1, max_value=100,
-                value=max(1, min(100, int(row.get("impacto", 50) or 50))),
+                "imp", min_value=0, max_value=100,
+                value=max(0, min(100, int(imp_raw))),
                 key=f"ce_imp_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
             )
             v_esf = c_esf.number_input(
-                "esf", min_value=1, max_value=10,
-                value=max(1, min(10, int(row.get("esforco", 5) or 5))),
+                "esf", min_value=0, max_value=10,
+                value=max(0, min(10, int(esf_raw))),
                 key=f"ce_esf_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
             )
             v_just = c_just.text_area(
@@ -1153,27 +1173,33 @@ with tool_container:
                         st.rerun()
                     if st.button("➕", key=f"ce_add_{i}_{ce_id}", help="Inserir linha abaixo"):
                         nova = list(causa_data)
-                        nova.insert(i + 1, {"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""})
+                        nova.insert(i + 1, {"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
                         project_state["causa_efeito"] = nova
                         project_state["causa_efeito_id"] = ce_id + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
 
-            out_causas.append({"causa": v_causa, "impacto": int(v_imp), "esforco": int(v_esf), "justificativa": str(row.get("justificativa", ""))})
+            out_causas.append({
+                "etapa": v_etapa,
+                "indicador": v_ind,
+                "impacto": int(v_imp),
+                "esforco": int(v_esf),
+                "justificativa": str(row.get("justificativa", ""))
+            })
 
         # --- Botoões de controle da tabela ---
         if not read_only:
             ba1, ba2, _ = st.columns([1.5, 1.5, 5])
             with ba1:
                 if st.button("➕ Adicionar Linha", key="ce_add_bottom", use_container_width=True):
-                    out_causas.append({"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""})
+                    out_causas.append({"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
             with ba2:
                 if st.button("🚨 Apagar Tabela", key="ce_clear", use_container_width=True):
-                    out_causas = [{"causa": "", "impacto": 50, "esforco": 5, "justificativa": ""}]
+                    out_causas = [{"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -1194,11 +1220,12 @@ with tool_container:
             df_plot = pd.DataFrame([
                 {
                     "X": f"X{i+1}",
-                    "Esforço": int(r.get("esforco", 5)),
-                    "Impacto": int(r.get("impacto", 50)),
-                    "Causa": str(r.get("causa", ""))[:60]
+                    "Esforço": int(r.get("esforco", 0)),
+                    "Impacto": int(r.get("impacto", 0)),
+                    "Causa": (str(r.get("etapa", r.get("causa", ""))) + " — " + str(r.get("indicador", "")))[:70]
                 }
                 for i, r in enumerate(dados_validos)
+                if int(r.get("impacto", 0)) > 0 or int(r.get("esforco", 0)) > 0
             ])
             # Quadrantes de fundo
             quadrantes = pd.DataFrame([
@@ -1616,7 +1643,14 @@ with coach_container:
         # --- FLUXO ESPECIAL: Análise de Impacto da Matriz Causa & Efeito ---
         elif tool == "Matriz Causa & Efeito" and mode_str == "generate":
             causas_atuais = project_state.get("causa_efeito", [])
-            lista_causas = [r.get("causa", "") for r in causas_atuais if r.get("causa", "").strip()]
+            # Montar lista de causas combinando etapa + indicador (novo formato) ou campo causa (legado)
+            lista_causas = []
+            for r in causas_atuais:
+                etapa = str(r.get("etapa", r.get("causa", ""))).strip()
+                indicador = str(r.get("indicador", "")).strip()
+                texto = f"{etapa} — {indicador}" if indicador else etapa
+                if texto:
+                    lista_causas.append(texto)
             if not lista_causas:
                 st.error("Preencha ao menos uma causa (X) na tabela antes de solicitar a análise.")
             else:
@@ -1625,16 +1659,16 @@ with coach_container:
                     if not ai_rows:
                         st.error("A IA não retornou resultados. Tente novamente.")
                     else:
-                        # Mescla resultados mantendo causas editadas pelo usuário
+                        # Mescla resultados por posição (a IA retorna na mesma ordem)
                         merged = []
-                        for orig in causas_atuais:
-                            causa_orig = str(orig.get("causa", "")).strip()
-                            match = next((r for r in ai_rows if str(r.get("causa", "")).strip() == causa_orig), None)
+                        for idx, orig in enumerate(causas_atuais):
+                            match = ai_rows[idx] if idx < len(ai_rows) else None
                             if match:
                                 merged.append({
-                                    "causa": causa_orig,
-                                    "impacto": int(match.get("impacto", orig.get("impacto", 50))),
-                                    "esforco": int(match.get("esforco", orig.get("esforco", 5))),
+                                    "etapa": str(orig.get("etapa", orig.get("causa", ""))),
+                                    "indicador": str(orig.get("indicador", "")),
+                                    "impacto": int(match.get("impacto", orig.get("impacto", 0))),
+                                    "esforco": int(match.get("esforco", orig.get("esforco", 0))),
                                     "justificativa": str(match.get("justificativa", ""))
                                 })
                             else:
