@@ -539,3 +539,44 @@ Preencha a linha.
             "Requisito crítico": "",
             "Y (indicador)": ""
         }
+
+def suggest_matriz_indicadores(project_state: dict) -> list:
+    system = """
+Você é um Coach Master Black Belt especialista em mapeamento e identificação de Indicadores de Processos Lean Seis Sigma.
+O aluno relatará as Etapas do Processo (identificadas no SIPOC) bem como o Problema (Charter) que o projeto dele busca resolver.
+Sua missão é gerar os indicadores para medir essas etapas em seis categorias diferentes, criando assim métricas precisas.
+
+Regras Estritas para a tabela de retorno:
+1. Responda em JSON EXATAMENTE no formato com a chave "rows".
+2. "rows" será uma array de objetos com as seguintes chaves idênticas para cada linha:
+   "Processo": a descrição da etapa original que o aluno mandou.
+   "Quantidade/Volume": bullet points (prefixados por "•" ou "-") com as métricas contáveis da etapa. Ex: "- Qtd de inscrições analisadas".
+   "Quantidade em processamento (WIP)": bullet points focados em estoque em processamento/fila daquela etapa. Ex: "- Qtd inscrições aguardando resposta".
+   "Tempo (Lead/Cycle Time)": bullet points do tempo entre tarefas atreladas à etapa.
+   "Percentual (%)": dimensões proporcionais de controle que fujam de quantidades brutas.
+   "Qualidade (Erro/NPS)": proporção de defeitos, devoluções, retrabalho e satisfação relativos à etapa.
+   "Financeiro (R$)": representação financeira caso aplicável (se não houver, tracejar com "-").
+3. Todos os campos gerados (exceto a coluna "Processo") devem conter os indicadores em lista de tópicos em uma mesma célula/string longa com quebras de linha (\\n), se houver mais de um.
+   Exemplo: "- Qtd formulários preenchidos\\n- Qtd retidos"
+"""
+    
+    charter_data = project_state.get("charter", {})
+    prob = charter_data.get("problem", "Problema não reportado no charter.")
+    ind_data = project_state.get("matriz_indicadores", [])
+    
+    # Extrair apenas os nomes dos processos já listados
+    etapas = [row.get("Processo", "") for row in ind_data if isinstance(row, dict) and row.get("Processo")]
+    
+    if not etapas:
+        # Tenta pegar do SIPOC
+        sipoc_data = project_state.get("sipoc", [])
+        etapas = [s.get("P", "") for s in sipoc_data if s.get("P", "").strip()]
+        
+    user_str = f"Problema relatado no Charter:\n{prob}\n\nAnalise as seguintes etapas e elabore as métricas em tópicos para cada uma delas:\n{json.dumps(etapas, ensure_ascii=False)}"
+    
+    try:
+        out = _chat_json(system, user_str)
+        rows_ai = out.get("rows", [])
+        return rows_ai
+    except Exception as e:
+        return []

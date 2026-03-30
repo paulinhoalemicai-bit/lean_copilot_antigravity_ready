@@ -13,7 +13,8 @@ TOOLS = [
     "Solution",
     "Pilot",
     "ControlPlan",
-    "Saving Realizado"
+    "Saving Realizado",
+    "Matriz de Indicadores"
 ]
 
 VOCVOB_COLUMNS = [
@@ -80,5 +81,12 @@ Objetivo:
 - Apuração final contábil.
 - Avaliar se a contabilidade bateu com a meta projetada no início.
 - O Coach ajuda a formatar relatórios financeiros finais fáceis para diretoria.
+""",
+    "Matriz de Indicadores": """
+Ferramenta Matriz de Indicadores baseada no SIPOC.
+Objetivo:
+- Identificar indicadores de processo focados nas etapas (P) mapeadas no nível Macro ou SIPOC.
+- Fornecer métricas em diferentes dimensões (Quantidade, WIP, Tempo, %, Qualidade, Finanças) formadas a partir do Problema de negócio definido.
+- O Coach deve elencar as métricas de forma curta (em bullet points) na mesma célula da tabela em vez de criar colunas.
 """
 }

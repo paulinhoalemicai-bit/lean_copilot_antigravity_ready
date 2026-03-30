@@ -22,7 +22,8 @@ from coach import (
     suggest_vocvob_row,
     suggest_sipoc_macro,
     suggest_sipoc_io,
-    suggest_saving_rationale
+    suggest_saving_rationale,
+    suggest_matriz_indicadores
 )
 
 try:
@@ -306,6 +307,7 @@ def default_project_state(name: str, uid: str) -> dict:
         },
         "raci": [],
         "sipoc": {"serpentes": [], "rows": [], "notes": ""},
+        "matriz_indicadores": [],
         "fluxograma_xml": "",
         "saving_projetado": {
             "hard": 0.0, "hard_racional": "",
@@ -880,6 +882,76 @@ with tool_container:
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                 st.success("SIPOC salvo com sucesso!")
 
+    elif tool == "Matriz de Indicadores":
+        st.subheader("Matriz de Indicadores (Métricas por Etapa do SIPOC)")
+        st.info("💡 Liste as métricas e os indicadores associados a cada macro etapa mapeada.")
+        
+        draft = db.load_draft(pid, tool) or {}
+        indicadores_data = project_state.get("matriz_indicadores", [])
+        
+        col_import, col_space = st.columns([2, 5])
+        with col_import:
+            if st.button("📥 Importar Etapas (P) do SIPOC", use_container_width=True, disabled=read_only):
+                sipoc_data = project_state.get("sipoc", [])
+                novas_linhas = []
+                for s in sipoc_data:
+                    p_text = str(s.get("P", "")).strip()
+                    if p_text:
+                        novas_linhas.append({
+                            "Processo": p_text,
+                            "Quantidade/Volume": "",
+                            "Quantidade em processamento (WIP)": "",
+                            "Tempo (Lead/Cycle Time)": "",
+                            "Percentual (%)": "",
+                            "Qualidade (Erro/NPS)": "",
+                            "Financeiro (R$)": ""
+                        })
+                if not novas_linhas:
+                     st.warning("Seu SIPOC parece estar vazio ou sem Etapas P cadastradas.")
+                else:
+                    project_state["matriz_indicadores"] = novas_linhas
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.success("Etapas importadas com sucesso do SIPOC!")
+                    st.rerun()
+
+        if not indicadores_data:
+            indicadores_data = [{
+                "Processo": "",
+                "Quantidade/Volume": "",
+                "Quantidade em processamento (WIP)": "",
+                "Tempo (Lead/Cycle Time)": "",
+                "Percentual (%)": "",
+                "Qualidade (Erro/NPS)": "",
+                "Financeiro (R$)": ""
+            }]
+            
+        edited_ind = st.data_editor(
+            indicadores_data,
+            num_rows="dynamic",
+            use_container_width=True,
+            disabled=read_only,
+            column_config={
+                "Processo": st.column_config.TextColumn("Processo", help="Copiado do SIPOC", width="medium"),
+                "Quantidade/Volume": st.column_config.TextColumn("Quantidade / Volume", width="medium"),
+                "Quantidade em processamento (WIP)": st.column_config.TextColumn("Quantidade em Processamento (WIP)", width="medium"),
+                "Tempo (Lead/Cycle Time)": st.column_config.TextColumn("Tempo", width="medium"),
+                "Percentual (%)": st.column_config.TextColumn("%", width="small"),
+                "Qualidade (Erro/NPS)": st.column_config.TextColumn("Qualidade", width="small"),
+                "Financeiro (R$)": st.column_config.TextColumn("R$ (Financeiro)", width="small")
+            }
+        )
+        
+        # Gerar o texto a partir do formulário p/ análise da IA
+        new_text = "Matriz de Indicadores:\n" + json.dumps(edited_ind, ensure_ascii=False)
+        
+        c1, c2 = st.columns([1, 4])
+        with c1:
+            if st.button("💾 Salvar Matriz", disabled=read_only, use_container_width=True):
+                project_state["matriz_indicadores"] = edited_ind
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                db.save_draft(pid, tool, {"text": new_text})
+                st.success("Matriz de Indicadores salva!")
+
     elif tool in ["Saving Projetado", "Saving Realizado"]:
         st.subheader(f"Cálculo de {tool}")
         st.info("Desdobre o impacto financeiro. O 'Saving Total' será calculado automaticamente ao salvar.")
@@ -1082,6 +1154,9 @@ with coach_container:
                     del st.session_state["saving_coach_feedback"]
                 
             q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", key="coach_saving_desc", height=250, disabled=read_only, on_change=clear_saving_feedback)
+        elif tool == "Matriz de Indicadores":
+            st.info("💡 **Geração Automática de Indicadores:** A IA analisará o problema do projeto e a natureza das etapas listadas (Processo) para sugerir preenchimentos para cada coluna.")
+            st.warning("A IA apenas retornará dados preenchidos se detectar que a Tabela de Processos (no painel central) já possui Etapas (P) válidas.")
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -1214,6 +1289,20 @@ with coach_container:
                     # Exibir apenas no rodapé da IA provisoriamente
                     st.session_state["saving_coach_feedback"] = new_sav
                     st.session_state["ai_generated_warning"] = "✨ ⚠️ Análise Financeira Concluída. Veja a classificação das oportunidades logo abaixo!"
+                    st.rerun()
+
+        # --- FLUXO ESPECIAL: Geração (Autocompletar) de Matriz de Indicadores ---
+        elif tool == "Matriz de Indicadores" and mode_str == "generate":
+            with st.spinner("Doutor Lean processando etapas e criando árvore de indicadores..."):
+                new_matriz = suggest_matriz_indicadores(project_state)
+                if not new_matriz:
+                    st.error("Falha ao gerar indicadores. Certifique-se de que a coluna de Processos não está vazia.")
+                else:
+                    # Sobrescreve a matriz com a resposta
+                    project_state["matriz_indicadores"] = new_matriz
+                    db.save_draft(pid, tool, {"text": json.dumps(new_matriz, ensure_ascii=False)})
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
                     st.rerun()
 
         # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
