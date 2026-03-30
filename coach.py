@@ -554,7 +554,7 @@ Regras Estritas para a tabela de retorno:
    "Quantidade/Recursos": bullet points focados em capacidade de atendimento. Ex: "- Qtd de salas", "- Qtd de profissionais", "- Qtd de equipamentos alocados".
    "Quantidade em processamento (WIP)": bullet points focados em estoque em processamento/fila daquela etapa. Ex: "- Qtd inscrições aguardando resposta".
    "Tempo (Lead/Cycle Time)": bullet points do tempo entre tarefas atreladas à etapa.
-   "Percentual (%)": dimensões proporcionais de controle que fujam de quantidades brutas.
+   "Percentual (%)": dimensões proporcionais de controle. IMPORTANTE: Obrigatoriamente inclua neste campo uma métrica relativa que compare a Demanda atrelada à etapa vs a Capacidade Instalada para medir restrições e identificar gargalos (Ex: "% de Utilização", "% Ocupação"), baseada na Teoria das Restrições.
    "Qualidade (Erro/NPS)": proporção de defeitos, devoluções, retrabalho e satisfação relativos à etapa.
    "Financeiro (R$)": representação financeira caso aplicável (se não houver, tracejar com "-").
 3. Todos os campos gerados (exceto a coluna "Processo") devem conter os indicadores em lista de tópicos em uma mesma célula/string longa com quebras de linha (\\n), se houver mais de um.
