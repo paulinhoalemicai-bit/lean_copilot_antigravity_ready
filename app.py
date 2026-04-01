@@ -1057,8 +1057,8 @@ with tool_container:
                 db.save_draft(pid, tool, {"text": new_text})
                 st.success("Matriz de Indicadores salva!")
 
-    elif tool == "Matriz Causa & Efeito":
-        st.subheader("📊 Matriz Causa & Efeito (X's do Processo)")
+    elif tool == "Causa & Efeito - Esforço Impacto":
+        st.subheader("📊 Causa & Efeito — Esforço × Impacto")
         st.info("💡 Liste os principais X's (causas) do problema. Pontue o Impacto [0-100] e o Esforço [0-100] de cada X. O Dr. Lean (abaixo, no Coach IA) gera uma lista consolidada automaticamente. O gráfico será atualizado automaticamente.")
 
         causa_data = project_state.get("causa_efeito", [])
@@ -1181,7 +1181,7 @@ with tool_container:
 
         # Paleta de cores por quadrante (usada no fundo E nos pontos)
         COR_ALTA_PRIO   = "#1a6e36"  # Verde escuro  — Esforço baixo + Impacto alto
-        COR_PROJ_MAIOR  = "#c9900a"  # Amarelo vibrante — Esforço alto + Impacto alto
+        COR_PROJ_MAIOR  = "#FFD700"  # Amarelo canário — Esforço alto + Impacto alto
         COR_BAIXA_PRIO  = "#d35400"  # Laranja       — Esforço baixo + Impacto baixo
         COR_DESCONS     = "#c0392b"  # Vermelho      — Esforço alto  + Impacto baixo
 
@@ -1294,7 +1294,7 @@ with tool_container:
                 project_state["causa_efeito"] = out_causas
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                 db.save_draft(pid, tool, {"text": new_text})
-                st.success("Matriz Causa & Efeito salva!")
+                st.success("Causa & Efeito salva!")
 
     elif tool in ["Saving Projetado", "Saving Realizado"]:
         st.subheader(f"Cálculo de {tool}")
@@ -1501,7 +1501,7 @@ with coach_container:
         elif tool == "Matriz de Indicadores":
             st.info("💡 **Geração Automática de Indicadores:** A IA analisará o problema do projeto e a natureza das etapas listadas (Processo) para sugerir preenchimentos para cada coluna.")
             st.warning("A IA apenas retornará dados preenchidos se detectar que a Tabela de Processos (no painel central) já possui Etapas (P) válidas.")
-        elif tool == "Matriz Causa & Efeito":
+        elif tool == "Causa & Efeito - Esforço Impacto":
             st.info("💡 **Análise de Causa & Efeito:** O Doutor Lean analisará cada X e gerará só o **Impacto** ou só o **Esforço**, dependendo do botão escolhido abaixo.")
             st.warning("⚠️ Preencha os X's na tabela ao lado e certifique-se que o Problema está salvo no Project Charter.")
         else:
@@ -1514,7 +1514,7 @@ with coach_container:
             )
         st.warning("⚠️ **Atenção:** As informações geradas por Inteligência Artificial são exclusivas para direcionamento metodológico e devem obrigatoriamente ser revisadas e validadas na tabela ao lado antes do uso.")
         
-    if tool == "Matriz Causa & Efeito" and not read_only:
+    if tool == "Causa & Efeito - Esforço Impacto" and not read_only:
         # Tres botoes separados para a ferramenta C&E
         ce_b1, ce_b2, ce_b3 = st.columns([1, 1, 1])
         ce_mode = None
@@ -1577,7 +1577,7 @@ with coach_container:
                         st.rerun()
 
         # --- Botão Dr. Lean (Consolidar X's) — aparece no Coach IA abaixo das avaliações IA ---
-        if tool == "Matriz Causa & Efeito" and not read_only:
+        if tool == "Causa & Efeito - Esforço Impacto" and not read_only:
             st.markdown("---")
             st.markdown("#### 🤖 Dr. Lean — Consolidação Inteligente de X's")
             st.caption("Analisa **todos** os indicadores da Planilha de Indicadores e gera uma lista enxuta de X's primários, agrupando indicadores redundantes e evitando misturar causas profundas com causas de primeiro nível.")
