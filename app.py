@@ -484,7 +484,11 @@ def sync_dynamic_tables():
         if updated_ind:
             project_state["matriz_indicadores"] = ind_data
 
-if ROLE == "aluno":
+    # --- SALVAMENTO AUTOMÁTICO NA SINCRONIZAÇÃO ---
+    if updated_ce or updated_pl or updated_ind:
+        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+
+if not read_only:
     sync_dynamic_tables()
 
 with tool_container:
@@ -1422,26 +1426,47 @@ with tool_container:
 
         st.markdown(
             '<style>'
-            'div[data-testid="stHorizontalBlock"].plano-block { min-width: 1800px !important; }'
-            '.plano-header { background-color: #001C59; color: white; border-radius: 6px 6px 0 0; padding: 10px 0; min-width: 1800px; }'
-            '.plano-header b { font-size: 0.85em; }'
+            'div.plano-scroll-container { overflow-x: auto; width: 100%; border: 1px solid #E2E8F0; border-radius: 8px; margin-bottom: 20px; }'
+            '.plano-wide-content { min-width: 1800px; padding: 10px; background-color: white; }'
+            '.plano-header-row { background-color: #001C59; color: white; border-radius: 6px; padding: 12px 0; margin-bottom: 15px; display: flex; align-items: center; }'
+            '.plano-header-row p { margin: 0; font-weight: bold; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.95; }'
+            '#plano_table_wrap [data-testid="column"] { padding: 0 4px !important; }'
+            '#plano_table_wrap [data-testid="stTextArea"] textarea { font-size: 0.85em !important; background-color: #FDFBF3 !important; border-color: #E2E2C2 !important; }'
             '</style>',
             unsafe_allow_html=True
         )
 
-        # Header alinhado usando as mesmas proporções de st.columns
-        st.markdown('<div class="plano-header">', unsafe_allow_html=True)
+        st.markdown('<div class="plano-scroll-container"><div class="plano-wide-content" id="plano_table_wrap">', unsafe_allow_html=True)
+        
+        # Header unificado dentro do bloco largo
         h_cols = st.columns([1.2, 1, 0.8, 0.8, 0.8, 0.8, 1, 1, 1, 0.8, 0.4])
         labels = [
             "Definição Operacional", "Indicador", "Fonte", "Amostra", 
             "Responsável", "Quando", "Como", "Outros Dados", 
             "Uso dos Dados", "Visualização", "Ação"
         ]
-        for col, label in zip(h_cols, labels):
-            col.markdown(f"<p style='margin:0; text-align:center;'><b>{label}</b></p>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Gambiarra visual para o fundo azul do header usando CSS fixo no container de topo
+        st.markdown(
+            """
+            <style>
+            [data-testid="column"]:nth-child(n) { position: relative; }
+            .header-bg-overlay { 
+                position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
+                background: #001C59; z-index: -1; border-radius: 6px;
+            }
+            </style>
+            """, unsafe_allow_html=True
+        )
+        
+        # Renderização do Header com st.columns para garantir alinhamento perfeito
+        with st.container():
+            st.markdown('<div class="plano-header-row">', unsafe_allow_html=True)
+            # Como st.columns preenche o espaço, o background azul via div externa plano-header-row funciona
+            for col, label in zip(h_cols, labels):
+                col.markdown(f"<p style='text-align:center;'>{label}</p>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="plano-block">', unsafe_allow_html=True)
         out_plano = []
         for i, row in enumerate(plano_data):
             cols = st.columns([1.2, 1, 0.8, 0.8, 0.8, 0.8, 1, 1, 1, 0.8, 0.4])
@@ -1484,7 +1509,7 @@ with tool_container:
                 "Definição": v1, "Indicador": v2, "Fonte": v3, "Amostra": v4, "Responsável": v5,
                 "Quando": v6, "Como": v7, "Outros": v8, "Uso": v9, "Mostrar": v10
             })
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div></div>', unsafe_allow_html=True)
 
         if not read_only:
             b1, b3, _ = st.columns([1.5, 1.5, 4])
