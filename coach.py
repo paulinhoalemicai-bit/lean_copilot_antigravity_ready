@@ -776,8 +776,3 @@ Gere o plano detalhado para cada item acima.
         return out.get("plano", [])
     except Exception:
         return []
-
-
-        return out.get("plano", [])
-    except Exception:
-        return []

@@ -411,6 +411,82 @@ tool_container = st.container()
 coach_container = st.container()
 new_text = ""
 
+# --- SINCRONIZAÇÃO DE ESTADO (Background State Sync) ---
+# Garante que edições manuais em tabelas dinâmicas não sejam perdidas ao trocar de ferramentas
+# ou ao realizar importações em outras telas, capturando os valores atuais do st.session_state.
+def sync_dynamic_tables():
+    # 1. Matriz Causa & Efeito
+    if "causa_efeito" in project_state:
+        ce_data = project_state["causa_efeito"]
+        ce_id = project_state.get("causa_efeito_id", 0)
+        updated_ce = False
+        for i, row in enumerate(ce_data):
+            k_ind = f"ce_ind_{i}_{ce_id}"
+            k_imp = f"ce_imp_{i}_{ce_id}"
+            k_esf = f"ce_esf_{i}_{ce_id}"
+            if k_ind in st.session_state:
+                row["indicador"] = st.session_state[k_ind]
+                updated_ce = True
+            if k_imp in st.session_state:
+                row["impacto"] = int(st.session_state[k_imp])
+                updated_ce = True
+            if k_esf in st.session_state:
+                row["esforco"] = int(st.session_state[k_esf])
+                updated_ce = True
+        if updated_ce:
+            project_state["causa_efeito"] = ce_data
+
+    # 2. Plano de Coleta de Dados
+    if "plano_coleta" in project_state:
+        pl_data = project_state["plano_coleta"]
+        pl_id = project_state.get("plano_id", 0)
+        updated_pl = False
+        for i, row in enumerate(pl_data):
+            k_def = f"plano_def_{i}_{pl_id}"
+            k_ind = f"plano_ind_{i}_{pl_id}"
+            k_src = f"plano_src_{i}_{pl_id}"
+            k_amo = f"plano_amo_{i}_{pl_id}"
+            k_res = f"plano_res_{i}_{pl_id}"
+            k_qnd = f"plano_qnd_{i}_{pl_id}"
+            k_com = f"plano_com_{i}_{pl_id}"
+            k_out = f"plano_out_{i}_{pl_id}"
+            k_uso = f"plano_uso_{i}_{pl_id}"
+            k_viz = f"plano_viz_{i}_{pl_id}"
+            
+            mapping = {
+                k_def: "Definição", k_ind: "Indicador", k_src: "Fonte", k_amo: "Amostra", 
+                k_res: "Responsável", k_qnd: "Quando", k_com: "Como", k_out: "Outros", 
+                k_uso: "Uso", k_viz: "Mostrar"
+            }
+            for k, field in mapping.items():
+                if k in st.session_state:
+                    row[field] = st.session_state[k]
+                    updated_pl = True
+        if updated_pl:
+            project_state["plano_coleta"] = pl_data
+
+    # 3. Matriz de Indicadores
+    if "matriz_indicadores" in project_state:
+        ind_data = project_state["matriz_indicadores"]
+        mat_id = project_state.get("matriz_id", 0)
+        updated_ind = False
+        cols_map = {
+            "mat_p": "Processo", "mat_q": "Quantidade/Volume", "mat_qr": "Quantidade/Recursos",
+            "mat_w": "Quantidade em processamento (WIP)", "mat_t": "Tempo (Lead/Cycle Time)",
+            "mat_pc": "Percentual (%)", "mat_qu": "Qualidade (Erro/NPS)", "mat_f": "Financeiro (R$)"
+        }
+        for i, row in enumerate(ind_data):
+            for k_prefix, field in cols_map.items():
+                k = f"{k_prefix}_{i}_{mat_id}"
+                if k in st.session_state:
+                    row[field] = st.session_state[k]
+                    updated_ind = True
+        if updated_ind:
+            project_state["matriz_indicadores"] = ind_data
+
+if ROLE == "aluno":
+    sync_dynamic_tables()
+
 with tool_container:
     if tool == "Capa do Projeto":
         st.subheader("Capa do Projeto")
@@ -1307,11 +1383,17 @@ with tool_container:
         col_import, col_space = st.columns([2.5, 4.5])
         with col_import:
             if st.button("📥 Importar Causas de Alta Prioridade (Verde)", use_container_width=True, disabled=read_only):
+                # O project_state["causa_efeito"] já foi sincronizado no topo do script com as edições do usuário!
                 ce_data = project_state.get("causa_efeito", [])
                 novas_linhas = []
                 for c in ce_data:
-                    esf = int(c.get("esforco", 0) or 0)
-                    imp = int(c.get("impacto", 0) or 0)
+                    try:
+                        esf = int(float(c.get("esforco", 0) or 0))
+                        imp = int(float(c.get("impacto", 0) or 0))
+                    except (TypeError, ValueError):
+                        esf = 0
+                        imp = 0
+                    
                     # Baixo Esforço (<=50) + Alto Impacto (>50) = Verde
                     if esf <= 50 and imp > 50:
                         ind_text = str(c.get("indicador", "")).strip()
@@ -1324,12 +1406,12 @@ with tool_container:
                             })
                 
                 if not novas_linhas:
-                    st.warning("Não foram encontradas causas no quadrante de Alta Prioridade (Verde) na Matriz C&E.")
+                    st.warning("⚠️ Não foram encontradas causas no quadrante de Alta Prioridade (Verde) na Matriz C&E. Verifique se pontuou corretamente (Impacto > 50 e Esforço <= 50).")
                 else:
                     project_state["plano_coleta"] = plano_data + novas_linhas
                     project_state["plano_id"] = plano_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.success(f"{len(novas_linhas)} causas importadas com sucesso!")
+                    st.success(f"✅ {len(novas_linhas)} causas importadas com o 'Esforço' e 'Impacto' mais recentes!")
                     st.rerun()
 
         if not plano_data:
@@ -1341,27 +1423,23 @@ with tool_container:
         st.markdown(
             '<style>'
             'div[data-testid="stHorizontalBlock"].plano-block { min-width: 1800px !important; }'
+            '.plano-header { background-color: #001C59; color: white; border-radius: 6px 6px 0 0; padding: 10px 0; min-width: 1800px; }'
+            '.plano-header b { font-size: 0.85em; }'
             '</style>',
             unsafe_allow_html=True
         )
 
-        st.markdown(
-            '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px; min-width: 1800px; margin-bottom: -10px;">'
-            '<div style="display: flex;">'
-            '<div style="flex: 1.2; padding: 0 5px; font-size: 0.8em;"><b>Definição Operacional</b></div>'
-            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Indicador</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Fonte</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Amostra</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Responsável</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Quando</b></div>'
-            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Como</b></div>'
-            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Outros Dados</b></div>'
-            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Uso dos Dados</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Visualização</b></div>'
-            '<div style="flex: 0.4; padding: 0 5px; font-size: 0.8em;"><b>Ação</b></div>'
-            '</div></div><br>', 
-            unsafe_allow_html=True
-        )
+        # Header alinhado usando as mesmas proporções de st.columns
+        st.markdown('<div class="plano-header">', unsafe_allow_html=True)
+        h_cols = st.columns([1.2, 1, 0.8, 0.8, 0.8, 0.8, 1, 1, 1, 0.8, 0.4])
+        labels = [
+            "Definição Operacional", "Indicador", "Fonte", "Amostra", 
+            "Responsável", "Quando", "Como", "Outros Dados", 
+            "Uso dos Dados", "Visualização", "Ação"
+        ]
+        for col, label in zip(h_cols, labels):
+            col.markdown(f"<p style='margin:0; text-align:center;'><b>{label}</b></p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="plano-block">', unsafe_allow_html=True)
         out_plano = []
