@@ -615,3 +615,104 @@ Regras Estritas:
         return out.get("rows", [])
     except Exception:
         return []
+
+
+def suggest_xs_consolidados(project_state: dict, indicadores_data: list) -> list:
+    """
+    Dr. Lean: Analisa TODOS os indicadores da Planilha de Indicadores e gera
+    uma lista enxuta de X's primários (causas de primeiro nível abaixo do Y).
+
+    Regras metodológicas aplicadas pela IA:
+    - Agrupa indicadores redundantes ou dependentes entre si
+    - Evita misturar causas profundas (por que do por quê) com causas maiores (X direto do Y)
+    - Trabalha apenas no nível X1, X2... (não X1.1.1 nem causa raiz)
+    - Remove indicadores meramente descritivos ou de controle que não são causas reais
+    - Retorna entre 5 e 12 X's primários consolidados
+    """
+    system = """
+Você é o Dr. Lean, um Master Black Belt com 20+ anos de experiência em projetos Lean Seis Sigma hospitalares e industriais.
+
+Sua missão CRÍTICA é analisar a planilha completa de indicadores de um projeto e gerar uma lista de X's PRIMÁRIOS (causas de primeiro nível) para a Matriz Causa & Efeito.
+
+CONCEITO FUNDAMENTAL — O que é um X primário:
+- O Y é o PROBLEMA do projeto (o grande indicador que queremos melhorar).
+- Os X's primários são as CAUSAS DIRETAS do Y — o primeiro nível de decomposição.
+- Exemplo: Y = "Alto tempo de espera do paciente"
+  → X primário CORRETO: "Fluxo de triagem ineficiente" (causa direta)
+  → X profundo ERRADO: "Funcionário não seguiu o protocolo" (causa do X, não do Y diretamente)
+
+REGRAS ESTRITAS DE CLASSIFICAÇÃO:
+1. AGRUPE indicadores que medem o mesmo fenômeno. Ex: "Qtd de triagens/hora" + "% de triagens fora do padrão" → agrupar em "Capacidade de triagem"
+2. NÃO MISTURE nível de causa: separe o X (causa maior) do sub-X (porque do X). Fique no nível de X direto do Y.
+3. ELIMINE indicadores puramente descritivos/contáveis que não representam uma causa real (ex: "Quantidade de pacientes atendidos" não é causa de nada por si só).
+4. PRIORIZE os X's mais frequentemente relacionados ao problema.
+5. GERE entre 5 e 12 X's consolidados. Não menos que 5, não mais que 12.
+6. Cada X deve ser escrito como uma CAUSA ATIVA (substantivo + contexto): ex: "Capacidade instalada insuficiente de X", "Variação no processo de Y".
+7. Para cada X, estime:
+   - "impacto": inteiro 1-100 (quanto esse X contribui para o Y do problema)
+   - "esforco": inteiro 1-10 (dificuldade para resolver)
+   - "justificativa": frase curta (máx 15 palavras) explicando por que é um X primário relevante
+
+Responda SOMENTE em JSON com a chave "xs":
+{
+  "xs": [
+    {
+      "indicador": "nome do X primário consolidado",
+      "impacto": 80,
+      "esforco": 6,
+      "justificativa": "Justificativa curta em português"
+    },
+    ...
+  ]
+}
+""".strip()
+
+    charter_data = project_state.get("charter", {})
+    prob = charter_data.get("problem", "Problema não informado no Charter.")
+    y_indicador = charter_data.get("main_indicator", "Indicador principal não informado.")
+
+    # Formata a planilha de indicadores de forma compacta para o prompt
+    linhas_formatadas = []
+    for row in indicadores_data:
+        processo = str(row.get("Processo", "")).strip()
+        if not processo:
+            continue
+        partes = [f"Processo: {processo}"]
+        for col in ["Quantidade/Volume", "Quantidade/Recursos", "Quantidade em processamento (WIP)",
+                    "Tempo (Lead/Cycle Time)", "Percentual (%)", "Qualidade (Erro/NPS)", "Financeiro (R$)"]:
+            val = str(row.get(col, "")).strip()
+            if val and val != "-":
+                partes.append(f"  {col}: {val}")
+        linhas_formatadas.append("\n".join(partes))
+
+    planilha_txt = "\n\n".join(linhas_formatadas) if linhas_formatadas else "Planilha vazia."
+
+    user_str = f"""PROBLEMA DO PROJETO (Y — o que queremos resolver):
+{prob}
+
+INDICADOR PRINCIPAL (Y):
+{y_indicador}
+
+PLANILHA COMPLETA DE INDICADORES (todos os X's candidatos mapeados por etapa):
+{planilha_txt}
+
+Com base nisso, gere os X's primários consolidados conforme as regras metodológicas.
+""".strip()
+
+    try:
+        out = _chat_json(system, user_str)
+        xs_raw = out.get("xs", [])
+        resultado = []
+        for x in xs_raw:
+            indicador = str(x.get("indicador", "")).strip()
+            if not indicador:
+                continue
+            resultado.append({
+                "indicador": indicador,
+                "impacto": max(1, min(100, int(x.get("impacto", 50) or 50))),
+                "esforco": max(1, min(10, int(x.get("esforco", 5) or 5))),
+                "justificativa": str(x.get("justificativa", "")).strip()
+            })
+        return resultado
+    except Exception as e:
+        return []

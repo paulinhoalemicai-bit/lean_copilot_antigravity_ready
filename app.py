@@ -24,7 +24,8 @@ from coach import (
     suggest_sipoc_io,
     suggest_saving_rationale,
     suggest_matriz_indicadores,
-    suggest_causa_efeito_impacto
+    suggest_causa_efeito_impacto,
+    suggest_xs_consolidados
 )
 
 try:
@@ -1058,49 +1059,41 @@ with tool_container:
 
     elif tool == "Matriz Causa & Efeito":
         st.subheader("📊 Matriz Causa & Efeito (X's do Processo)")
-        st.info("💡 Liste as possíveis causas (X\u2019s) do problema. Pontue o Impacto [1-100] e o Esforço [1-10] de cada uma. O gráfico será atualizado automaticamente.")
+        st.info("💡 Liste os principais X's (causas) do problema. O Dr. Lean analisará todos os indicadores da planilha e gerará uma decomposição consolidada, agrupando causas similares e eliminando redundâncias. Pontue o Impacto [1-100] e o Esforço [1-10] de cada X. O gráfico será atualizado automaticamente.")
 
         causa_data = project_state.get("causa_efeito", [])
         ce_id = project_state.get("causa_efeito_id", 0)
 
-        # --- Botão importar da Matriz de Indicadores ---
-        col_imp, col_sp = st.columns([3, 5])
-        with col_imp:
-            if st.button("📥 Importar indicadores da Matriz de Indicadores", use_container_width=True, disabled=read_only):
+        # --- Botão Dr. Lean: Consolidar X's da Matriz de Indicadores ---
+        with st.container(border=True):
+            st.markdown("#### 🤖 Dr. Lean — Consolidação Inteligente de X's")
+            st.caption("O Dr. Lean analisa **todos** os indicadores da Planilha de Indicadores e gera uma lista enxuta de X's primários (causas de primeiro nível), agrupando indicadores redundantes e evitando misturar causas profundas com causas maiores.")
+            col_btn_ai, col_sp_ai = st.columns([2, 5])
+            with col_btn_ai:
+                btn_consolidar = st.button(
+                    "🧠 Gerar X's Consolidados (Dr. Lean)",
+                    use_container_width=True,
+                    disabled=read_only,
+                    key="btn_consolidar_xs"
+                )
+            if btn_consolidar:
                 ind_data = project_state.get("matriz_indicadores", [])
-                novas = []
-                for row in ind_data:
-                    processo = str(row.get("Processo", "")).strip()
-                    # Cada coluna de indicador vira um X separado
-                    cols_indicadores = [
-                        "Quantidade/Volume", "Quantidade/Recursos",
-                        "Quantidade em processamento (WIP)", "Tempo (Lead/Cycle Time)",
-                        "Percentual (%)", "Qualidade (Erro/NPS)", "Financeiro (R$)"
-                    ]
-                    for col in cols_indicadores:
-                        val = str(row.get(col, "")).strip()
-                        if val:
-                            # Cada bullet point vira um X
-                            bullets = [b.strip().lstrip("-•· ").strip() for b in val.split("\n") if b.strip().lstrip("-•· ").strip()]
-                            for bullet in bullets:
-                                novas.append({
-                                    "etapa": processo,
-                                    "indicador": bullet,
-                                    "impacto": 0,
-                                    "esforco": 0,
-                                    "justificativa": ""
-                                })
-                if not novas:
-                    st.warning("⚠️ Matriz de Indicadores está vazia. Preencha-a primeiro.")
+                if not ind_data or all(not any(v for v in row.values()) for row in ind_data):
+                    st.warning("⚠️ A Planilha de Indicadores está vazia. Preencha-a primeiro (ferramenta 'Matriz de Indicadores').")
                 else:
-                    project_state["causa_efeito"] = novas
-                    project_state["causa_efeito_id"] = ce_id + 1
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.success(f"{len(novas)} indicadores importados como X's!")
-                    st.rerun()
+                    with st.spinner("Dr. Lean está analisando os indicadores e consolidando os X's principais..."):
+                        xs_gerados = suggest_xs_consolidados(project_state, ind_data)
+                    if not xs_gerados:
+                        st.error("A IA não retornou X's. Verifique sua conexão com a API.")
+                    else:
+                        project_state["causa_efeito"] = xs_gerados
+                        project_state["causa_efeito_id"] = ce_id + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.success(f"✅ {len(xs_gerados)} X's primários gerados pelo Dr. Lean! Revise, ajuste os pesos e salve.")
+                        st.rerun()
 
         if not causa_data:
-            causa_data = [{"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
+            causa_data = [{"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
 
         # --- Header da tabela ---
         st.markdown(
@@ -1112,11 +1105,10 @@ with tool_container:
             '<div style="background-color: #001C59; color: white; padding: 6px 8px; border-radius: 6px; margin-bottom: 2px;">'
             '<div style="display: flex; align-items: center;">'
             '<div style="width: 36px; font-size: 0.78em;"><b>#</b></div>'
-            '<div style="flex: 2; font-size: 0.78em; padding: 0 2px;"><b>Etapa do Processo</b></div>'
-            '<div style="flex: 3; font-size: 0.78em; padding: 0 2px;"><b>Indicador (X)</b></div>'
+            '<div style="flex: 5; font-size: 0.78em; padding: 0 2px;"><b>Indicador / Causa (X)</b></div>'
             '<div style="width: 62px; font-size: 0.78em; text-align: center;"><b>Impacto<br>[1-100]</b></div>'
             '<div style="width: 56px; font-size: 0.78em; text-align: center;"><b>Esforço<br>[1-10]</b></div>'
-            '<div style="flex: 2; font-size: 0.78em; padding: 0 2px;"><b>Justificativa IA</b></div>'
+            '<div style="flex: 2.5; font-size: 0.78em; padding: 0 2px;"><b>Justificativa IA</b></div>'
             '<div style="width: 44px; font-size: 0.78em; text-align: center;"><b>×/+</b></div>'
             '</div></div>',
             unsafe_allow_html=True
@@ -1125,19 +1117,19 @@ with tool_container:
         out_causas = []
         for i, row in enumerate(causa_data):
             label = f"X{i+1}"
-            c_lbl, c_etapa, c_ind, c_imp, c_esf, c_just, c_act = st.columns([0.33, 2, 3, 0.62, 0.55, 2, 0.42])
+            c_lbl, c_ind, c_imp, c_esf, c_just, c_act = st.columns([0.33, 5, 0.62, 0.55, 2.5, 0.42])
 
             c_lbl.markdown(f"<div style='padding-top:10px; font-weight:bold; color:#001C59;'>{label}</div>", unsafe_allow_html=True)
 
-            # Retrocompatibilidade: se vier no formato antigo (campo "causa"), separar
-            etapa_val = str(row.get("etapa", row.get("causa", "")))
-            indicador_val = str(row.get("indicador", ""))
+            # Retrocompatibilidade: se vier no formato antigo com campos "causa" ou "etapa+indicador", unificar
+            indicador_val = str(row.get("indicador", row.get("causa", "")))
+            # Se tinha etapa preenchida e indicador vazio (formato antigo), combina ambos
+            etapa_old = str(row.get("etapa", "")).strip()
+            if etapa_old and not indicador_val.strip():
+                indicador_val = etapa_old
+            elif etapa_old and indicador_val.strip() and etapa_old not in indicador_val:
+                indicador_val = f"{etapa_old} — {indicador_val}"
 
-            v_etapa = c_etapa.text_area(
-                "etapa", value=etapa_val,
-                key=f"ce_etapa_{i}_{ce_id}", height=80,
-                label_visibility="collapsed", disabled=read_only
-            )
             v_ind = c_ind.text_area(
                 "ind", value=indicador_val,
                 key=f"ce_ind_{i}_{ce_id}", height=80,
@@ -1176,33 +1168,32 @@ with tool_container:
                         st.rerun()
                     if bb.button("+", key=f"ce_add_{i}_{ce_id}", help="Inserir linha abaixo", use_container_width=True):
                         nova = list(causa_data)
-                        nova.insert(i + 1, {"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
+                        nova.insert(i + 1, {"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
                         project_state["causa_efeito"] = nova
                         project_state["causa_efeito_id"] = ce_id + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
 
             out_causas.append({
-                "etapa": v_etapa,
                 "indicador": v_ind,
                 "impacto": int(v_imp),
                 "esforco": int(v_esf),
                 "justificativa": str(row.get("justificativa", ""))
             })
 
-        # --- Botoões de controle da tabela ---
+        # --- Botões de controle da tabela ---
         if not read_only:
             ba1, ba2, _ = st.columns([1.5, 1.5, 5])
             with ba1:
                 if st.button("➕ Adicionar Linha", key="ce_add_bottom", use_container_width=True):
-                    out_causas.append({"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
+                    out_causas.append({"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
             with ba2:
                 if st.button("🚨 Apagar Tabela", key="ce_clear", use_container_width=True):
-                    out_causas = [{"etapa": "", "indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
+                    out_causas = [{"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -1214,21 +1205,24 @@ with tool_container:
         # --- Gráfico Esforço x Impacto ---
         st.markdown("---")
         st.subheader("📈 Gráfico Esforço × Impacto")
-        dados_validos = [r for r in out_causas if r.get("causa", "").strip()]
-        if not dados_validos:
-            st.info("Preencha as causas acima para visualizar o gráfico.")
+        # Considera válidos os X's que tiverem indicador preenchido OU pelo menos um score > 0
+        dados_validos = [
+            r for r in out_causas
+            if str(r.get("indicador", "")).strip() or int(r.get("impacto", 0) or 0) > 0 or int(r.get("esforco", 0) or 0) > 0
+        ]
+        pontos_com_score = [r for r in dados_validos if int(r.get("impacto", 0) or 0) > 0 or int(r.get("esforco", 0) or 0) > 0]
+        if not pontos_com_score:
+            st.info("Preencha Impacto e/ou Esforço acima para visualizar o gráfico.")
         else:
-            import pandas as pd
-            import altair as alt
             df_plot = pd.DataFrame([
                 {
                     "X": f"X{i+1}",
-                    "Esforço": int(r.get("esforco", 0)),
-                    "Impacto": int(r.get("impacto", 0)),
-                    "Causa": (str(r.get("etapa", r.get("causa", ""))) + " — " + str(r.get("indicador", "")))[:70]
+                    "Esforço": max(1, int(r.get("esforco", 1) or 1)),
+                    "Impacto": max(1, int(r.get("impacto", 1) or 1)),
+                    "Causa": str(r.get("indicador", ""))[:70]
                 }
                 for i, r in enumerate(dados_validos)
-                if int(r.get("impacto", 0)) > 0 or int(r.get("esforco", 0)) > 0
+                if int(r.get("impacto", 0) or 0) > 0 or int(r.get("esforco", 0) or 0) > 0
             ])
             # Quadrantes de fundo
             quadrantes = pd.DataFrame([
@@ -1519,9 +1513,15 @@ with coach_container:
             causas_atuais = project_state.get("causa_efeito", [])
             lista_causas = []
             for r in causas_atuais:
-                etapa = str(r.get("etapa", r.get("causa", ""))).strip()
-                indicador = str(r.get("indicador", "")).strip()
-                texto = f"{etapa} — {indicador}" if indicador else etapa
+                # Monta texto a partir do campo unificado "indicador" (retrocompat: também aceita "etapa"+"causa")
+                indicador = str(r.get("indicador", r.get("causa", ""))).strip()
+                etapa_old = str(r.get("etapa", "")).strip()
+                if etapa_old and indicador and etapa_old not in indicador:
+                    texto = f"{etapa_old} — {indicador}"
+                elif indicador:
+                    texto = indicador
+                else:
+                    texto = etapa_old
                 if texto:
                     lista_causas.append(texto)
             if not lista_causas:
@@ -1542,8 +1542,7 @@ with coach_container:
                             match = ai_rows[idx] if idx < len(ai_rows) else None
                             if match:
                                 novo = {
-                                    "etapa": str(orig.get("etapa", orig.get("causa", ""))),
-                                    "indicador": str(orig.get("indicador", "")),
+                                    "indicador": str(orig.get("indicador", orig.get("causa", orig.get("etapa", "")))),
                                     "impacto": orig.get("impacto", 0),
                                     "esforco": orig.get("esforco", 0),
                                     "justificativa": str(match.get("justificativa", orig.get("justificativa", "")))
