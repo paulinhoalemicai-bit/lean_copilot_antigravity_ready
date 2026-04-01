@@ -25,7 +25,8 @@ from coach import (
     suggest_saving_rationale,
     suggest_matriz_indicadores,
     suggest_causa_efeito_impacto,
-    suggest_xs_consolidados
+    suggest_xs_consolidados,
+    suggest_plano_coleta
 )
 
 try:

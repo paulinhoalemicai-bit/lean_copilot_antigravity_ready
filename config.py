@@ -6,6 +6,7 @@ TOOLS = [
     "Project Charter",
     "Matriz RACI",
     "Saving Projetado",
+    "Plano de Coleta de Dados",
     "SIPOC (por etapa)",
     "Fluxograma",
     "Ishikawa",
@@ -15,8 +16,7 @@ TOOLS = [
     "ControlPlan",
     "Saving Realizado",
     "Matriz de Indicadores",
-    "Causa & Efeito - Esforço Impacto",
-    "Plano de Coleta de Dados"
+    "Causa & Efeito - Esforço Impacto"
 ]
 
 VOCVOB_COLUMNS = [
