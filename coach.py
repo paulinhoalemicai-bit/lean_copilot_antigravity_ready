@@ -591,16 +591,16 @@ def suggest_causa_efeito_impacto(project_state: dict, causas: list) -> list:
     system = """
 Você é um Coach Master Black Belt especialista em Análise de Causa Raiz e priorização por Causa & Efeito (Matriz de Priorização Lean Seis Sigma).
 Sua missão é analisar cada causa (X) informada e estimar:
-  - "impacto": número inteiro de 1 a 100 — o quanto essa causa X contribui diretamente para o Problema relatado no Charter.
-    1 = quase não influencia; 100 = causa principal direta.
-  - "esforco": número inteiro de 1 a 10 — o quanto é difícil/custoso endereçar essa causa.
-    1 = muito fácil (Quick Win); 10 = extremamente complexo/caro.
+  - "impacto": número com 1 casa decimal de 1.0 a 100.0 — o quanto essa causa X contribui diretamente para o Problema relatado no Charter.
+    1.0 = quase não influencia; 100.0 = causa principal direta.
+  - "esforco": número com 1 casa decimal de 1.0 a 10.0 — o quanto é difícil/custoso endereçar essa causa.
+    1.0 = muito fácil (Baixo Esforço); 10.0 = extremamente complexo/caro.
   - "justificativa": 1 frase curta explicando o raciocínio do impacto.
 
 Regras Estritas:
 1. Responda APENAS em JSON com chave "rows".
 2. "rows" é uma lista com um objeto por causa recebida, EXATAMENTE na mesma ordem, com as chaves: "causa", "impacto", "esforco", "justificativa".
-3. Impacto e Esforço DEVEM ser inteiros válidos, nunca strings.
+3. Impacto e Esforço DEVEM ser números decimais (float) com 1 casa decimal (ex: 5.5, 8.2), nunca apenas inteiros, para evitar sobreposição no gráfico.
 4. Justificativa máximo 15 palavras.
 """
     charter_data = project_state.get("charter", {})
@@ -608,7 +608,7 @@ Regras Estritas:
     causas_str = json.dumps(causas, ensure_ascii=False)
     user_str = (
         f"Problema do projeto (Charter):\n{prob}\n\n"
-        f"Avalie cada uma das causas abaixo com Impacto [1-100] e Esforço [1-10]:\n{causas_str}"
+        f"Avalie cada uma das causas abaixo com Impacto [1.0-100.0] e Esforço [1.0-10.0]:\n{causas_str}"
     )
     try:
         out = _chat_json(system, user_str)
@@ -649,8 +649,9 @@ REGRAS ESTRITAS DE CLASSIFICAÇÃO:
 5. GERE entre 5 e 12 X's consolidados. Não menos que 5, não mais que 12.
 6. Cada X deve ser escrito como uma CAUSA ATIVA (substantivo + contexto): ex: "Capacidade instalada insuficiente de X", "Variação no processo de Y".
 7. Para cada X, estime:
-   - "impacto": inteiro 1-100 (quanto esse X contribui para o Y do problema)
-   - "esforco": inteiro 1-10 (dificuldade para resolver)
+   - "impacto": número decimal (float) com 1 casa decimal de 1.0 a 100.0 (ex: 85.5)
+   - "esforco": número decimal (float) com 1 casa decimal de 1.0 a 10.0 (ex: 4.2)
+   - IMPORTANTE: Sempre use 1 casa decimal para evitar que os pontos fiquem exatamente um sobre o outro no gráfico.
    - "justificativa": frase curta (máx 15 palavras) explicando por que é um X primário relevante
 
 Responda SOMENTE em JSON com a chave "xs":
@@ -658,8 +659,8 @@ Responda SOMENTE em JSON com a chave "xs":
   "xs": [
     {
       "indicador": "nome do X primário consolidado",
-      "impacto": 80,
-      "esforco": 6,
+      "impacto": 80.5,
+      "esforco": 6.2,
       "justificativa": "Justificativa curta em português"
     },
     ...
@@ -709,8 +710,8 @@ Com base nisso, gere os X's primários consolidados conforme as regras metodoló
                 continue
             resultado.append({
                 "indicador": indicador,
-                "impacto": max(1, min(100, int(x.get("impacto", 50) or 50))),
-                "esforco": max(1, min(10, int(x.get("esforco", 5) or 5))),
+                "impacto": round(max(1.0, min(100.0, float(x.get("impacto", 50.0) or 50.0))), 1),
+                "esforco": round(max(1.0, min(10.0, float(x.get("esforco", 5.0) or 5.0))), 1),
                 "justificativa": str(x.get("justificativa", "")).strip()
             })
         return resultado
