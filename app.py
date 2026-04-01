@@ -1599,10 +1599,11 @@ with coach_container:
                         st.rerun()
     else:
         ce_mode = None
+        mode_str = None  # default — only set to "review"/"generate" when button is clicked
         btn_label = "🔎 Iniciar Revisão" if ia_action == "Revisão do Coach IA" else "✨ Gerar Sugestão"
         if st.button(btn_label, disabled=read_only, use_container_width=True):
             mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
-        
+
         # --- FLUXO ESPECIAL: Geração (Autocompletar) do VOC/VOB ---
         if tool == "VOC/VOB" and mode_str == "generate":
             with st.spinner(f"Doutor Lean gerando linha para {target_voc}..."):
