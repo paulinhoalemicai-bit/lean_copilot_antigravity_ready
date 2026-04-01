@@ -1059,38 +1059,10 @@ with tool_container:
 
     elif tool == "Matriz Causa & Efeito":
         st.subheader("📊 Matriz Causa & Efeito (X's do Processo)")
-        st.info("💡 Liste os principais X's (causas) do problema. O Dr. Lean analisará todos os indicadores da planilha e gerará uma decomposição consolidada, agrupando causas similares e eliminando redundâncias. Pontue o Impacto [1-100] e o Esforço [1-10] de cada X. O gráfico será atualizado automaticamente.")
+        st.info("💡 Liste os principais X's (causas) do problema. Pontue o Impacto [0-100] e o Esforço [0-100] de cada X. O Dr. Lean (abaixo, no Coach IA) gera uma lista consolidada automaticamente. O gráfico será atualizado automaticamente.")
 
         causa_data = project_state.get("causa_efeito", [])
         ce_id = project_state.get("causa_efeito_id", 0)
-
-        # --- Botão Dr. Lean: Consolidar X's da Matriz de Indicadores ---
-        with st.container(border=True):
-            st.markdown("#### 🤖 Dr. Lean — Consolidação Inteligente de X's")
-            st.caption("O Dr. Lean analisa **todos** os indicadores da Planilha de Indicadores e gera uma lista enxuta de X's primários (causas de primeiro nível), agrupando indicadores redundantes e evitando misturar causas profundas com causas maiores.")
-            col_btn_ai, col_sp_ai = st.columns([2, 5])
-            with col_btn_ai:
-                btn_consolidar = st.button(
-                    "🧠 Gerar X's Consolidados (Dr. Lean)",
-                    use_container_width=True,
-                    disabled=read_only,
-                    key="btn_consolidar_xs"
-                )
-            if btn_consolidar:
-                ind_data = project_state.get("matriz_indicadores", [])
-                if not ind_data or all(not any(v for v in row.values()) for row in ind_data):
-                    st.warning("⚠️ A Planilha de Indicadores está vazia. Preencha-a primeiro (ferramenta 'Matriz de Indicadores').")
-                else:
-                    with st.spinner("Dr. Lean está analisando os indicadores e consolidando os X's principais..."):
-                        xs_gerados = suggest_xs_consolidados(project_state, ind_data)
-                    if not xs_gerados:
-                        st.error("A IA não retornou X's. Verifique sua conexão com a API.")
-                    else:
-                        project_state["causa_efeito"] = xs_gerados
-                        project_state["causa_efeito_id"] = ce_id + 1
-                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                        st.success(f"✅ {len(xs_gerados)} X's primários gerados pelo Dr. Lean! Revise, ajuste os pesos e salve.")
-                        st.rerun()
 
         if not causa_data:
             causa_data = [{"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
@@ -1100,14 +1072,15 @@ with tool_container:
             '<style>'
             '#ce_table_wrap [data-testid="column"] { padding: 0 1px !important; gap: 0 !important; }'
             '#ce_table_wrap button[kind="secondary"] { padding: 2px 4px !important; font-size: 0.72em !important; min-height: 24px !important; height: 24px !important; line-height: 1 !important; }'
+            '#ce_table_wrap [data-testid="stNumberInput"] input { font-size: 0.80em !important; padding: 4px 4px !important; }'
             '</style>'
             '<div id="ce_table_wrap">'
             '<div style="background-color: #001C59; color: white; padding: 6px 8px; border-radius: 6px; margin-bottom: 2px;">'
             '<div style="display: flex; align-items: center;">'
             '<div style="width: 36px; font-size: 0.78em;"><b>#</b></div>'
             '<div style="flex: 5; font-size: 0.78em; padding: 0 2px;"><b>Indicador / Causa (X)</b></div>'
-            '<div style="width: 62px; font-size: 0.78em; text-align: center;"><b>Impacto<br>[1-100]</b></div>'
-            '<div style="width: 56px; font-size: 0.78em; text-align: center;"><b>Esforço<br>[1-10]</b></div>'
+            '<div style="width: 62px; font-size: 0.78em; text-align: center;"><b>Impacto<br>[0-100]</b></div>'
+            '<div style="width: 62px; font-size: 0.78em; text-align: center;"><b>Esforço<br>[0-100]</b></div>'
             '<div style="flex: 2.5; font-size: 0.78em; padding: 0 2px;"><b>Justificativa IA</b></div>'
             '<div style="width: 44px; font-size: 0.78em; text-align: center;"><b>×/+</b></div>'
             '</div></div>',
@@ -1117,7 +1090,7 @@ with tool_container:
         out_causas = []
         for i, row in enumerate(causa_data):
             label = f"X{i+1}"
-            c_lbl, c_ind, c_imp, c_esf, c_just, c_act = st.columns([0.33, 5, 0.62, 0.55, 2.5, 0.42])
+            c_lbl, c_ind, c_imp, c_esf, c_just, c_act = st.columns([0.33, 5, 0.62, 0.62, 2.5, 0.42])
 
             c_lbl.markdown(f"<div style='padding-top:10px; font-weight:bold; color:#001C59;'>{label}</div>", unsafe_allow_html=True)
 
@@ -1136,17 +1109,17 @@ with tool_container:
                 label_visibility="collapsed", disabled=read_only
             )
 
-            imp_raw = float(row.get("impacto", 0.0) or 0.0)
-            esf_raw = float(row.get("esforco", 0.0) or 0.0)
+            imp_raw = int(row.get("impacto", 0) or 0)
+            esf_raw = int(row.get("esforco", 0) or 0)
 
             v_imp = c_imp.number_input(
-                "imp", min_value=0.0, max_value=100.0, step=0.1, format="%.1f",
-                value=round(max(0.0, min(100.0, imp_raw)), 1),
+                "imp", min_value=0, max_value=100, step=1,
+                value=max(0, min(100, imp_raw)),
                 key=f"ce_imp_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
             )
             v_esf = c_esf.number_input(
-                "esf", min_value=0.0, max_value=10.0, step=0.1, format="%.1f",
-                value=round(max(0.0, min(10.0, esf_raw)), 1),
+                "esf", min_value=0, max_value=100, step=1,
+                value=max(0, min(100, esf_raw)),
                 key=f"ce_esf_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
             )
             v_just = c_just.text_area(
@@ -1176,8 +1149,8 @@ with tool_container:
 
             out_causas.append({
                 "indicador": v_ind,
-                "impacto": round(float(v_imp), 1),
-                "esforco": round(float(v_esf), 1),
+                "impacto": int(v_imp),
+                "esforco": int(v_esf),
                 "justificativa": str(row.get("justificativa", ""))
             })
 
@@ -1186,14 +1159,14 @@ with tool_container:
             ba1, ba2, _ = st.columns([1.5, 1.5, 5])
             with ba1:
                 if st.button("➕ Adicionar Linha", key="ce_add_bottom", use_container_width=True):
-                    out_causas.append({"indicador": "", "impacto": 0.0, "esforco": 0.0, "justificativa": ""})
+                    out_causas.append({"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
             with ba2:
                 if st.button("🚨 Apagar Tabela", key="ce_clear", use_container_width=True):
-                    out_causas = [{"indicador": "", "impacto": 0.0, "esforco": 0.0, "justificativa": ""}]
+                    out_causas = [{"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -1208,18 +1181,18 @@ with tool_container:
 
         # Paleta de cores por quadrante (usada no fundo E nos pontos)
         COR_ALTA_PRIO   = "#1a6e36"  # Verde escuro  — Esforço baixo + Impacto alto
-        COR_PROJ_MAIOR  = "#b07d00"  # Amarelo escuro — Esforço alto  + Impacto alto
-        COR_BAIXA_PRIO  = "#d35400"  # Laranja        — Esforço baixo + Impacto baixo
-        COR_DESCONS     = "#c0392b"  # Vermelho       — Esforço alto  + Impacto baixo
+        COR_PROJ_MAIOR  = "#c9900a"  # Amarelo vibrante — Esforço alto + Impacto alto
+        COR_BAIXA_PRIO  = "#d35400"  # Laranja       — Esforço baixo + Impacto baixo
+        COR_DESCONS     = "#c0392b"  # Vermelho      — Esforço alto  + Impacto baixo
 
         def _quadrante(esf, imp):
-            """Retorna o nome do quadrante e a cor do ponto para um X."""
-            baixo_esf = esf <= 5.5
+            """Retorna o nome do quadrante e a cor do ponto para um X (Esforço e Impacto em escala 0-100)."""
+            baixo_esf = esf <= 50
             alto_imp  = imp > 50
             if baixo_esf and alto_imp:
-                return "Alta Prioridade", COR_ALTA_PRIO
+                return "Alta Prioridade",  COR_ALTA_PRIO
             elif not baixo_esf and alto_imp:
-                return "Projeto Maior",   COR_PROJ_MAIOR
+                return "Projeto Maior",    COR_PROJ_MAIOR
             elif baixo_esf and not alto_imp:
                 return "Baixa Prioridade", COR_BAIXA_PRIO
             else:
@@ -1228,17 +1201,17 @@ with tool_container:
         # Considera válidos os X's com pelo menos um score > 0
         dados_validos = [
             r for r in out_causas
-            if float(r.get("impacto", 0) or 0) > 0 or float(r.get("esforco", 0) or 0) > 0
+            if int(r.get("impacto", 0) or 0) > 0 or int(r.get("esforco", 0) or 0) > 0
         ]
 
         if not dados_validos:
             st.info("Preencha Impacto e/ou Esforço acima para visualizar o gráfico.")
         else:
-            # Constrói o DataFrame com a coluna de quadrante e cor já calculadas
+            # Constrói o DataFrame com a coluna de quadrante e cor já calculadas em Python
             rows_plot = []
             for i, r in enumerate(dados_validos):
-                esf = max(1.0, float(r.get("esforco", 1) or 1))
-                imp = max(1.0, float(r.get("impacto", 1) or 1))
+                esf = max(1, int(r.get("esforco", 0) or 0))
+                imp = max(1, int(r.get("impacto", 0) or 0))
                 quad, cor = _quadrante(esf, imp)
                 rows_plot.append({
                     "X": f"X{i+1}",
@@ -1250,28 +1223,28 @@ with tool_container:
                 })
             df_plot = pd.DataFrame(rows_plot)
 
-            # Fundo dos quadrantes
+            # Fundo dos quadrantes (escala 0-100 tanto para Esforço como Impacto)
             quadrantes = pd.DataFrame([
-                {"x1": 1.0, "x2": 5.5, "y1": 50.0, "y2": 100.0, "quad": "Alta Prioridade",  "cor": "#d4edda"},
-                {"x1": 5.5, "x2": 10.0, "y1": 50.0, "y2": 100.0, "quad": "Projeto Maior",   "cor": "#fff3cd"},
-                {"x1": 1.0, "x2": 5.5, "y1": 1.0,  "y2": 50.0,  "quad": "Baixa Prioridade", "cor": "#ffe5b4"},
-                {"x1": 5.5, "x2": 10.0, "y1": 1.0,  "y2": 50.0,  "quad": "Desconsiderar",    "cor": "#f8d7da"},
+                {"x1": 0,  "x2": 50,  "y1": 50, "y2": 100, "quad": "Alta Prioridade",  "cor": "#d4edda"},
+                {"x1": 50, "x2": 100, "y1": 50, "y2": 100, "quad": "Projeto Maior",    "cor": "#fff3cd"},
+                {"x1": 0,  "x2": 50,  "y1": 0,  "y2": 50,  "quad": "Baixa Prioridade", "cor": "#ffe5b4"},
+                {"x1": 50, "x2": 100, "y1": 0,  "y2": 50,  "quad": "Desconsiderar",    "cor": "#f8d7da"},
             ])
             bg = alt.Chart(quadrantes).mark_rect(opacity=0.40).encode(
-                x=alt.X("x1:Q", scale=alt.Scale(domain=[1, 10])),
+                x=alt.X("x1:Q", scale=alt.Scale(domain=[0, 100])),
                 x2="x2:Q",
-                y=alt.Y("y1:Q", scale=alt.Scale(domain=[1, 100])),
+                y=alt.Y("y1:Q", scale=alt.Scale(domain=[0, 100])),
                 y2="y2:Q",
                 color=alt.Color("cor:N", scale=None),
                 tooltip=["quad:N"]
             )
 
-            # Pontos coloridos de acordo com o quadrante (cor calculada em Python)
+            # Pontos coloridos de acordo com o quadrante calculado em Python
             _quad_names = ["Alta Prioridade", "Projeto Maior", "Baixa Prioridade", "Desconsiderar"]
             _quad_cores = [COR_ALTA_PRIO, COR_PROJ_MAIOR, COR_BAIXA_PRIO, COR_DESCONS]
             pontos = alt.Chart(df_plot).mark_circle(size=160, opacity=0.90).encode(
-                x=alt.X("Esforço:Q", scale=alt.Scale(domain=[1, 10]), title="Esforço [1-10]"),
-                y=alt.Y("Impacto:Q", scale=alt.Scale(domain=[1, 100]), title="Impacto [1-100]"),
+                x=alt.X("Esforço:Q", scale=alt.Scale(domain=[0, 100]), title="Esforço [0-100]"),
+                y=alt.Y("Impacto:Q", scale=alt.Scale(domain=[0, 100]), title="Impacto [0-100]"),
                 color=alt.Color(
                     "Quadrante:N",
                     scale=alt.Scale(domain=_quad_names, range=_quad_cores),
@@ -1282,10 +1255,10 @@ with tool_container:
             rotulos = alt.Chart(df_plot).mark_text(dy=-14, fontSize=12, fontWeight="bold", color="#001C59").encode(
                 x="Esforço:Q", y="Impacto:Q", text="X:N"
             )
-            linhas_v = alt.Chart(pd.DataFrame([{"v": 5.5}])).mark_rule(
+            linhas_v = alt.Chart(pd.DataFrame([{"v": 50}])).mark_rule(
                 color="#888888", strokeDash=[4, 3]
             ).encode(x=alt.X("v:Q"))
-            linhas_h = alt.Chart(pd.DataFrame([{"h": 50.0}])).mark_rule(
+            linhas_h = alt.Chart(pd.DataFrame([{"h": 50}])).mark_rule(
                 color="#888888", strokeDash=[4, 3]
             ).encode(y=alt.Y("h:Q"))
             chart = (bg + linhas_v + linhas_h + pontos + rotulos).properties(
@@ -1294,17 +1267,25 @@ with tool_container:
             ).configure_view(strokeOpacity=0).interactive()
             st.altair_chart(chart, use_container_width=True)
 
-            # Legenda dos quadrantes
+            # Legenda dos quadrantes — estilo padronizado
+            _legend_style = "border-radius:6px; padding:10px 14px; font-size:0.88em; font-weight:500;"
             l1, l2, l3, l4 = st.columns(4)
-            l1.success("🟢 **Alta Prioridade** (Esforço baixo + Impacto alto)")
-            l2.warning("🟡 **Projeto Maior** (Esforço alto + Impacto alto)")
+            l1.markdown(
+                f"<div style='background:#d4edda; border-left:4px solid #1a6e36; {_legend_style}'>"
+                "🟢 <b>Alta Prioridade</b><br><span style='font-weight:normal;font-size:0.9em;'>Esforço baixo + Impacto alto</span></div>",
+                unsafe_allow_html=True)
+            l2.markdown(
+                f"<div style='background:#fff3cd; border-left:4px solid #c9900a; {_legend_style}'>"
+                "🟡 <b>Projeto Maior</b><br><span style='font-weight:normal;font-size:0.9em;'>Esforço alto + Impacto alto</span></div>",
+                unsafe_allow_html=True)
             l3.markdown(
-                """<div style='background-color:#fff3e0; border-left:4px solid #d35400;
-                padding:10px 14px; border-radius:6px; font-size:0.9em;'>
-                🟠 <b>Baixa Prioridade</b><br>(Esforço baixo + Impacto baixo)</div>""",
-                unsafe_allow_html=True
-            )
-            l4.error("🔴 **Desconsiderar** (Esforço alto + Impacto baixo)")
+                f"<div style='background:#ffe5b4; border-left:4px solid #d35400; {_legend_style}'>"
+                "🟠 <b>Baixa Prioridade</b><br><span style='font-weight:normal;font-size:0.9em;'>Esforço baixo + Impacto baixo</span></div>",
+                unsafe_allow_html=True)
+            l4.markdown(
+                f"<div style='background:#f8d7da; border-left:4px solid #c0392b; {_legend_style}'>"
+                "🔴 <b>Desconsiderar</b><br><span style='font-weight:normal;font-size:0.9em;'>Esforço alto + Impacto baixo</span></div>",
+                unsafe_allow_html=True)
 
         # --- Salvar ---
         c1, _ = st.columns([1, 5])
@@ -1593,6 +1574,28 @@ with coach_container:
                         project_state["causa_efeito_id"] = project_state.get("causa_efeito_id", 0) + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.session_state["ai_generated_warning"] = f"✨ ⚠️ {'Impacto' if ce_mode == 'impacto' else 'Esforço' if ce_mode == 'esforco' else 'Impacto e Esforço'} estimados! Revise os valores e veja o gráfico."
+                        st.rerun()
+
+        # --- Botão Dr. Lean (Consolidar X's) — aparece no Coach IA abaixo das avaliações IA ---
+        if tool == "Matriz Causa & Efeito" and not read_only:
+            st.markdown("---")
+            st.markdown("#### 🤖 Dr. Lean — Consolidação Inteligente de X's")
+            st.caption("Analisa **todos** os indicadores da Planilha de Indicadores e gera uma lista enxuta de X's primários, agrupando indicadores redundantes e evitando misturar causas profundas com causas de primeiro nível.")
+            if st.button("🧠 Gerar X's Consolidados (Dr. Lean)", use_container_width=True, key="btn_consolidar_xs_coach"):
+                ind_data = project_state.get("matriz_indicadores", [])
+                if not ind_data or all(not any(v for v in row.values()) for row in ind_data):
+                    st.warning("⚠️ A Planilha de Indicadores está vazia. Preencha-a primeiro.")
+                else:
+                    with st.spinner("Dr. Lean analisando indicadores e consolidando X's..."):
+                        ce_id_now = project_state.get("causa_efeito_id", 0)
+                        xs_gerados = suggest_xs_consolidados(project_state, ind_data)
+                    if not xs_gerados:
+                        st.error("A IA não retornou X's. Verifique sua conexão com a API.")
+                    else:
+                        project_state["causa_efeito"] = xs_gerados
+                        project_state["causa_efeito_id"] = ce_id_now + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = f"✅ {len(xs_gerados)} X's primários gerados pelo Dr. Lean! Revise, ajuste os pesos (Impacto/Esforço) e salve."
                         st.rerun()
     else:
         ce_mode = None
