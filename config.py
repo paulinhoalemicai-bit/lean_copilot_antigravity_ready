@@ -15,7 +15,8 @@ TOOLS = [
     "ControlPlan",
     "Saving Realizado",
     "Matriz de Indicadores",
-    "Causa & Efeito - Esforço Impacto"
+    "Causa & Efeito - Esforço Impacto",
+    "Plano de Coleta de Dados"
 ]
 
 VOCVOB_COLUMNS = [
@@ -97,5 +98,13 @@ Objetivo:
 - Estimar o Impacto de cada causa no problema (escala 0-100): quanto aquela causa contribui para o problema.
 - Estimar o Esforço necessário para endereçá-la (escala 0-100): quanto custa em tempo/recurso/dificuldade resolver aquela causa.
 - Priorizar as causas de maior impacto e menor esforço (Alta Prioridade) para ação imediata baseado na Teoria das Restrições.
+""",
+    "Plano de Coleta de Dados": """
+Ferramenta Plano de Coleta de Dados.
+Objetivo:
+- Planejar detalhadamente como cada indicador ou causa prioritária será medido.
+- Definir Definição Operacional, Fonte, Amostra, Responsável, Frequência (Quando) e Método (Como).
+- Identificar como os dados serão utilizados para análise e como serão apresentados (gráficos).
+- O Coach deve atuar como cientista de dados e especialista em metrologia, garantindo que o plano seja robusto, viável e que os dados coletados sejam confiáveis para a tomada de decisão.
 """
 }

@@ -1296,6 +1296,147 @@ with tool_container:
                 db.save_draft(pid, tool, {"text": new_text})
                 st.success("Causa & Efeito salva!")
 
+    elif tool == "Plano de Coleta de Dados":
+        st.subheader("📊 Plano de Coleta de Dados")
+        st.info("💡 Detalhe como cada indicador ou causa prioritária será medido para garantir dados confiáveis.")
+        
+        plano_data = project_state.get("plano_coleta", [])
+        plano_id = project_state.get("plano_id", 0)
+
+        col_import, col_space = st.columns([2.5, 4.5])
+        with col_import:
+            if st.button("📥 Importar Causas de Alta Prioridade (Verde)", use_container_width=True, disabled=read_only):
+                ce_data = project_state.get("causa_efeito", [])
+                novas_linhas = []
+                for c in ce_data:
+                    esf = int(c.get("esforco", 0) or 0)
+                    imp = int(c.get("impacto", 0) or 0)
+                    # Baixo Esforço (<=50) + Alto Impacto (>50) = Verde
+                    if esf <= 50 and imp > 50:
+                        ind_text = str(c.get("indicador", "")).strip()
+                        if ind_text:
+                            novas_linhas.append({
+                                "Definição": f"Medir o impacto de: {ind_text}",
+                                "Indicador": ind_text,
+                                "Fonte": "", "Amostra": "", "Responsável": "",
+                                "Quando": "", "Como": "", "Outros": "", "Uso": "", "Mostrar": ""
+                            })
+                
+                if not novas_linhas:
+                    st.warning("Não foram encontradas causas no quadrante de Alta Prioridade (Verde) na Matriz C&E.")
+                else:
+                    project_state["plano_coleta"] = plano_data + novas_linhas
+                    project_state["plano_id"] = plano_id + 1
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.success(f"{len(novas_linhas)} causas importadas com sucesso!")
+                    st.rerun()
+
+        if not plano_data:
+            plano_data = [{
+                "Definição": "", "Indicador": "", "Fonte": "", "Amostra": "", "Responsável": "",
+                "Quando": "", "Como": "", "Outros": "", "Uso": "", "Mostrar": ""
+            }]
+
+        st.markdown(
+            '<style>'
+            'div[data-testid="stHorizontalBlock"].plano-block { min-width: 1800px !important; }'
+            '</style>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px; min-width: 1800px; margin-bottom: -10px;">'
+            '<div style="display: flex;">'
+            '<div style="flex: 1.2; padding: 0 5px; font-size: 0.8em;"><b>Definição Operacional</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Indicador</b></div>'
+            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Fonte</b></div>'
+            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Amostra</b></div>'
+            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Responsável</b></div>'
+            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Quando</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Como</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Outros Dados</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.8em;"><b>Uso dos Dados</b></div>'
+            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.8em;"><b>Visualização</b></div>'
+            '<div style="flex: 0.4; padding: 0 5px; font-size: 0.8em;"><b>Ação</b></div>'
+            '</div></div><br>', 
+            unsafe_allow_html=True
+        )
+
+        st.markdown('<div class="plano-block">', unsafe_allow_html=True)
+        out_plano = []
+        for i, row in enumerate(plano_data):
+            cols = st.columns([1.2, 1, 0.8, 0.8, 0.8, 0.8, 1, 1, 1, 0.8, 0.4])
+            
+            h = 130
+            v1 = cols[0].text_area("def", value=row.get("Definição", ""), key=f"plano_def_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v2 = cols[1].text_area("ind", value=row.get("Indicador", ""), key=f"plano_ind_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v3 = cols[2].text_area("src", value=row.get("Fonte", ""), key=f"plano_src_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v4 = cols[3].text_area("amo", value=row.get("Amostra", ""), key=f"plano_amo_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v5 = cols[4].text_area("res", value=row.get("Responsável", ""), key=f"plano_res_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v6 = cols[5].text_area("qnd", value=row.get("Quando", ""), key=f"plano_qnd_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v7 = cols[6].text_area("com", value=row.get("Como", ""), key=f"plano_com_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v8 = cols[7].text_area("out", value=row.get("Outros", ""), key=f"plano_out_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v9 = cols[8].text_area("uso", value=row.get("Uso", ""), key=f"plano_uso_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            v10 = cols[9].text_area("viz", value=row.get("Mostrar", ""), key=f"plano_viz_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
+            
+            with cols[10]:
+                st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+                if len(plano_data) > 1 and not read_only:
+                    if st.button("🗑️", key=f"plano_del_{i}_{plano_id}"):
+                        nova_tabela = list(plano_data)
+                        nova_tabela.pop(i)
+                        project_state["plano_coleta"] = nova_tabela
+                        project_state["plano_id"] = plano_id + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                if not read_only:
+                    if st.button("➕", key=f"plano_add_{i}_{plano_id}"):
+                        nova_tabela = list(plano_data)
+                        nova_tabela.insert(i + 1, {
+                            "Definição": "", "Indicador": "", "Fonte": "", "Amostra": "", "Responsável": "",
+                            "Quando": "", "Como": "", "Outros": "", "Uso": "", "Mostrar": ""
+                        })
+                        project_state["plano_coleta"] = nova_tabela
+                        project_state["plano_id"] = plano_id + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+
+            out_plano.append({
+                "Definição": v1, "Indicador": v2, "Fonte": v3, "Amostra": v4, "Responsável": v5,
+                "Quando": v6, "Como": v7, "Outros": v8, "Uso": v9, "Mostrar": v10
+            })
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if not read_only:
+            b1, b3, _ = st.columns([1.5, 1.5, 4])
+            with b1:
+                if st.button("➕ Adicionar Linha", key="btn_add_plano", use_container_width=True):
+                    out_plano.append({
+                        "Definição": "", "Indicador": "", "Fonte": "", "Amostra": "", "Responsável": "",
+                        "Quando": "", "Como": "", "Outros": "", "Uso": "", "Mostrar": ""
+                    })
+                    project_state["plano_coleta"] = out_plano
+                    project_state["plano_id"] = plano_id + 1
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+            with b3:
+                if st.button("🚨 Apagar Tabela", key="btn_clear_plano", use_container_width=True):
+                    project_state["plano_coleta"] = []
+                    project_state["plano_id"] = plano_id + 1
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+
+        project_state["plano_coleta"] = out_plano
+        new_text = "Plano de Coleta de Dados:\n" + json.dumps(out_plano, ensure_ascii=False)
+
+        c1, _ = st.columns([1, 5])
+        with c1:
+            if st.button("💾 Salvar Plano", disabled=read_only, use_container_width=True):
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                db.save_draft(pid, tool, {"text": new_text})
+                st.success("Plano de Coleta salvo!")
+
+
     elif tool in ["Saving Projetado", "Saving Realizado"]:
         st.subheader(f"Cálculo de {tool}")
         st.info("Desdobre o impacto financeiro. O 'Saving Total' será calculado automaticamente ao salvar.")
@@ -1504,6 +1645,9 @@ with coach_container:
         elif tool == "Causa & Efeito - Esforço Impacto":
             st.info("💡 **Análise de Causa & Efeito:** O Doutor Lean analisará cada X e gerará só o **Impacto** ou só o **Esforço**, dependendo do botão escolhido abaixo.")
             st.warning("⚠️ Preencha os X's na tabela ao lado e certifique-se que o Problema está salvo no Project Charter.")
+        elif tool == "Plano de Coleta de Dados":
+            st.info("💡 **Doutor Lean:** O robô analisará as causas prioritárias (Matriz C&E) ou indicadores mapeados para sugerir um plano de coleta robusto.")
+            st.caption("Certifique-se de que a Matriz C&E possui itens marcados como 'Alta Prioridade' (Verde) para melhores sugestões.")
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -1722,6 +1866,38 @@ with coach_container:
                         db.save_draft(pid, tool, {"text": json.dumps(new_matriz, ensure_ascii=False)})
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
+                        st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração do Plano de Coleta de Dados ---
+            elif tool == "Plano de Coleta de Dados" and mode_str == "generate":
+                with st.spinner("Doutor Lean estruturando o plano de medição metrológica..."):
+                    # Pega as causas verdes como base se existirem
+                    ce_data = project_state.get("causa_efeito", [])
+                    causas_v = [c for c in ce_data if int(c.get("esforco", 0) or 0) <= 50 and int(c.get("impacto", 0) or 0) > 50]
+                    
+                    sugestoes_raw = suggest_plano_coleta(project_state, causas_v)
+                    if not sugestoes_raw:
+                        st.error("Falha ao gerar o plano. Tente adicionar causas na Matriz C&E primeiro.")
+                    else:
+                        novas_linhas = []
+                        for s in sugestoes_raw:
+                            novas_linhas.append({
+                                "Definição": s.get("definicao", ""),
+                                "Indicador": s.get("indicador", ""),
+                                "Fonte": s.get("fonte", ""),
+                                "Amostra": s.get("amostra", ""),
+                                "Responsável": s.get("responsavel", ""),
+                                "Quando": s.get("quando", ""),
+                                "Como": s.get("como", ""),
+                                "Outros": s.get("outros", ""),
+                                "Uso": s.get("uso", ""),
+                                "Mostrar": s.get("mostrar", "")
+                            })
+                        project_state["plano_coleta"] = novas_linhas
+                        project_state["plano_id"] = project_state.get("plano_id", 0) + 1
+                        db.save_draft(pid, tool, {"text": json.dumps(novas_linhas, ensure_ascii=False)})
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Plano de Coleta sugerido pela IA baseado nas causas prioritárias detectadas. Por favor, valide a viabilidade técnica da coleta!"
                         st.rerun()
 
             # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---

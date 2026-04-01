@@ -717,3 +717,67 @@ Com base nisso, gere os X's primários consolidados conforme as regras metodoló
         return resultado
     except Exception as e:
         return []
+
+
+def suggest_plano_coleta(project_state: Dict[str, Any], causas_selecionadas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Gera sugestões de medição para cada causa ou indicador prioritário."""
+    system = f"""
+Você é um Coach Lean Seis Sigma especialista em Medição e Metrologia.
+Sua missão é detalhar como coletar dados para as causas (X) ou indicadores (Y) fornecidos.
+Pense em como garantir a confiabilidade dos dados (MSA), minimizando viés humano e erro de medição.
+
+Para cada item, você deve preencher rigorosamente estas 10 propriedades:
+1. "definicao": O que exatamente será medido? (Definição operacional sem ambiguidade)
+2. "indicador": Nome curto do indicador (ex: Tempo de Ciclo, % de Erro)
+3. "fonte": De onde vem o dado? (ex: SAP, Planilha manual, Cronometragem local)
+4. "amostra": Quantos dados coletar? (ex: 30 itens, 100% da população, 5 dias úteis)
+5. "responsavel": Quem coleta? (ex: Operador, Analista de Qualidade, Sistema Automático)
+6. "quando": Frequência/Momento (ex: Diária ao fim do turno, Semanal, A cada peça produzida)
+7. "como": Método técnico (ex: SQL Query, Paquímetro digital, Observação direta com cronômetro)
+8. "outros": Variáveis secundárias/estratificação (ex: Turno, Máquina, Tipo de Material)
+9. "uso": Para que serve? (ex: Validar causa raiz no Analyze, Monitorar estabilidade no Control)
+10. "mostrar": Forma de visualização (ex: Gráfico de Tendência, Histograma, Pareto)
+
+Responda SOMENTE em JSON com a chave "plano":
+{
+  "plano": [
+    {
+      "definicao": "...", "indicador": "...", "fonte": "...", "amostra": "...", "responsavel": "...",
+      "quando": "...", "como": "...", "outros": "...", "uso": "...", "mostrar": "..."
+    },
+    ...
+  ]
+}
+""".strip()
+
+    charter_data = project_state.get("charter", {})
+    prob = charter_data.get("problem", "Não definido.")
+    y_indicador = charter_data.get("main_indicator", "Não definido.")
+
+    causas_txt = []
+    for c in causas_selecionadas:
+        causas_txt.append(f"- Causa: {c.get('indicador', 'N/A')} (Justificativa: {c.get('justificativa', 'N/A')})")
+    
+    causas_str = "\n".join(causas_txt) if causas_txt else "Sem causas específicas. Use o Problema/Y como base."
+
+    user_str = f"""
+CONTEXTO DO PROJETO:
+- Problema: {prob}
+- Resultado Desejado (Y): {y_indicador}
+
+CAUSAS (X) OU INDICADORES QUE PRECISAM DE UM PLANO DE COLETA:
+{causas_str}
+
+Gere o plano detalhado para cada item acima.
+""".strip()
+
+    try:
+        out = _chat_json(system, user_str)
+        return out.get("plano", [])
+    except Exception:
+        return []
+
+
+        return out.get("plano", [])
+    except Exception:
+        return []
