@@ -1604,196 +1604,151 @@ with coach_container:
         if st.button(btn_label, disabled=read_only, use_container_width=True):
             mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
 
-        # --- FLUXO ESPECIAL: Geração (Autocompletar) do VOC/VOB ---
-        if tool == "VOC/VOB" and mode_str == "generate":
-            with st.spinner(f"Doutor Lean gerando linha para {target_voc}..."):
-                new_row = suggest_vocvob_row(target_voc, q1, q2, q3, project_state)
-                # Onde inserir?
-                t_key = "voc" if target_voc == "Voz do Cliente (VOC)" else "vob"
-                if "voc_vob" not in project_state:
-                    project_state["voc_vob"] = {"voc": [], "vob": [], "notes": ""}
-                if t_key not in project_state["voc_vob"]:
-                    project_state["voc_vob"][t_key] = []
-                
-                # Anexa a nova linha gerada
-                project_state["voc_vob"][t_key].append(new_row)
-                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                
-                # Mostra o alerta de sucesso e forca o reload pra tabela atualizar sozinha
-                st.session_state["ai_generated_warning"] = "✨ ⚠️ Linha inserida automaticamente pela Inteligência Artificial na tabela. Por favor, releia, valide os campos e salve!"
-                st.rerun()
+        # --- Só executa a IA quando o botão foi clicado (mode_str não é None) ---
+        if mode_str is not None:
 
-        # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (Problema) ---
-        elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Problema e Benefícios":
-            if not q_impact:
-                st.warning("Por favor, preencha o impacto percebido antes de gerar sugestões.")
+            # --- FLUXO ESPECIAL: Geração (Autocompletar) do VOC/VOB ---
+            if tool == "VOC/VOB" and mode_str == "generate":
+                with st.spinner(f"Doutor Lean gerando linha para {target_voc}..."):
+                    new_row = suggest_vocvob_row(target_voc, q1, q2, q3, project_state)
+                    t_key = "voc" if target_voc == "Voz do Cliente (VOC)" else "vob"
+                    if "voc_vob" not in project_state:
+                        project_state["voc_vob"] = {"voc": [], "vob": [], "notes": ""}
+                    if t_key not in project_state["voc_vob"]:
+                        project_state["voc_vob"][t_key] = []
+                    project_state["voc_vob"][t_key].append(new_row)
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Linha inserida automaticamente pela Inteligência Artificial na tabela. Por favor, releia, valide os campos e salve!"
+                    st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (Problema) ---
+            elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Problema e Benefícios":
+                if not q_impact:
+                    st.warning("Por favor, preencha o impacto percebido antes de gerar sugestões.")
+                else:
+                    with st.spinner("Doutor Lean processando seu VOC/VOB e descrevendo o Problema..."):
+                        new_data = generate_problem_benefits_from_vocvob(project_state, q_impact)
+                        if "charter" not in project_state:
+                            project_state["charter"] = {}
+                        project_state["charter"]["problem"] = new_data.get("problem", "")
+                        project_state["charter"]["benefits"] = new_data.get("benefits", "")
+                        if not project_state["charter"].get("main_indicator"):
+                            v_state = project_state.get("voc_vob", {})
+                            indics = []
+                            for row in v_state.get("voc", []) + v_state.get("vob", []):
+                                y_v = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
+                                if y_v: indics.append(y_v)
+                            if indics:
+                                project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
+                        db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (Problem)"})
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Problema e Benefícios gerados automaticamente associando o impacto da necessidade original transcrita do VOC/VOB! Releia e verifique se as premissas estão corretas."
+                        st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (SMART Goal) ---
+            elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Objetivo SMART":
+                if not q_tempo or not q_meta:
+                    st.warning("Por favor, preencha o prazo e a meta numérica para construirmos o SMART!")
+                else:
+                    with st.spinner("Estruturando meta SMART e consolidando objetivo..."):
+                        smart_goal = generate_smart_goal_from_charter_context(project_state, q_tempo, q_meta)
+                        if "charter" not in project_state:
+                            project_state["charter"] = {}
+                        project_state["charter"]["goal"] = smart_goal
+                        if not project_state["charter"].get("main_indicator"):
+                            v_state = project_state.get("voc_vob", {})
+                            indics = []
+                            for row in v_state.get("voc", []) + v_state.get("vob", []):
+                                y_v = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
+                                if y_v: indics.append(y_v)
+                            if indics:
+                                project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
+                        db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (SMART Goal)"})
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Objetivo construído segundo o padrão SMART! Releia e edite se necessário."
+                        st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração (Autocompletar) do SIPOC ---
+            elif tool == "SIPOC (por etapa)" and mode_str == "generate":
+                if target_sipoc == "Etapas Mestre do Processo (P)":
+                    if not q_desc.strip():
+                        st.warning("Forneça pelo menos 1 frase ou passo-a-passo para a IA extrair a lógica macro!")
+                    else:
+                        with st.spinner("Dedução Ativa: Mapeando macro etapas..."):
+                            macro_etapas = suggest_sipoc_macro(project_state, q_desc)
+                            new_sipoc = [{"P": m, "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]} for m in macro_etapas]
+                            if not new_sipoc:
+                                st.error("Falha na geração das etapas lógicas. Tente reformular a descrição.")
+                            else:
+                                project_state["sipoc"] = new_sipoc
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.session_state["ai_generated_warning"] = "✨ ⚠️ Etapas centrais do processo mapeadas! Agora preencha os lados ou peça pra IA completar."
+                                st.rerun()
+                elif target_sipoc == "Linhas de Entrada e Fornecedores (S/I)":
+                    with st.spinner("Análise Combinatória: Gerando entradas baseando-se nos nós centrais vigentes..."):
+                        updated_sipoc = suggest_sipoc_io(project_state, "inputs")
+                        project_state["sipoc"] = updated_sipoc
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Fornecedores e Entradas associados com sucesso aos blocos estruturais de processo da esquerda."
+                        st.rerun()
+                elif target_sipoc == "Linhas de Saídas e Clientes (O/C)":
+                    with st.spinner("Análise Combinatória: Gerando saídas baseando-se nos nós centrais vigentes..."):
+                        updated_sipoc = suggest_sipoc_io(project_state, "outputs")
+                        project_state["sipoc"] = updated_sipoc
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Saídas e Clientes resolvidos com sucesso nos blocos de direita. Finalize seu tabuleiro e salve."
+                        st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração do Saving CFO ---
+            elif tool in ["Saving Projetado", "Saving Realizado"] and mode_str == "generate":
+                if not q_desc:
+                    st.warning("Eita! Você precisa descrever algum benefício preliminar ou ideia na caixa de texto pro CFO conseguir criar o modelo financeiro de conversão.")
+                else:
+                    with st.spinner("O CFO Virtual está analisando as possibilidades de ganhos..."):
+                        new_sav = suggest_saving_rationale(project_state, q_desc)
+                        st.session_state["saving_coach_feedback"] = new_sav
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Análise Financeira Concluída. Veja a classificação das oportunidades logo abaixo!"
+                        st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração (Autocompletar) de Matriz de Indicadores ---
+            elif tool == "Matriz de Indicadores" and mode_str == "generate":
+                with st.spinner("Doutor Lean processando etapas e criando árvore de indicadores..."):
+                    new_matriz = suggest_matriz_indicadores(project_state)
+                    if not new_matriz:
+                        st.error("Falha ao gerar indicadores. Certifique-se de que a coluna de Processos não está vazia.")
+                    else:
+                        project_state["matriz_indicadores"] = new_matriz
+                        project_state["matriz_id"] = project_state.get("matriz_id", 0) + 1
+                        db.save_draft(pid, tool, {"text": json.dumps(new_matriz, ensure_ascii=False)})
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
+                        st.rerun()
+
+            # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
             else:
-                with st.spinner("Doutor Lean processando seu VOC/VOB e descrevendo o Problema..."):
-                    new_data = generate_problem_benefits_from_vocvob(project_state, q_impact)
-                    
-                    if "charter" not in project_state:
-                        project_state["charter"] = {}
-                    project_state["charter"]["problem"] = new_data.get("problem", "")
-                    project_state["charter"]["benefits"] = new_data.get("benefits", "")
-                    
-                    # Se o aluno pulou o botão de importação, vamos sugar o indicador quietamente pra ajudá-lo
-                    if not project_state["charter"].get("main_indicator"):
-                        v_state = project_state.get("voc_vob", {})
-                        indics = []
-                        for row in v_state.get("voc", []) + v_state.get("vob", []):
-                            y_v = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
-                            if y_v: indics.append(y_v)
-                        if indics:
-                            project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
-                    
-                    db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (Problem)"})
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    
-                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Problema e Benefícios gerados automaticamente associando o impacto da necessidade original transcrita do VOC/VOB! Releia e verifique se as premissas estão corretas."
-                    st.rerun()
+                text_for_ai = new_text
+                if mode_str == "generate" and ai_context_prompt.strip():
+                    text_for_ai = f"PEDIDO ESPECÍFICO DO USUÁRIO PARA ESTA GERAÇÃO: {ai_context_prompt}\n\nDADOS ATUAIS DA FERRAMENTA:\n{new_text}"
 
-        # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (SMART Goal) ---
-        elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Objetivo SMART":
-            if not q_tempo or not q_meta:
-                 st.warning("Por favor, preencha o prazo e a meta numérica para construirmos o SMART!")
-            else:
-                with st.spinner("Estruturando meta SMART e consolidando objetivo..."):
-                    smart_goal = generate_smart_goal_from_charter_context(project_state, q_tempo, q_meta)
-                    if "charter" not in project_state:
-                        project_state["charter"] = {}
-                    project_state["charter"]["goal"] = smart_goal
-                    
-                    # Força a captura do indicador caso ainda esteja vazia
-                    if not project_state["charter"].get("main_indicator"):
-                        v_state = project_state.get("voc_vob", {})
-                        indics = []
-                        for row in v_state.get("voc", []) + v_state.get("vob", []):
-                            y_v = str(row.get("Y (indicador)", row.get("Y (como medir)", ""))).strip()
-                            if y_v: indics.append(y_v)
-                        if indics:
-                            project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
-                    
-                    db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (SMART Goal)"})
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Objetivo construído segundo o padrão SMART! Releia e edite se necessário."
-                    st.rerun()
+                with st.spinner("Doutor Lean processando os dados..."):
+                    coach_json, rubric_scores, _ = coach_run(tool, project_state, text_for_ai, mode=mode_str)
+                    sid = new_session_id()
+                    db.add_session_log(
+                        session_id=sid, project_id=pid, tool=tool,
+                        event_type="REQUEST_COACH", user_delta=f"Modo: {mode_str}", coach_payload=coach_json,
+                    )
 
-        # --- FLUXO ESPECIAL: Geração (Autocompletar) do SIPOC ---
-        elif tool == "SIPOC (por etapa)" and mode_str == "generate":
-            if target_sipoc == "Etapas Mestre do Processo (P)":
-                if not q_desc.strip():
-                    st.warning("Forneça pelo menos 1 frase ou passo-a-passo para a IA extrair a lógica macro!")
-                else:
-                    with st.spinner("Dedução Ativa: Mapeando macro etapas..."):
-                        macro_etapas = suggest_sipoc_macro(project_state, q_desc)
-                        new_sipoc = [{"P": m, "inputs": [{"S": "", "I": ""}], "outputs": [{"O": "", "C": ""}]} for m in macro_etapas]
-                        if not new_sipoc:
-                            st.error("Falha na geração das etapas lógicas. Tente reformular a descrição.")
-                        else:
-                            project_state["sipoc"] = new_sipoc
-                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                            st.session_state["ai_generated_warning"] = "✨ ⚠️ Etapas centrais do processo mapeadas! Agora preencha os lados ou peça pra IA completar."
-                            st.rerun()
+                    st.markdown("### ✅ Pontos Positivos")
+                    if coach_json.get("ok"):
+                        for ok in coach_json["ok"]:
+                            st.success(f"✔ {ok}")
+                    else:
+                        st.write("-")
 
-            elif target_sipoc == "Linhas de Entrada e Fornecedores (S/I)":
-                with st.spinner("Análise Combinatória: Gerando entradas baseando-se nos nós centrais vigentes..."):
-                    updated_sipoc = suggest_sipoc_io(project_state, "inputs")
-                    project_state["sipoc"] = updated_sipoc
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Fornecedores e Entradas associados com sucesso aos blocos estruturais de processo da esquerda."
-                    st.rerun()
+                    st.markdown("### ⚠️ Diagnóstico / Sugestões")
+                    if coach_json.get("gaps"):
+                        for g in coach_json["gaps"]:
+                            st.error(f"**{pretty_gap_id(g.get('id', ''))}: {g.get('reason', '')}")
+                    else:
+                        st.write("- A análise não encontrou gaps ou gerou novas propriedades.")
 
-            elif target_sipoc == "Linhas de Saídas e Clientes (O/C)":
-                with st.spinner("Análise Combinatória: Gerando saídas baseando-se nos nós centrais vigentes..."):
-                    updated_sipoc = suggest_sipoc_io(project_state, "outputs")
-                    project_state["sipoc"] = updated_sipoc
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Saídas e Clientes resolvidos com sucesso nos blocos de direita. Finalize seu tabuleiro e salve."
-                    st.rerun()
-
-        # --- FLUXO ESPECIAL: Geração do Saving CFO ---
-        elif tool in ["Saving Projetado", "Saving Realizado"] and mode_str == "generate":
-            if not q_desc:
-                st.warning("Eita! Você precisa descrever algum benefício preliminar ou ideia na caixa de texto pro CFO conseguir criar o modelo financeiro de conversão.")
-            else:
-                with st.spinner("O CFO Virtual está analisando as possibilidades de ganhos..."):
-                    new_sav = suggest_saving_rationale(project_state, q_desc)
-                    # Exibir apenas no rodapé da IA provisoriamente
-                    st.session_state["saving_coach_feedback"] = new_sav
-                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Análise Financeira Concluída. Veja a classificação das oportunidades logo abaixo!"
-                    st.rerun()
-
-        # --- FLUXO ESPECIAL: Geração (Autocompletar) de Matriz de Indicadores ---
-        elif tool == "Matriz de Indicadores" and mode_str == "generate":
-            with st.spinner("Doutor Lean processando etapas e criando árvore de indicadores..."):
-                new_matriz = suggest_matriz_indicadores(project_state)
-                if not new_matriz:
-                    st.error("Falha ao gerar indicadores. Certifique-se de que a coluna de Processos não está vazia.")
-                else:
-                    # Sobrescreve a matriz com a resposta
-                    project_state["matriz_indicadores"] = new_matriz
-                    project_state["matriz_id"] = project_state.get("matriz_id", 0) + 1
-                    db.save_draft(pid, tool, {"text": json.dumps(new_matriz, ensure_ascii=False)})
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
-                    st.rerun()
-
-
-        # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
-        else:
-            # Injeta o contexto extra do usuário no inicio do texto que a IA vai ler
-            text_for_ai = new_text
-            if mode_str == "generate" and ai_context_prompt.strip():
-                 text_for_ai = f"PEDIDO ESPECÍFICO DO USUÁRIO PARA ESTA GERAÇÃO: {ai_context_prompt}\n\nDADOS ATUAIS DA FERRAMENTA:\n{new_text}"
-
-            with st.spinner("Doutor Lean processando os dados..."):
-                coach_json, rubric_scores, _ = coach_run(tool, project_state, text_for_ai, mode=mode_str)
-                sid = new_session_id()
-                db.add_session_log(
-                    session_id=sid, project_id=pid, tool=tool,
-                    event_type="REQUEST_COACH", user_delta=f"Modo: {mode_str}", coach_payload=coach_json,
-                )
-
-                st.markdown("### ✅ Pontos Positivos")
-                if coach_json.get("ok"):
-                    for ok in coach_json["ok"]:
-                        st.success(f"✔ {ok}")
-                else:
-                    st.write("-")
-
-                st.markdown("### ⚠️ Diagnóstico / Sugestões")
-                if coach_json.get("gaps"):
-                    for g in coach_json["gaps"]:
-                        st.error(f"**{pretty_gap_id(g.get('id', ''))}**: {g.get('reason', '')}")
-                else:
-                    st.write("- A análise não encontrou gaps ou gerou novas propriedades.")
-
-                st.markdown("### 🏹 Plano de Ação ou Conteúdo Gerado")
-                st.info(coach_json.get("next_action", ""))
-
-    if st.session_state.get("saving_coach_feedback") and tool in ["Saving Projetado", "Saving Realizado"]:
-        st.markdown("---")
-        st.markdown("### 🏦 Classificação de Oportunidades do CFO Virtual")
-        st.info("O Coach categorizou as suas ideias. Copie os racionais matemáticos que fizerem sentido e preencha nos blocos editáveis no topo desta página.")
-        _sav = st.session_state["saving_coach_feedback"]
-        cc1, cc2 = st.columns(2)
-        with cc1:
-            st.text_area("🔴 Sugestão Hard Saving", value=_sav.get("hard", ""), height=250, disabled=True, key="sav_h")
-        with cc2:
-            st.text_area("🟡 Sugestão Soft Saving", value=_sav.get("soft", ""), height=250, disabled=True, key="sav_s")
-        
-        cc3, cc4 = st.columns(2)
-        with cc3:
-            st.text_area("🟢 Sugestão Cost Avoidance", value=_sav.get("avoidance", ""), height=250, disabled=True, key="sav_a")
-        with cc4:
-            st.text_area("🔵 Sugestão de Faturamento", value=_sav.get("faturamento", ""), height=250, disabled=True, key="sav_f")
-
-    st.markdown("---")
-    st.markdown("### 📜 Memória de Sessões")
-    recent = db.list_recent_sessions(pid, limit=4)
-    if not recent:
-        st.write("Sem sessões salvas.")
-    else:
-        for s in recent:
-            with st.expander(f"{s['created_at'].strftime('%d/%m %H:%M')} · {s['tool']}"):
-                st.json(s["coach"])
