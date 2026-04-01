@@ -1136,17 +1136,17 @@ with tool_container:
                 label_visibility="collapsed", disabled=read_only
             )
 
-            imp_raw = row.get("impacto", 0) or 0
-            esf_raw = row.get("esforco", 0) or 0
+            imp_raw = float(row.get("impacto", 0.0) or 0.0)
+            esf_raw = float(row.get("esforco", 0.0) or 0.0)
 
             v_imp = c_imp.number_input(
-                "imp", min_value=0, max_value=100,
-                value=max(0, min(100, int(imp_raw))),
+                "imp", min_value=0.0, max_value=100.0, step=0.1, format="%.1f",
+                value=round(max(0.0, min(100.0, imp_raw)), 1),
                 key=f"ce_imp_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
             )
             v_esf = c_esf.number_input(
-                "esf", min_value=0, max_value=10,
-                value=max(0, min(10, int(esf_raw))),
+                "esf", min_value=0.0, max_value=10.0, step=0.1, format="%.1f",
+                value=round(max(0.0, min(10.0, esf_raw)), 1),
                 key=f"ce_esf_{i}_{ce_id}", label_visibility="collapsed", disabled=read_only
             )
             v_just = c_just.text_area(
@@ -1168,7 +1168,7 @@ with tool_container:
                         st.rerun()
                     if bb.button("+", key=f"ce_add_{i}_{ce_id}", help="Inserir linha abaixo", use_container_width=True):
                         nova = list(causa_data)
-                        nova.insert(i + 1, {"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
+                        nova.insert(i + 1, {"indicador": "", "impacto": 0.0, "esforco": 0.0, "justificativa": ""})
                         project_state["causa_efeito"] = nova
                         project_state["causa_efeito_id"] = ce_id + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -1176,8 +1176,8 @@ with tool_container:
 
             out_causas.append({
                 "indicador": v_ind,
-                "impacto": int(v_imp),
-                "esforco": int(v_esf),
+                "impacto": round(float(v_imp), 1),
+                "esforco": round(float(v_esf), 1),
                 "justificativa": str(row.get("justificativa", ""))
             })
 
@@ -1186,14 +1186,14 @@ with tool_container:
             ba1, ba2, _ = st.columns([1.5, 1.5, 5])
             with ba1:
                 if st.button("➕ Adicionar Linha", key="ce_add_bottom", use_container_width=True):
-                    out_causas.append({"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""})
+                    out_causas.append({"indicador": "", "impacto": 0.0, "esforco": 0.0, "justificativa": ""})
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
             with ba2:
                 if st.button("🚨 Apagar Tabela", key="ce_clear", use_container_width=True):
-                    out_causas = [{"indicador": "", "impacto": 0, "esforco": 0, "justificativa": ""}]
+                    out_causas = [{"indicador": "", "impacto": 0.0, "esforco": 0.0, "justificativa": ""}]
                     project_state["causa_efeito"] = out_causas
                     project_state["causa_efeito_id"] = ce_id + 1
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -1205,33 +1205,59 @@ with tool_container:
         # --- Gráfico Esforço x Impacto ---
         st.markdown("---")
         st.subheader("📈 Gráfico Esforço × Impacto")
-        # Considera válidos os X's que tiverem indicador preenchido OU pelo menos um score > 0
+
+        # Paleta de cores por quadrante (usada no fundo E nos pontos)
+        COR_ALTA_PRIO   = "#1a6e36"  # Verde escuro  — Esforço baixo + Impacto alto
+        COR_PROJ_MAIOR  = "#b07d00"  # Amarelo escuro — Esforço alto  + Impacto alto
+        COR_BAIXA_PRIO  = "#d35400"  # Laranja        — Esforço baixo + Impacto baixo
+        COR_DESCONS     = "#c0392b"  # Vermelho       — Esforço alto  + Impacto baixo
+
+        def _quadrante(esf, imp):
+            """Retorna o nome do quadrante e a cor do ponto para um X."""
+            baixo_esf = esf <= 5.5
+            alto_imp  = imp > 50
+            if baixo_esf and alto_imp:
+                return "Alta Prioridade", COR_ALTA_PRIO
+            elif not baixo_esf and alto_imp:
+                return "Projeto Maior",   COR_PROJ_MAIOR
+            elif baixo_esf and not alto_imp:
+                return "Baixa Prioridade", COR_BAIXA_PRIO
+            else:
+                return "Desconsiderar",   COR_DESCONS
+
+        # Considera válidos os X's com pelo menos um score > 0
         dados_validos = [
             r for r in out_causas
-            if str(r.get("indicador", "")).strip() or int(r.get("impacto", 0) or 0) > 0 or int(r.get("esforco", 0) or 0) > 0
+            if float(r.get("impacto", 0) or 0) > 0 or float(r.get("esforco", 0) or 0) > 0
         ]
-        pontos_com_score = [r for r in dados_validos if int(r.get("impacto", 0) or 0) > 0 or int(r.get("esforco", 0) or 0) > 0]
-        if not pontos_com_score:
+
+        if not dados_validos:
             st.info("Preencha Impacto e/ou Esforço acima para visualizar o gráfico.")
         else:
-            df_plot = pd.DataFrame([
-                {
+            # Constrói o DataFrame com a coluna de quadrante e cor já calculadas
+            rows_plot = []
+            for i, r in enumerate(dados_validos):
+                esf = max(1.0, float(r.get("esforco", 1) or 1))
+                imp = max(1.0, float(r.get("impacto", 1) or 1))
+                quad, cor = _quadrante(esf, imp)
+                rows_plot.append({
                     "X": f"X{i+1}",
-                    "Esforço": max(1, int(r.get("esforco", 1) or 1)),
-                    "Impacto": max(1, int(r.get("impacto", 1) or 1)),
-                    "Causa": str(r.get("indicador", ""))[:70]
-                }
-                for i, r in enumerate(dados_validos)
-                if int(r.get("impacto", 0) or 0) > 0 or int(r.get("esforco", 0) or 0) > 0
-            ])
-            # Quadrantes de fundo
+                    "Esforço": esf,
+                    "Impacto": imp,
+                    "Causa": str(r.get("indicador", ""))[:70],
+                    "Quadrante": quad,
+                    "Cor": cor,
+                })
+            df_plot = pd.DataFrame(rows_plot)
+
+            # Fundo dos quadrantes
             quadrantes = pd.DataFrame([
-                {"x1": 1, "x2": 5.5, "y1": 50, "y2": 100, "quad": "Quick Win", "cor": "#d4edda"},
-                {"x1": 5.5, "x2": 10, "y1": 50, "y2": 100, "quad": "Projeto Maior",  "cor": "#fff3cd"},
-                {"x1": 1, "x2": 5.5, "y1": 1,  "y2": 50,  "quad": "Baixa Prioridade", "cor": "#f8d7da"},
-                {"x1": 5.5, "x2": 10, "y1": 1,  "y2": 50,  "quad": "Desconsiderar",    "cor": "#f5c6cb"},
+                {"x1": 1.0, "x2": 5.5, "y1": 50.0, "y2": 100.0, "quad": "Alta Prioridade",  "cor": "#d4edda"},
+                {"x1": 5.5, "x2": 10.0, "y1": 50.0, "y2": 100.0, "quad": "Projeto Maior",   "cor": "#fff3cd"},
+                {"x1": 1.0, "x2": 5.5, "y1": 1.0,  "y2": 50.0,  "quad": "Baixa Prioridade", "cor": "#ffe5b4"},
+                {"x1": 5.5, "x2": 10.0, "y1": 1.0,  "y2": 50.0,  "quad": "Desconsiderar",    "cor": "#f8d7da"},
             ])
-            bg = alt.Chart(quadrantes).mark_rect(opacity=0.35).encode(
+            bg = alt.Chart(quadrantes).mark_rect(opacity=0.40).encode(
                 x=alt.X("x1:Q", scale=alt.Scale(domain=[1, 10])),
                 x2="x2:Q",
                 y=alt.Y("y1:Q", scale=alt.Scale(domain=[1, 100])),
@@ -1239,36 +1265,45 @@ with tool_container:
                 color=alt.Color("cor:N", scale=None),
                 tooltip=["quad:N"]
             )
-            pontos = alt.Chart(df_plot).mark_circle(size=140, opacity=0.85).encode(
+
+            # Pontos coloridos de acordo com o quadrante (cor calculada em Python)
+            _quad_names = ["Alta Prioridade", "Projeto Maior", "Baixa Prioridade", "Desconsiderar"]
+            _quad_cores = [COR_ALTA_PRIO, COR_PROJ_MAIOR, COR_BAIXA_PRIO, COR_DESCONS]
+            pontos = alt.Chart(df_plot).mark_circle(size=160, opacity=0.90).encode(
                 x=alt.X("Esforço:Q", scale=alt.Scale(domain=[1, 10]), title="Esforço [1-10]"),
                 y=alt.Y("Impacto:Q", scale=alt.Scale(domain=[1, 100]), title="Impacto [1-100]"),
-                color=alt.condition(
-                    alt.datum["Esforço"] <= 5.5,
-                    alt.value("#1a6e36") if True else alt.value("#1a6e36"),
-                    alt.value("#e07b00")
+                color=alt.Color(
+                    "Quadrante:N",
+                    scale=alt.Scale(domain=_quad_names, range=_quad_cores),
+                    legend=None
                 ),
-                tooltip=["X:N", "Causa:N", "Impacto:Q", "Esforço:Q"]
+                tooltip=["X:N", "Causa:N", "Impacto:Q", "Esforço:Q", "Quadrante:N"]
             )
             rotulos = alt.Chart(df_plot).mark_text(dy=-14, fontSize=12, fontWeight="bold", color="#001C59").encode(
                 x="Esforço:Q", y="Impacto:Q", text="X:N"
             )
-            linhas = alt.Chart(pd.DataFrame([{"Esforço": 5.5}, {"Impacto": 50}])).mark_rule(
-                color="#aaaaaa", strokeDash=[4, 3]
-            ).encode(x="Esforço:Q")
-            linhas_h = alt.Chart(pd.DataFrame([{"val": 50}])).mark_rule(
-                color="#aaaaaa", strokeDash=[4, 3]
-            ).encode(y=alt.Y("val:Q"))
-            chart = (bg + linhas + linhas_h + pontos + rotulos).properties(
-                width="container", height=420,
+            linhas_v = alt.Chart(pd.DataFrame([{"v": 5.5}])).mark_rule(
+                color="#888888", strokeDash=[4, 3]
+            ).encode(x=alt.X("v:Q"))
+            linhas_h = alt.Chart(pd.DataFrame([{"h": 50.0}])).mark_rule(
+                color="#888888", strokeDash=[4, 3]
+            ).encode(y=alt.Y("h:Q"))
+            chart = (bg + linhas_v + linhas_h + pontos + rotulos).properties(
+                width="container", height=430,
                 title=alt.TitleParams("Esforço × Impacto — Priorização de Causas", fontSize=15)
             ).configure_view(strokeOpacity=0).interactive()
             st.altair_chart(chart, use_container_width=True)
 
             # Legenda dos quadrantes
             l1, l2, l3, l4 = st.columns(4)
-            l1.success("🟢 **Quick Win** (Esforço baixo + Impacto alto)")
+            l1.success("🟢 **Alta Prioridade** (Esforço baixo + Impacto alto)")
             l2.warning("🟡 **Projeto Maior** (Esforço alto + Impacto alto)")
-            l3.error("🔴 **Baixa Prioridade** (Esforço baixo + Impacto baixo)")
+            l3.markdown(
+                """<div style='background-color:#fff3e0; border-left:4px solid #d35400;
+                padding:10px 14px; border-radius:6px; font-size:0.9em;'>
+                🟠 <b>Baixa Prioridade</b><br>(Esforço baixo + Impacto baixo)</div>""",
+                unsafe_allow_html=True
+            )
             l4.error("🔴 **Desconsiderar** (Esforço alto + Impacto baixo)")
 
         # --- Salvar ---
