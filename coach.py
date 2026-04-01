@@ -721,7 +721,7 @@ Com base nisso, gere os X's primários consolidados conforme as regras metodoló
 
 def suggest_plano_coleta(project_state: Dict[str, Any], causas_selecionadas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Gera sugestões de medição para cada causa ou indicador prioritário."""
-    system = f"""
+    system = """
 Você é um Coach Lean Seis Sigma especialista em Medição e Metrologia.
 Sua missão é detalhar como coletar dados para as causas (X) ou indicadores (Y) fornecidos.
 Pense em como garantir a confiabilidade dos dados (MSA), minimizando viés humano e erro de medição.
