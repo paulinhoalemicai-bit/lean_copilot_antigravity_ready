@@ -1432,16 +1432,16 @@ with tool_container:
             '</style>'
             '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px; min-width: 1600px; margin-bottom: -10px;">'
             '<div style="display: flex;">'
-            '<div style="flex: 1.2; padding: 0 5px; font-size: 0.85em;"><b>Definição Operacional</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Definição Operacional</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Indicador</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.85em;"><b>Fonte</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.85em;"><b>Amostra</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.85em;"><b>Responsável</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.85em;"><b>Quando</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Fonte</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Amostra</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Responsável</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Quando</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Como</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Outros Dados</b></div>'
             '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Uso dos Dados</b></div>'
-            '<div style="flex: 0.8; padding: 0 5px; font-size: 0.85em;"><b>Visualização</b></div>'
+            '<div style="flex: 1; padding: 0 5px; font-size: 0.85em;"><b>Visualização</b></div>'
             '<div style="flex: 0.4; padding: 0 5px; font-size: 0.85em;"><b>Ação</b></div>'
             '</div></div><br>', 
             unsafe_allow_html=True
@@ -1449,9 +1449,9 @@ with tool_container:
 
         out_plano = []
         for i, row in enumerate(plano_data):
-            cols = st.columns([1.2, 1, 0.8, 0.8, 0.8, 0.8, 1, 1, 1, 0.8, 0.4])
+            cols = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.4])
             
-            h = 130
+            h = 140
             v1 = cols[0].text_area("def", value=row.get("Definição", ""), key=f"plano_def_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
             v2 = cols[1].text_area("ind", value=row.get("Indicador", ""), key=f"plano_ind_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
             v3 = cols[2].text_area("src", value=row.get("Fonte", ""), key=f"plano_src_{i}_{plano_id}", height=h, label_visibility="collapsed", disabled=read_only)
