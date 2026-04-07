@@ -134,17 +134,26 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                             st.rerun()
                     
                     causas = spine.get("causes", [])
-                    df_causas = [{"Causas (Sub-causas com traço -)": c.get("causa", "")} for c in causas]
-                    if not df_causas: df_causas = [{"Causas (Sub-causas com traço -)": ""}] 
-                    
-                    edited_df = st.data_editor(
-                        df_causas, 
-                        num_rows="dynamic", 
-                        use_container_width=True, 
-                        key=f"ed_{spine['id']}",
-                        disabled=read_only
-                    )
-                    spine["causes"] = [{"causa": r["Causas (Sub-causas com traço -)"]} for r in edited_df if str(r.get("Causas (Sub-causas com traço -)", "")).strip()]
+                    st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
+                    for c_idx, cause in enumerate(spine.setdefault("causes", [])):
+                        c_in, c_del_c = st.columns([5, 1])
+                        with c_in:
+                            new_val = st.text_input(f"Causa {c_idx}", value=cause.get("causa", ""), key=f"c_{spine['id']}_{c_idx}", disabled=read_only, label_visibility="collapsed", placeholder="Causa...")
+                            cause["causa"] = new_val
+                        with c_del_c:
+                            if st.button("🗑️", key=f"del_c_{spine['id']}_{c_idx}", disabled=read_only):
+                                spine["causes"].pop(c_idx)
+                                project_state["ishikawas"] = ishikawas
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
+                    if not read_only:
+                        st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+                        if st.button("➕ Causa", key=f"add_c_{spine['id']}"):
+                            spine["causes"].append({"causa": ""})
+                            project_state["ishikawas"] = ishikawas
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
                     
                     st.markdown("<div style='text-align: center; font-size: 30px; line-height: 0.5;'>↘️</div>", unsafe_allow_html=True)
 
@@ -159,17 +168,26 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                     st.markdown("<div style='text-align: center; font-size: 30px; line-height: 0.5;'>↗️</div>", unsafe_allow_html=True)
                     
                     causas = spine.get("causes", [])
-                    df_causas = [{"Causas (Sub-causas com traço -)": c.get("causa", "")} for c in causas]
-                    if not df_causas: df_causas = [{"Causas (Sub-causas com traço -)": ""}] 
-                    
-                    edited_df = st.data_editor(
-                        df_causas, 
-                        num_rows="dynamic", 
-                        use_container_width=True, 
-                        key=f"ed_{spine['id']}",
-                        disabled=read_only
-                    )
-                    spine["causes"] = [{"causa": r["Causas (Sub-causas com traço -)"]} for r in edited_df if str(r.get("Causas (Sub-causas com traço -)", "")).strip()]
+                    st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
+                    for c_idx, cause in enumerate(spine.setdefault("causes", [])):
+                        c_in, c_del_c = st.columns([5, 1])
+                        with c_in:
+                            new_val = st.text_input(f"Causa {c_idx}", value=cause.get("causa", ""), key=f"cb_{spine['id']}_{c_idx}", disabled=read_only, label_visibility="collapsed", placeholder="Causa...")
+                            cause["causa"] = new_val
+                        with c_del_c:
+                            if st.button("🗑️", key=f"del_cb_{spine['id']}_{c_idx}", disabled=read_only):
+                                spine["causes"].pop(c_idx)
+                                project_state["ishikawas"] = ishikawas
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
+                    if not read_only:
+                        st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+                        if st.button("➕ Causa", key=f"add_cb_{spine['id']}"):
+                            spine["causes"].append({"causa": ""})
+                            project_state["ishikawas"] = ishikawas
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
 
                     c_lbl, c_del = st.columns([5, 1])
                     with c_lbl:
