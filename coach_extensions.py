@@ -1,6 +1,6 @@
 import json
 import os
-from .coach import _chat_json
+from coach import _chat_json
 
 def suggest_ishikawa_eval(project_state, effect):
     prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico.
