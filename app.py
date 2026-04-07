@@ -2025,9 +2025,18 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 for spine in obj_spines:
                                     cat_name = spine.get("category", "")
                                     for ai_cat, ai_causes in dict_sug.items():
-                                        if ai_cat.strip().lower() in cat_name.strip().lower():
+                                        import unicodedata
+                                        def norm_str(s):
+                                            return unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('utf-8').lower()
+                                        
+                                        if norm_str(ai_cat).strip() in norm_str(cat_name).strip() or norm_str(cat_name).strip() in norm_str(ai_cat).strip():
                                             for c_text in ai_causes:
-                                                spine.setdefault("causes", []).append({"causa": f"IA: {c_text}"})
+                                                # Procura uma caixa vazia na categoria para sobreescrever, senão adiciona
+                                                empty_slot = next((c for c in spine.setdefault("causes", []) if not c.get("causa", "").strip()), None)
+                                                if empty_slot:
+                                                    empty_slot["causa"] = f"IA: {c_text}"
+                                                else:
+                                                    spine["causes"].append({"causa": f"IA: {c_text}"})
                                             used_cats.add(ai_cat)
                                             
                                     # STREAMLIT FIX: Limpa o editor preso na memória
