@@ -282,10 +282,20 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         st.markdown("<div style='text-align: right; color: gray; font-size: 24px; margin-top: 50px;'>↳</div>", unsafe_allow_html=True)
                     else:
                         label = wbs_labels[b_idx][p_idx]
-                        st.markdown(f"**[{label}]** ➡️")
-                            
+                        c1, c2 = st.columns([4, 1])
+                        with c1:
+                            st.markdown(f"**[{label}]** ➡️")
+                        with c2:
+                            if st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Apagar daqui para frente"):
+                                branch[:] = branch[:p_idx]
+                                if not branch:
+                                    active_pq["branches"].pop(b_idx)
+                                project_state["cinco_pqs"] = pqs
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
+                                
                         new_txt = st.text_area(f"hidden_{b_idx}_{p_idx}", value=block["pq"], key=f"txt_{selected_id}_{b_idx}_{p_idx}", height=120, disabled=read_only, label_visibility="collapsed")
-                        branch[p_idx]["pq"] = new_txt
+                        block["pq"] = new_txt
                         
                         if not read_only:
                             if st.button("🔽 Bifurcar", key=f"bif_{selected_id}_{b_idx}_{p_idx}"):

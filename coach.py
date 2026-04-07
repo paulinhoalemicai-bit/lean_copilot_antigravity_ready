@@ -776,3 +776,19 @@ Gere o plano detalhado para cada item acima.
         return out.get("plano", [])
     except Exception:
         return []
+
+def suggest_5_porques(project_state: dict, efeito: str) -> list:
+    system = """
+Você é um Coach Master Black Belt Lean Seis Sigma especialista na ferramenta 5 Porquês.
+Sua missão é gerar um caminho ÚNICO, profunde, e linear de 5 Porquês para o Problema/Efeito inicial fornecido.
+A técnica exige encadeamento lógico forte: a resposta do 1º Porquê deve ser a causa direta do Efeito.
+A resposta do 2º Porquê deve ser a causa direta do 1º Porquê, e assim por diante até o 5º.
+
+Retorne EXATAMENTE UM JSON contendo a chave "branch" com um array de 5 strings representando as respostas.
+"""
+    user_str = f"Problema Inicial (Y) a ser investigado: {efeito}"
+    try:
+        out = _chat_json(system, user_str)
+        return out.get("branch", [])
+    except Exception:
+        return []

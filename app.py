@@ -2068,6 +2068,37 @@ with coach_container:
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Plano de Coleta sugerido pela IA baseado nas causas prioritárias detectadas. Por favor, valide a viabilidade técnica da coleta!"
                         st.rerun()
 
+            # --- FLUXO ESPECIAL: Geração dos 5 Porquês ---
+            elif tool == "5 Porquês" and mode_str == "generate":
+                with st.spinner("Doutor Lean escavando 5 camadas de causas em sequência linear..."):
+                    pqs = project_state.get("cinco_pqs", [])
+                    if not pqs:
+                        st.error("Crie um painel do 5 Porquês primeiro (no painel central) antes de pedir sugestões.")
+                    else:
+                        active = pqs[-1]
+                        effect = str(active.get("effect", "")).strip()
+                        if not effect:
+                            st.error("Escreva o Problema Central / Y desta análise primeiro!")
+                        else:
+                            from coach import suggest_5_porques
+                            sugestoes = suggest_5_porques(project_state, effect)
+                            if not sugestoes:
+                                st.error("Falha ao gerar os 5 Porquês. Tente um problema mais claro.")
+                            else:
+                                new_branch = [{"pq": f"IA: {ans}"} for ans in sugestoes]
+                                if "branches" not in active:
+                                    active["branches"] = [new_branch]
+                                else:
+                                    # Substitui o preenchimento se tiver apenas um vazio, ou adiciona ramificação nova
+                                    if len(active["branches"]) == 1 and all(not p.get("pq", "").strip() for p in active["branches"][0] if p):
+                                        active["branches"][0] = new_branch
+                                    else:
+                                        active["branches"].append(new_branch)
+
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.session_state["ai_generated_warning"] = "✨ ⚠️ Caminho linear de 5 Porquês gerado! Verifique a lógica de causa e efeito."
+                                st.rerun()
+
             # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
             else:
                 text_for_ai = new_text
