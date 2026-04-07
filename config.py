@@ -9,14 +9,14 @@ TOOLS = [
     "Plano de Coleta de Dados",
     "SIPOC (por etapa)",
     "Fluxograma",
-    "Ishikawa",
-    "CauseEvidenceMatrix",
-    "Solution",
-    "Pilot",
-    "ControlPlan",
-    "Saving Realizado",
     "Matriz de Indicadores",
-    "Causa & Efeito - Esforço Impacto"
+    "Causa & Efeito - Esforço Impacto",
+    "Ishikawa",
+    "5 Porquês",
+    "Plano de Validação de Causas",
+    "Plano de Soluções",
+    "Plano de Ação",
+    "Saving Realizado"
 ]
 
 VOCVOB_COLUMNS = [
@@ -65,11 +65,37 @@ Objetivo:
 - Cada etapa P tem seus próprios fornecedores, entradas, saídas e clientes
 - Não usar SIPOC global genérico no preenchimento inicial
 """,
-    "Ishikawa": "Ferramenta de análise de causas potenciais.",
-    "CauseEvidenceMatrix": "Matriz hipótese/evidência/teste.",
-    "Solution": "Desenho de soluções e contramedidas.",
-    "Pilot": "Planejamento do piloto.",
-    "ControlPlan": "Plano de controle e sustentação.",
+    "Ishikawa": """
+Ferramenta de análise de causas potenciais (Espinha de Peixe).
+Objetivo:
+- Permitir ramificações de causas (causa da causa).
+- Garantir que o Doutor Lean não misture causas primárias com causas raízes, decompondo todas de forma lógica.
+- O Coach deve observar causas repetidas ou misturadas (primárias vs raízes). Sem se preocupar em julgar se a causa pertence a grupo A ou B.
+""",
+    "5 Porquês": """
+Ferramenta dos 5 Porquês.
+Objetivo:
+- Aprofundar as causas primárias até chegar às raízes infinitamente por ramificações.
+- Garantir que o Doutor Lean avalie a qualidade da decomposição sem misturar sintomas com raízes.
+""",
+    "Plano de Validação de Causas": """
+Ferramenta Plano de Validação de Causas.
+Objetivo:
+- Validar hipóteses formuladas no Ishikawa / 5 PQs usando dados (estatística) ou dedução analítica comprovada.
+- O Coach deve atuar sugerindo testes estatísticos e barrando validação caso os dados fornecidos pelo aluno sejam inconclusivos ou ruins.
+""",
+    "Plano de Soluções": """
+Ferramenta Plano de Soluções.
+Objetivo:
+- Pensar em até 5 soluções por causa raiz.
+- Explicar através da matriz B.A.S.I.C.O (Benefícios, Abrangência, Satisfação, Investimento, Cliente, Operacionalidade) os prós e contras textualmente, sem atribuir notas.
+""",
+    "Plano de Ação": """
+Ferramenta Plano de Ação (5W2H).
+Objetivo:
+- Detalhar as ações das soluções escolhidas (o que, como, quem, etc).
+- Coach deve auxiliar apenas no "O que" e "Como".
+""",
     "Saving Projetado": """
 Ferramenta Financeira de Cálculo de Saving Projetado (Define).
 Objetivo:
@@ -89,7 +115,6 @@ Ferramenta Matriz de Indicadores baseada no SIPOC.
 Objetivo:
 - Identificar indicadores de processo focados nas etapas (P) mapeadas no nível Macro ou SIPOC.
 - Fornecer métricas em diferentes dimensões (Quantidade, WIP, Tempo, %, Qualidade, Finanças) formadas a partir do Problema de negócio definido.
-- O Coach deve elencar as métricas de forma curta (em bullet points) na mesma célula da tabela em vez de criar colunas.
 """,
     "Causa & Efeito - Esforço Impacto": """
 Ferramenta Causa & Efeito (Esforço × Impacto).
@@ -105,6 +130,5 @@ Objetivo:
 - Planejar detalhadamente como cada indicador ou causa prioritária será medido.
 - Definir Definição Operacional, Fonte, Amostra, Responsável, Frequência (Quando) e Método (Como).
 - Identificar como os dados serão utilizados para análise e como serão apresentados (gráficos).
-- O Coach deve atuar como cientista de dados e especialista em metrologia, garantindo que o plano seja robusto, viável e que os dados coletados sejam confiáveis para a tomada de decisão.
 """
 }

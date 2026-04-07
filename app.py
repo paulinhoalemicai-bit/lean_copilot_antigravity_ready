@@ -29,6 +29,13 @@ from coach import (
     suggest_plano_coleta
 )
 
+from coach_extensions import (
+    suggest_ishikawa_eval,
+    suggest_valida_causa,
+    suggest_solucoes_basico,
+    suggest_acao_5w2h
+)
+
 try:
     from custom_components.bpmn_editor import st_bpmn
 except ImportError:
@@ -312,6 +319,11 @@ def default_project_state(name: str, uid: str) -> dict:
         "sipoc": {"serpentes": [], "rows": [], "notes": ""},
         "matriz_indicadores": [],
         "causa_efeito": [],
+        "ishikawas": [],
+        "cinco_pqs": [],
+        "planos_validacao": [],
+        "plano_solucoes": [],
+        "plano_acao": [],
         "fluxograma_xml": "",
         "saving_projetado": {
             "hard": 0.0, "hard_racional": "",
@@ -1635,8 +1647,28 @@ with tool_container:
         else:
             st.error("Componente BPMN editor não carregado. Contate o administrador do sistema.")
 
+    elif tool == "Ishikawa":
+        import ui_ishikawa_5pq
+        ui_ishikawa_5pq.render_ishikawa_ui(project_state, pid, db, read_only)
+        
+    elif tool == "5 Porquês":
+        import ui_ishikawa_5pq
+        ui_ishikawa_5pq.render_5pqs_ui(project_state, pid, db, read_only)
+
+    elif tool == "Plano de Validação de Causas":
+        st.subheader(" Plano de Validação de Causas")
+        st.info("💡 Valide estatisticamente as causas roots que encontrou no painel anterior!")
+
+    elif tool == "Plano de Soluções":
+        st.subheader("📝 Plano de Soluções (B.A.S.I.C.O)")
+        st.info("💡 Sugira e analise formas de mitigar as causas validadas.")
+
+    elif tool == "Plano de Ação":
+        st.subheader(" Plano de Ação (5W2H)")
+        st.info("💡 Registre as atividades necessárias para implementar suas soluções!")
+
     else:
-        st.info("Outras ferramentas (Ishikawa, etc.) estão na fila de atualização para a nuvem.")
+        st.info("Outras ferramentas estão na fila de atualização para a nuvem.")
         draft = db.load_draft(pid, tool) or {}
         draft_text = draft.get("text", "")
         new_text = st.text_area("Borrão da Ferramenta (Para Análise da IA):", value=draft_text, height=420, disabled=read_only)
