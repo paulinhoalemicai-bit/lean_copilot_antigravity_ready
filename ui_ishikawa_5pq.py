@@ -86,18 +86,11 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
         color: #001C59 !important;
         font-weight: bold !important;
     }
-    /* Comprime o espaçamento das colunas verticais de causa */
+    /* Comprime o espaçamento das colunas verticais de causa suavemente sem cortar as caixas */
     div[data-testid="stVerticalBlock"] > div {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
-        gap: 0rem !important;
-        overflow-x: hidden !important;
-        overflow-y: hidden !important;
-    }
-    div[data-testid="stTextInput"] {
-        margin-bottom: -15px !important;
-        overflow-x: hidden !important;
-        overflow-y: hidden !important;
+        gap: 0.1rem !important;
     }
     </style>""", unsafe_allow_html=True)
 
@@ -163,7 +156,7 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                     for c_idx, cause in enumerate(spine.setdefault("causes", [])):
                         c_in, c_del_c = st.columns([6, 1])
                         with c_in:
-                            new_val = st.text_input(f"Causa {c_idx}", value=cause.get("causa", ""), key=f"c_{spine['id']}_{c_idx}", disabled=read_only, label_visibility="collapsed", placeholder="Causa...")
+                            new_val = st.text_area(f"Causa {c_idx}", value=cause.get("causa", ""), key=f"c_{spine['id']}_{c_idx}", disabled=read_only, label_visibility="collapsed", placeholder="Causa...", height=68)
                             cause["causa"] = new_val
                         with c_del_c:
                             if st.button("🗑️", key=f"del_c_{spine['id']}_{c_idx}", disabled=read_only):
@@ -189,7 +182,7 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                     for c_idx, cause in enumerate(spine.setdefault("causes", [])):
                         c_in, c_del_c = st.columns([6, 1])
                         with c_in:
-                            new_val = st.text_input(f"Causa {c_idx}", value=cause.get("causa", ""), key=f"cb_{spine['id']}_{c_idx}", disabled=read_only, label_visibility="collapsed", placeholder="Causa...")
+                            new_val = st.text_area(f"Causa {c_idx}", value=cause.get("causa", ""), key=f"cb_{spine['id']}_{c_idx}", disabled=read_only, label_visibility="collapsed", placeholder="Causa...", height=68)
                             cause["causa"] = new_val
                         with c_del_c:
                             if st.button("🗑️", key=f"del_cb_{spine['id']}_{c_idx}", disabled=read_only):
