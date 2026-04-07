@@ -2029,8 +2029,13 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                             for c_text in ai_causes:
                                                 spine.setdefault("causes", []).append({"causa": f"IA: {c_text}"})
                                             used_cats.add(ai_cat)
+                                            
+                                    # STREAMLIT FIX: Limpa o editor preso na memória
+                                    # para ele não re-sobrescrever as causas da IA com o grid vazio dele.
+                                    e_key = f"editor_{spine.get('id')}"
+                                    if e_key in st.session_state:
+                                        del st.session_state[e_key]
                                 
-                                # Para categorias geradas que não deram match, criar novas colunas!
                                 import uuid
                                 def get_id(): return str(uuid.uuid4())[:8]
                                 
