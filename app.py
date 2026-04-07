@@ -2006,12 +2006,17 @@ with coach_container:
                                     dict_sug.setdefault(s.get("categoria", "Outros"), []).append(s.get("causa", ""))
                                 
                                 used_cats = set()
-                                for spine in active.get("spines", []):
+                                obj_spines = active.get("spines", [])
+                                if isinstance(obj_spines, dict):
+                                    obj_spines = list(obj_spines.values())
+                                    active["spines"] = obj_spines
+
+                                for spine in obj_spines:
                                     cat_name = spine.get("category", "")
                                     for ai_cat, ai_causes in dict_sug.items():
                                         if ai_cat.strip().lower() in cat_name.strip().lower():
                                             for c_text in ai_causes:
-                                                spine["causes"].append({"causa": f"IA: {c_text}"})
+                                                spine.setdefault("causes", []).append({"causa": f"IA: {c_text}"})
                                             used_cats.add(ai_cat)
                                 
                                 # Para categorias geradas que não deram match, criar novas colunas!
