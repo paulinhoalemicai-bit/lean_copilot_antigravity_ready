@@ -81,6 +81,11 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
         min-width: 300px !important;
         flex: 0 0 auto !important;
     }
+    input[aria-label^="Cat "] {
+        background-color: #8ce1f0 !important;
+        color: #001C59 !important;
+        font-weight: bold !important;
+    }
     </style>""", unsafe_allow_html=True)
 
     # BOTÕES DE CONTROLE GERAIS: Importar e Adicionar
@@ -133,7 +138,15 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                             st.rerun()
                     
-                    causas = spine.get("causes", [])
+                    if not read_only:
+                        st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
+                        if st.button("➕", key=f"add_c_{spine['id']}", help="Adicionar nova causa extra"):
+                            spine["causes"].append({"causa": ""})
+                            project_state["ishikawas"] = ishikawas
+                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                            st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        
                     st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
                     if not spine.get("causes"):
                         spine["causes"] = [{"causa": ""}, {"causa": ""}, {"causa": ""}]
@@ -148,15 +161,6 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                                 project_state["ishikawas"] = ishikawas
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
-                    if not read_only:
-                        st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
-                        if st.button("➕", key=f"add_c_{spine['id']}", help="Adicionar nova causa extra"):
-                            spine["causes"].append({"causa": ""})
-                            project_state["ishikawas"] = ishikawas
-                            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                            st.rerun()
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    
                     st.markdown("<div style='border-right: 3px solid #001C59; height: 35px; width: 50%; margin-bottom: 5px;'></div>", unsafe_allow_html=True)
 
         # ESPINHA DORSAL CENTRAL

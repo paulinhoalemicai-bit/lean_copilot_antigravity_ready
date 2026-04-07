@@ -2039,11 +2039,11 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                                     spine["causes"].append({"causa": f"IA: {c_text}"})
                                             used_cats.add(ai_cat)
                                             
-                                    # STREAMLIT FIX: Limpa o editor preso na memória
-                                    # para ele não re-sobrescrever as causas da IA com o grid vazio dele.
-                                    e_key = f"editor_{spine.get('id')}"
-                                    if e_key in st.session_state:
-                                        del st.session_state[e_key]
+                                    # STREAMLIT FIX: Limpa TODAS as caixas c_ e cb_ da memoria
+                                    # para que o Streamlit não re-sobrescreva o preenchimento da IA!
+                                    keys_to_delete = [k for k in st.session_state.keys() if k.startswith(f"c_{spine.get('id')}") or k.startswith(f"cb_{spine.get('id')}")]
+                                    for k in keys_to_delete:
+                                        del st.session_state[k]
                                 
                                 import uuid
                                 def get_id(): return str(uuid.uuid4())[:8]
