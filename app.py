@@ -1983,6 +1983,44 @@ with coach_container:
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Matriz preenchida com as métricas geradas pela IA. Releia os tópicos!"
                         st.rerun()
 
+            # --- FLUXO ESPECIAL: Geração do Ishikawa ---
+            elif tool == "Ishikawa" and mode_str == "generate":
+                with st.spinner("Doutor Lean estruturando a lista de causas (6Ms) a partir do seu Efeito..."):
+                    ishikawas = project_state.get("ishikawas", [])
+                    if not ishikawas:
+                        st.error("Crie um painel do Ishikawa primeiro (no painel central) antes de pedir sugestões.")
+                    else:
+                        # Pega o primeiro ou o ativo, idealmente deveríamos pegar o que tá na tela. Mas vamos processar com base em tudo.
+                        # Na real, o usuário preencheu o problema. Pegou o ultimo por fallback
+                        active = ishikawas[-1]
+                        effect = str(active.get("effect", "")).strip()
+                        if not effect:
+                            st.error("Escreva o Problema primeiro na cabeça do peixe!")
+                        else:
+                            sugestoes = suggest_ishikawa_eval(project_state, effect)
+                            if not sugestoes:
+                                st.error("Falha ao gerar Ishikawa. Tente um problema mais descritivo.")
+                            else:
+                                ms = ["Método", "Máquina", "Mão de Obra", "Materiais", "Medição", "Meio Ambiente"]
+                                tops = ["top1", "top2", "top3"]
+                                bots = ["bot1", "bot2", "bot3"]
+                                dict_sug = {}
+                                for s in sugestoes:
+                                    dict_sug.setdefault(s.get("categoria", ""), []).append(s.get("causa", ""))
+                                
+                                for i, k in enumerate(tops):
+                                    if ms[i] in dict_sug:
+                                        for c_text in dict_sug[ms[i]]:
+                                            active["spines"][k]["causes"].append({"causa": f"IA: {c_text}"})
+                                for i, k in enumerate(bots):
+                                    if ms[i+3] in dict_sug:
+                                        for c_text in dict_sug[ms[i+3]]:
+                                            active["spines"][k]["causes"].append({"causa": f"IA: {c_text}"})
+
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.session_state["ai_generated_warning"] = "✨ ⚠️ Diagrama Ishikawa preenchido com subcausas! Revise e ajuste conforme necessário na tabela ao lado."
+                                st.rerun()
+
             # --- FLUXO ESPECIAL: Geração do Plano de Coleta de Dados ---
             elif tool == "Plano de Coleta de Dados" and mode_str == "generate":
                 with st.spinner("Doutor Lean estruturando o plano de medição metrológica..."):

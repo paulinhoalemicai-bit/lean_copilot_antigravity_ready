@@ -177,37 +177,45 @@ def render_5pqs_ui(project_state, pid, db, read_only):
 
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # Edição por cada ramificação ("Cadeia")
     for b_idx, branch in enumerate(active_pq["branches"]):
         with st.container(border=True):
+            # Formar a coluna. Se a branch tem N eltos, precisamos de N+1 colunas (a última pro botão avançar)
+            # Mas vamos pegar o len(branch) descartando os Nones para saber? Não, len(branch) total dita as colunas
             num_cols = len(branch) + 1  
             bc = st.columns(num_cols)
             
+            last_valid_idx = -1
             for p_idx, block in enumerate(branch):
                 with bc[p_idx]:
-                    if p_idx == 0:
-                        st.markdown("**1º Porquê**")
+                    if block is None:
+                        st.markdown("<div style='text-align: right; color: gray; font-size: 24px; margin-top: 50px;'>↳</div>", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"**{p_idx+1}º Porquê** ➡️")
+                        last_valid_idx = p_idx
+                        if p_idx == 0:
+                            st.markdown("**1º Porquê**")
+                        else:
+                            st.markdown(f"**{p_idx+1}º Porquê** ➡️")
+                            
+                        new_txt = st.text_area(f"hidden_{b_idx}_{p_idx}", value=block["pq"], key=f"txt_{selected_id}_{b_idx}_{p_idx}", height=120, disabled=read_only, label_visibility="collapsed")
+                        branch[p_idx]["pq"] = new_txt
                         
-                    new_txt = st.text_area(f"hidden_{b_idx}_{p_idx}", value=block["pq"], key=f"txt_{selected_id}_{b_idx}_{p_idx}", height=120, disabled=read_only, label_visibility="collapsed")
-                    branch[p_idx]["pq"] = new_txt
+                        if not read_only:
+                            if st.button("🔽 Bifurcar", key=f"bif_{selected_id}_{b_idx}_{p_idx}"):
+                                # Criar uma nova branch que é preenchida com Nones até este ponto, e começa no próximo
+                                new_branch = [None] * (p_idx + 1) + [{"pq": "Nova causa paralela..."}]
+                                active_pq["branches"].insert(b_idx + 1, new_branch)
+                                project_state["cinco_pqs"] = pqs
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
                     
             with bc[-1]:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("➕ Avançar", key=f"add_{selected_id}_{b_idx}", disabled=read_only):
                     branch.append({"pq": ""})
-                    # Force save and rerun
                     project_state["cinco_pqs"] = pqs
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
-
-    col1, _ = st.columns([1, 4])
-    with col1:
-        if st.button("⏬ Nova Ramificação", disabled=read_only, use_container_width=True):
-            active_pq["branches"].append([{"pq": "Nova linha..."}])
-            project_state["cinco_pqs"] = pqs
-            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-            st.rerun()
 
     # Auto-save logic
     if pqs != original_pqs and not read_only:
