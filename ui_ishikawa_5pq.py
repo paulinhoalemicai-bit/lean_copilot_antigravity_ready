@@ -289,7 +289,12 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         with c2:
                             if st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Apagar daqui para frente"):
                                 branch[:] = branch[:p_idx]
-                                active_pq["branches"] = [b for b in active_pq["branches"] if b]
+                                def is_empty_branch(br):
+                                    return len(br) == 0 or all(x is None for x in br)
+                                active_pq["branches"] = [b for b in active_pq["branches"] if not is_empty_branch(b)]
+                                # Garante sempre uma origem viva:
+                                if not active_pq["branches"]:
+                                    active_pq["branches"] = [[{"pq": ""}]]
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()

@@ -1,27 +1,33 @@
 import json
 import os
 import traceback
-from coach import _chat_json
+from coach import client
 
 def suggest_ishikawa_eval(project_state, effect):
     prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico.
 Contexto: {project_state.get('name')} - {project_state.get('charter', {}).get('problem', '')}
-
 Problema Central (Cabeça do Peixe): {effect}
 
 Você deve conduzir um brainstorming e sugerir Causas Primárias (nível 1 apenas) para este problema.
-Divida suas sugestões apenas nos 6M's clássicos.
-NÃO sugira causas profundas (níveis 2, 3), apenas os grandes grupos direcionadores.
-Retorne EXATAMENTE e APENAS UM JSON com a chave "rows" sendo uma lista de objetos, com as chaves 'categoria' e 'causa'. 
-Exemplo: {{"rows": [ {{"categoria": "Máquina", "causa": "Falta de manutenção"}}] }}
+Divida suas sugestões nos 6M's (Máquina, Método, Material, Mão de Obra, Meio Ambiente, Medida).
+Retorne EXATAMENTE UM JSON em formato válido:
+{{"rows": [{{"categoria": "...", "causa": "..."}}, ...]}}
 """
     try:
-        out = _chat_json(prompt, "Gere as causas.")
-        return out.get("rows", [])
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.3,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": "Gere a matriz 6Ms de causas."}
+            ]
+        )
+        data = json.loads(response.choices[0].message.content or "{}")
+        return data.get("rows", [{"categoria": "ERRO AI", "causa": "Respondeu vazio."}])
     except Exception as e:
         err = traceback.format_exc()
-        print("Erro na IA Ishikawa:", err)
-        return [{"categoria": "ERRO", "causa": str(e)}]
+        return [{"categoria": "FALHA CÓDIGO", "causa": str(e)[:150]}]
 
 def suggest_valida_causa(client, model, project_context, causa_nome, dados_input, estatistico=False):
     perfil_validador = "estatístico rigoroso e analista de dados" if estatistico else "avaliador empírico e analítico de processos"

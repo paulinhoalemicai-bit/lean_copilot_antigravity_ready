@@ -1997,7 +1997,18 @@ with coach_container:
                         if not effect:
                             st.error("Escreva o Problema primeiro na cabeça do peixe!")
                         else:
-                            sugestoes = suggest_ishikawa_eval(project_state, effect)
+                            try:
+                                import json
+                                from coach import client
+                                prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico. Contexto: {project_state.get('name')} - {project_state.get('charter', {}).get('problem', '')}. Problema Central (Cabeça do Peixe): {effect}.
+Você deve conduzir um brainstorming e sugerir Causas Primárias (nível 1 apenas) para este problema. Divida suas sugestões nos 6M's (Máquina, Método, Material, Mão de Obra, Meio Ambiente, Medida).
+Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", "causa": "..."}}, ...]}}"""
+                                res = client.chat.completions.create(model="gpt-4o-mini", temperature=0.3, response_format={"type": "json_object"}, messages=[{"role": "system", "content": prompt}, {"role": "user", "content": "Gere a matriz"}])
+                                data = json.loads(res.choices[0].message.content or "{}")
+                                sugestoes = data.get("rows", [{"categoria": "ERRO", "causa": "JSON vazio"}])
+                            except Exception as fail_e:
+                                sugestoes = [{"categoria": "ERRO FATAL", "causa": str(fail_e)[:100]}]
+
                             if not sugestoes:
                                 st.error("Falha ao gerar Ishikawa. Tente um problema mais descritivo.")
                             else:
