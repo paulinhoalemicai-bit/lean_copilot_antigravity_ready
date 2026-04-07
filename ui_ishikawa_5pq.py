@@ -272,7 +272,8 @@ def render_5pqs_ui(project_state, pid, db, read_only):
 
     # Edição por cada ramificação ("Cadeia")
     for b_idx, branch in enumerate(branches):
-        with st.container(border=True):
+        st.markdown("<div style='margin-bottom: 20px;'>", unsafe_allow_html=True)
+        with st.container(border=False):
             num_cols = len(branch) + 1  
             bc = st.columns(num_cols)
             

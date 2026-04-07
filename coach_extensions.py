@@ -1,5 +1,6 @@
 import json
 import os
+import traceback
 from coach import _chat_json
 
 def suggest_ishikawa_eval(project_state, effect):
@@ -18,8 +19,9 @@ Exemplo: {{"rows": [ {{"categoria": "Máquina", "causa": "Falta de manutenção"
         out = _chat_json(prompt, "Gere as causas.")
         return out.get("rows", [])
     except Exception as e:
-        print("Erro na IA Ishikawa:", e)
-        return []
+        err = traceback.format_exc()
+        print("Erro na IA Ishikawa:", err)
+        return [{"categoria": "ERRO", "causa": str(e)}]
 
 def suggest_valida_causa(client, model, project_context, causa_nome, dados_input, estatistico=False):
     perfil_validador = "estatístico rigoroso e analista de dados" if estatistico else "avaliador empírico e analítico de processos"
