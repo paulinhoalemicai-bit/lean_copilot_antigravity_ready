@@ -2001,24 +2001,34 @@ with coach_container:
                             if not sugestoes:
                                 st.error("Falha ao gerar Ishikawa. Tente um problema mais descritivo.")
                             else:
-                                ms = ["Método", "Máquina", "Mão de Obra", "Materiais", "Medição", "Meio Ambiente"]
-                                tops = ["top1", "top2", "top3"]
-                                bots = ["bot1", "bot2", "bot3"]
                                 dict_sug = {}
                                 for s in sugestoes:
-                                    dict_sug.setdefault(s.get("categoria", ""), []).append(s.get("causa", ""))
+                                    dict_sug.setdefault(s.get("categoria", "Outros"), []).append(s.get("causa", ""))
                                 
-                                for i, k in enumerate(tops):
-                                    if ms[i] in dict_sug:
-                                        for c_text in dict_sug[ms[i]]:
-                                            active["spines"][k]["causes"].append({"causa": f"IA: {c_text}"})
-                                for i, k in enumerate(bots):
-                                    if ms[i+3] in dict_sug:
-                                        for c_text in dict_sug[ms[i+3]]:
-                                            active["spines"][k]["causes"].append({"causa": f"IA: {c_text}"})
+                                used_cats = set()
+                                for spine in active.get("spines", []):
+                                    cat_name = spine.get("category", "")
+                                    for ai_cat, ai_causes in dict_sug.items():
+                                        if ai_cat.strip().lower() in cat_name.strip().lower():
+                                            for c_text in ai_causes:
+                                                spine["causes"].append({"causa": f"IA: {c_text}"})
+                                            used_cats.add(ai_cat)
+                                
+                                # Para categorias geradas que não deram match, criar novas colunas!
+                                import uuid
+                                def get_id(): return str(uuid.uuid4())[:8]
+                                
+                                for ai_cat, ai_causes in dict_sug.items():
+                                    if ai_cat not in used_cats:
+                                        causes_blocks = [{"causa": f"IA: {c}"} for c in ai_causes]
+                                        active["spines"].append({
+                                            "id": get_id(),
+                                            "category": ai_cat,
+                                            "causes": causes_blocks
+                                        })
 
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                                st.session_state["ai_generated_warning"] = "✨ ⚠️ Diagrama Ishikawa preenchido com subcausas! Revise e ajuste conforme necessário na tabela ao lado."
+                                st.session_state["ai_generated_warning"] = "✨ ⚠️ Diagrama Ishikawa preenchido com subcausas! Revise e ajuste as tabelas."
                                 st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Plano de Coleta de Dados ---

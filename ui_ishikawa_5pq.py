@@ -6,14 +6,14 @@ def get_new_id():
     return str(uuid.uuid4())[:8]
 
 def get_default_ishikawa_spines():
-    return {
-        "top1": {"category": "Meio ambiente", "causes": []},
-        "top2": {"category": "Material", "causes": []},
-        "top3": {"category": "Método", "causes": []},
-        "bot1": {"category": "Medida", "causes": []},
-        "bot2": {"category": "Mão de obra", "causes": []},
-        "bot3": {"category": "Máquina", "causes": []}
-    }
+    return [
+        {"id": get_new_id(), "category": "Meio ambiente", "causes": []},
+        {"id": get_new_id(), "category": "Material", "causes": []},
+        {"id": get_new_id(), "category": "Método", "causes": []},
+        {"id": get_new_id(), "category": "Medida", "causes": []},
+        {"id": get_new_id(), "category": "Mão de obra", "causes": []},
+        {"id": get_new_id(), "category": "Máquina", "causes": []}
+    ]
 
 def render_ishikawa_ui(project_state, pid, db, read_only):
     st.subheader("🐟 Diagrama de Causa e Efeito (Ishikawa)")
@@ -34,7 +34,6 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
             st.rerun()
         return
 
-    # Seletor
     ishi_options = {ix["id"]: ix["effect"] for ix in ishikawas}
     c_sel, c_btn = st.columns([3, 1])
     with c_sel:
@@ -51,38 +50,80 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     active_ish = next((ish for ish in ishikawas if ish["id"] == selected_id), None)
     if not active_ish: return
     
+    # Migração para a estrutura de Lista (se ainda for um dict estático)
+    if isinstance(active_ish.get("spines"), dict):
+        d_spines = active_ish["spines"]
+        active_ish["spines"] = [
+            d_spines.get("top1", {"category": "Meio ambiente", "causes": []}),
+            d_spines.get("top2", {"category": "Material", "causes": []}),
+            d_spines.get("top3", {"category": "Método", "causes": []}),
+            d_spines.get("bot1", {"category": "Medida", "causes": []}),
+            d_spines.get("bot2", {"category": "Mão de obra", "causes": []}),
+            d_spines.get("bot3", {"category": "Máquina", "causes": []})
+        ]
+        for sp in active_ish["spines"]:
+            if "id" not in sp: sp["id"] = get_new_id()
+    
     if "spines" not in active_ish:
         active_ish["spines"] = get_default_ishikawa_spines()
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # BOTÕES DE CONTROLE GERAIS: Importar e Adicionar
+    c_imp, c_add = st.columns(2)
+    with c_imp:
+        if st.button("📥 Preencher com Problema do Project Charter", disabled=read_only):
+            val = project_state.get("charter", {}).get("problem", "")
+            if val:
+                active_ish["effect"] = val
+                st.rerun()
+            else:
+                st.warning("O Project Charter ainda não tem um problema definido.")
+    with c_add:
+        if st.button("➕ Adicionar Nova Categoria na Espinha", disabled=read_only):
+            active_ish["spines"].append({"id": get_new_id(), "category": "Nova Categoria", "causes": []})
+            st.rerun()
+
+    st.markdown("---")
     
+    # Dividir a lista nas espinhas superiores e inferiores (50% pra cada lado)
+    spines = active_ish["spines"]
+    half = len(spines) // 2 + (len(spines) % 2)
+    top_spines = spines[:half]
+    bot_spines = spines[half:]
+
     # =========================================================
     # ESPINHAS SUPERIORES
     # =========================================================
-    st.markdown("<div style='text-align: center; color: #00AEEF; font-size: 20px; margin-bottom: -15px;'>M's Superiores</div>", unsafe_allow_html=True)
-    cols_top = st.columns([1, 1, 1, 1])
-    
-    col_keys_top = ["top1", "top2", "top3"]
-    for i, k in enumerate(col_keys_top):
-        with cols_top[i]:
-            spine = active_ish["spines"][k]
-            new_cat = st.text_input(f"Categ {i+1}", value=spine["category"], key=f"cat_{active_ish['id']}_{k}", disabled=read_only, label_visibility="collapsed")
-            spine["category"] = new_cat
-            
-            causas = spine.get("causes", [])
-            df_causas = [{"Causas (Sub-causas com traço -)": c.get("causa", "")} for c in causas]
-            if not df_causas: df_causas = [{"Causas (Sub-causas com traço -)": ""}] 
-            
-            edited_df = st.data_editor(
-                df_causas, 
-                num_rows="dynamic", 
-                use_container_width=True, 
-                key=f"ed_{active_ish['id']}_{k}",
-                disabled=read_only
-            )
-            spine["causes"] = [{"causa": r["Causas (Sub-causas com traço -)"]} for r in edited_df if str(r.get("Causas (Sub-causas com traço -)", "")).strip()]
-            
-            st.markdown("<div style='text-align: center; font-size: 30px; line-height: 0.5;'>↘️</div>", unsafe_allow_html=True)
+    if top_spines:
+        st.markdown("<div style='text-align: center; color: #00AEEF; font-size: 20px; margin-bottom: -15px;'>M's Superiores</div>", unsafe_allow_html=True)
+        cols_top = st.columns(len(top_spines))
+        for i, spine in enumerate(top_spines):
+            with cols_top[i]:
+                # Input de categoria com botão de deletar (usando colunas filhas)
+                c_lbl, c_del = st.columns([5, 1])
+                with c_lbl:
+                    new_cat = st.text_input(f"Cat {spine['id']}", value=spine["category"], key=f"cat_{spine['id']}", disabled=read_only, label_visibility="collapsed")
+                    spine["category"] = new_cat
+                with c_del:
+                    if st.button("🗑️", key=f"del_{spine['id']}", help="Remover categoria", disabled=read_only):
+                        active_ish["spines"] = [s for s in active_ish["spines"] if s["id"] != spine["id"]]
+                        st.rerun()
+                
+                causas = spine.get("causes", [])
+                df_causas = [{"Causas (Sub-causas com traço -)": c.get("causa", "")} for c in causas]
+                if not df_causas: df_causas = [{"Causas (Sub-causas com traço -)": ""}] 
+                
+                edited_df = st.data_editor(
+                    df_causas, 
+                    num_rows="dynamic", 
+                    use_container_width=True, 
+                    key=f"ed_{spine['id']}",
+                    disabled=read_only
+                )
+                spine["causes"] = [{"causa": r["Causas (Sub-causas com traço -)"]} for r in edited_df if str(r.get("Causas (Sub-causas com traço -)", "")).strip()]
+                
+                st.markdown("<div style='text-align: center; font-size: 30px; line-height: 0.5;'>↘️</div>", unsafe_allow_html=True)
 
     # =========================================================
     # ESPINHA DORSAL CENTRAL
@@ -97,34 +138,38 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     # =========================================================
     # ESPINHAS INFERIORES
     # =========================================================
-    cols_bot = st.columns([1, 1, 1, 1])
-    col_keys_bot = ["bot1", "bot2", "bot3"]
-    for i, k in enumerate(col_keys_bot):
-        with cols_bot[i]:
-            st.markdown("<div style='text-align: center; font-size: 30px; line-height: 0.5;'>↗️</div>", unsafe_allow_html=True)
-            
-            spine = active_ish["spines"][k]
-            causas = spine.get("causes", [])
-            df_causas = [{"Causas (Sub-causas com traço -)": c.get("causa", "")} for c in causas]
-            if not df_causas: df_causas = [{"Causas (Sub-causas com traço -)": ""}] 
-            
-            edited_df = st.data_editor(
-                df_causas, 
-                num_rows="dynamic", 
-                use_container_width=True, 
-                key=f"ed_{active_ish['id']}_{k}",
-                disabled=read_only
-            )
-            spine["causes"] = [{"causa": r["Causas (Sub-causas com traço -)"]} for r in edited_df if str(r.get("Causas (Sub-causas com traço -)", "")).strip()]
+    if bot_spines:
+        cols_bot = st.columns(len(bot_spines))
+        for i, spine in enumerate(bot_spines):
+            with cols_bot[i]:
+                st.markdown("<div style='text-align: center; font-size: 30px; line-height: 0.5;'>↗️</div>", unsafe_allow_html=True)
+                
+                causas = spine.get("causes", [])
+                df_causas = [{"Causas (Sub-causas com traço -)": c.get("causa", "")} for c in causas]
+                if not df_causas: df_causas = [{"Causas (Sub-causas com traço -)": ""}] 
+                
+                edited_df = st.data_editor(
+                    df_causas, 
+                    num_rows="dynamic", 
+                    use_container_width=True, 
+                    key=f"ed_{spine['id']}",
+                    disabled=read_only
+                )
+                spine["causes"] = [{"causa": r["Causas (Sub-causas com traço -)"]} for r in edited_df if str(r.get("Causas (Sub-causas com traço -)", "")).strip()]
 
-            new_cat = st.text_input(f"Categ {i+4}", value=spine["category"], key=f"cat_{active_ish['id']}_{k}", disabled=read_only, label_visibility="collapsed")
-            spine["category"] = new_cat
+                c_lbl, c_del = st.columns([5, 1])
+                with c_lbl:
+                    new_cat = st.text_input(f"Cat {spine['id']}", value=spine["category"], key=f"cat_{spine['id']}", disabled=read_only, label_visibility="collapsed")
+                    spine["category"] = new_cat
+                with c_del:
+                    if st.button("🗑️", key=f"del_{spine['id']}", help="Remover categoria", disabled=read_only):
+                        active_ish["spines"] = [s for s in active_ish["spines"] if s["id"] != spine["id"]]
+                        st.rerun()
 
     # Auto-save logic
     if ishikawas != original_ishikawas and not read_only:
         project_state["ishikawas"] = ishikawas
         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-
 
 
 # =====================================================================
@@ -180,8 +225,6 @@ def render_5pqs_ui(project_state, pid, db, read_only):
     # Edição por cada ramificação ("Cadeia")
     for b_idx, branch in enumerate(active_pq["branches"]):
         with st.container(border=True):
-            # Formar a coluna. Se a branch tem N eltos, precisamos de N+1 colunas (a última pro botão avançar)
-            # Mas vamos pegar o len(branch) descartando os Nones para saber? Não, len(branch) total dita as colunas
             num_cols = len(branch) + 1  
             bc = st.columns(num_cols)
             
@@ -202,7 +245,6 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         
                         if not read_only:
                             if st.button("🔽 Bifurcar", key=f"bif_{selected_id}_{b_idx}_{p_idx}"):
-                                # Criar uma nova branch que é preenchida com Nones até este ponto, e começa no próximo
                                 new_branch = [None] * (p_idx + 1) + [{"pq": "Nova causa paralela..."}]
                                 active_pq["branches"].insert(b_idx + 1, new_branch)
                                 project_state["cinco_pqs"] = pqs

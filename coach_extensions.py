@@ -1,24 +1,38 @@
-def suggest_ishikawa_eval(client, model, project_context, current_ishikawa):
+import json
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY", "")
+client_ext = OpenAI(api_key=api_key) if api_key else None
+
+def suggest_ishikawa_eval(project_state, effect):
+    if not client_ext: return []
     prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico.
-Contexto do Projeto: {project_context}
+Contexto: {project_state.get('name')} - {project_state.get('charter', {}).get('problem', '')}
 
-O aluno construiu a seguinte estrutura de Ishikawa para o Efeito/Problema ({current_ishikawa.get('effect', '')}):
-{current_ishikawa.get('causes_tree', {})}
+Problema Central (Cabeça do Peixe): {effect}
 
-Sua Tarefa (Avaliação):
-1. Avalie o mérito e clareza da decomposição das causas (não se preocupe de qual grupo 6M ela pertence).
-2. Verifique se há repetições excessivas ou confusão óbvia entre causa raiz vs. sintoma.
-3. Forneça um feedback construtivo curto. Responda em Markdown.
+Você deve conduzir um brainstorming e sugerir Causas Primárias (nível 1 apenas) para este problema.
+Divida suas sugestões apenas nos 6M's clássicos.
+NÃO sugira causas profundas (níveis 2, 3), apenas os grandes grupos direcionadores.
+Retorne EXATAMENTE e APENAS uma lista JSON de objetos, com as chaves 'categoria' e 'causa'. Nada de markdown.
+Exemplo: [ {{"categoria": "Máquina", "causa": "Falta de manutenção preventiva"}}, {{"categoria": "Método", "causa": "Falta de padrão"}} ]
 """
     try:
-        response = client.chat.completions.create(
-            model=model,
+        response = client_ext.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[{'role':'user', 'content': prompt}],
             temperature=0.3
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if "```json" in content:
+            content = content.replace("```json", "").replace("```", "")
+        return json.loads(content)
     except Exception as e:
-        return f"Erro na IA: {e}"
+        print("Erro na IA Ishikawa:", e)
+        return []
 
 def suggest_valida_causa(client, model, project_context, causa_nome, dados_input, estatistico=False):
     perfil_validador = "estatístico rigoroso e analista de dados" if estatistico else "avaliador empírico e analítico de processos"
