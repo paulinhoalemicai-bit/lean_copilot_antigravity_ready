@@ -91,9 +91,13 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         gap: 0rem !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
     }
     div[data-testid="stTextInput"] {
         margin-bottom: -15px !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
     }
     </style>""", unsafe_allow_html=True)
 

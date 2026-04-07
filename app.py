@@ -2025,11 +2025,12 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 for spine in obj_spines:
                                     cat_name = spine.get("category", "")
                                     for ai_cat, ai_causes in dict_sug.items():
-                                        import unicodedata
+                                        import unicodedata, re
                                         def norm_str(s):
-                                            return unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('utf-8').lower()
+                                            n = unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('utf-8').lower()
+                                            return re.sub(r'[^a-z0-9]', '', n)
                                         
-                                        if norm_str(ai_cat).strip() in norm_str(cat_name).strip() or norm_str(cat_name).strip() in norm_str(ai_cat).strip():
+                                        if norm_str(ai_cat) in norm_str(cat_name) or norm_str(cat_name) in norm_str(ai_cat):
                                             for c_text in ai_causes:
                                                 # Procura uma caixa vazia na categoria para sobreescrever, senão adiciona
                                                 empty_slot = next((c for c in spine.setdefault("causes", []) if not c.get("causa", "").strip()), None)
