@@ -86,6 +86,11 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
         color: #001C59 !important;
         font-weight: bold !important;
     }
+    /* Comprime o espaçamento das colunas verticais de causa */
+    div[data-testid="stVerticalBlock"] > div {
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
     </style>""", unsafe_allow_html=True)
 
     # BOTÕES DE CONTROLE GERAIS: Importar e Adicionar
@@ -139,15 +144,12 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                             st.rerun()
                     
                     if not read_only:
-                        st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
                         if st.button("➕", key=f"add_c_{spine['id']}", help="Adicionar nova causa extra"):
                             spine["causes"].append({"causa": ""})
                             project_state["ishikawas"] = ishikawas
                             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                             st.rerun()
-                        st.markdown("</div>", unsafe_allow_html=True)
                         
-                    st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
                     if not spine.get("causes"):
                         spine["causes"] = [{"causa": ""}, {"causa": ""}, {"causa": ""}]
                     for c_idx, cause in enumerate(spine.setdefault("causes", [])):
@@ -171,12 +173,11 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
             cols_bot = st.columns(len(bot_spines))
             for i, spine in enumerate(bot_spines):
                 with cols_bot[i]:
-                    st.markdown("<div style='border-right: 3px solid #001C59; height: 35px; width: 50%; margin-top: 5px;'></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='border-right: 3px solid #001C59; height: 35px; width: 50%; margin-bottom: 5px;'></div>", unsafe_allow_html=True)
                     
                     if not spine.get("causes"):
                         spine["causes"] = [{"causa": ""}, {"causa": ""}, {"causa": ""}]
                     
-                    st.markdown("<div style='margin-bottom: 5px;'></div>", unsafe_allow_html=True)
                     for c_idx, cause in enumerate(spine.setdefault("causes", [])):
                         c_in, c_del_c = st.columns([6, 1])
                         with c_in:
@@ -189,13 +190,11 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
                     if not read_only:
-                        st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
                         if st.button("➕", key=f"add_cb_{spine['id']}", help="Adicionar nova causa extra"):
                             spine["causes"].append({"causa": ""})
                             project_state["ishikawas"] = ishikawas
                             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                             st.rerun()
-                        st.markdown("</div>", unsafe_allow_html=True)
 
                     c_lbl, c_del = st.columns([5, 1])
                     with c_lbl:
