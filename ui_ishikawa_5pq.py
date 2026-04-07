@@ -90,6 +90,10 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     div[data-testid="stVerticalBlock"] > div {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
+        gap: 0rem !important;
+    }
+    div[data-testid="stTextInput"] {
+        margin-bottom: -15px !important;
     }
     </style>""", unsafe_allow_html=True)
 
