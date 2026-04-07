@@ -69,6 +69,20 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # Hack CSS para habilitar Barra de Rolagem (Scroll) Horizontal nas categorias
+    st.markdown("""<style>
+    div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        padding-bottom: 20px !important;
+        scrollbar-width: thin;
+    }
+    div[data-testid="column"] {
+        min-width: 300px !important;
+        flex: 0 0 auto !important;
+    }
+    </style>""", unsafe_allow_html=True)
+
     # BOTÕES DE CONTROLE GERAIS: Importar e Adicionar
     c_imp, c_add = st.columns(2)
     with c_imp:
@@ -76,17 +90,21 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
             val = project_state.get("charter", {}).get("problem", "")
             if val:
                 active_ish["effect"] = val
+                st.session_state[f"eff_{active_ish['id']}"] = val
+                project_state["ishikawas"] = ishikawas
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                 st.rerun()
             else:
                 st.warning("O Project Charter ainda não tem um problema definido.")
     with c_add:
         if st.button("➕ Adicionar Nova Categoria na Espinha", disabled=read_only):
             active_ish["spines"].append({"id": get_new_id(), "category": "Nova Categoria", "causes": []})
+            project_state["ishikawas"] = ishikawas
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
 
     st.markdown("---")
     
-    # Dividir a lista nas espinhas superiores e inferiores (50% pra cada lado)
     spines = active_ish["spines"]
     half = len(spines) // 2 + (len(spines) % 2)
     top_spines = spines[:half]
@@ -100,7 +118,6 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
         cols_top = st.columns(len(top_spines))
         for i, spine in enumerate(top_spines):
             with cols_top[i]:
-                # Input de categoria com botão de deletar (usando colunas filhas)
                 c_lbl, c_del = st.columns([5, 1])
                 with c_lbl:
                     new_cat = st.text_input(f"Cat {spine['id']}", value=spine["category"], key=f"cat_{spine['id']}", disabled=read_only, label_visibility="collapsed")
@@ -108,6 +125,8 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                 with c_del:
                     if st.button("🗑️", key=f"del_{spine['id']}", help="Remover categoria", disabled=read_only):
                         active_ish["spines"] = [s for s in active_ish["spines"] if s["id"] != spine["id"]]
+                        project_state["ishikawas"] = ishikawas
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
                 
                 causas = spine.get("causes", [])
@@ -164,6 +183,8 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                 with c_del:
                     if st.button("🗑️", key=f"del_{spine['id']}", help="Remover categoria", disabled=read_only):
                         active_ish["spines"] = [s for s in active_ish["spines"] if s["id"] != spine["id"]]
+                        project_state["ishikawas"] = ishikawas
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
 
     # Auto-save logic
