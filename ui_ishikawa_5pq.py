@@ -289,8 +289,7 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         with c2:
                             if st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Apagar daqui para frente"):
                                 branch[:] = branch[:p_idx]
-                                if not branch:
-                                    active_pq["branches"].pop(b_idx)
+                                active_pq["branches"] = [b for b in active_pq["branches"] if b]
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
@@ -299,8 +298,8 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         block["pq"] = new_txt
                         
                         if not read_only:
-                            if st.button("🔽 Bifurcar", key=f"bif_{selected_id}_{b_idx}_{p_idx}"):
-                                new_branch = [None] * (p_idx + 1) + [{"pq": "Nova ramificação paralela..."}]
+                            if st.button("🔽 Avançar para Baixo", key=f"bif_{selected_id}_{b_idx}_{p_idx}"):
+                                new_branch = [None] * p_idx + [{"pq": "Nova ramificação..."}]
                                 active_pq["branches"].insert(b_idx + 1, new_branch)
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -308,11 +307,20 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                     
             with bc[-1]:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("➕ Avançar", key=f"add_{selected_id}_{b_idx}", disabled=read_only):
-                    branch.append({"pq": ""})
+                # Avançar horizontal pega o tamanho total da row sem padding lateral.
+                if len(branch) > 0 and st.button("➡️ Avançar para o Lado", key=f"add_{selected_id}_{b_idx}", disabled=read_only):
+                    branch.append({"pq": "Nova causa..."})
                     project_state["cinco_pqs"] = pqs
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
+
+    if not read_only:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🧨 Apagar Todo o Diagrama", use_container_width=True, type="secondary"):
+            active_pq["branches"] = [[{"pq": ""}]]
+            project_state["cinco_pqs"] = pqs
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.rerun()
 
     # Auto-save logic
     if pqs != original_pqs and not read_only:
