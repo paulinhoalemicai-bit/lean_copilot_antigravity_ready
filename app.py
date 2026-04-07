@@ -1990,9 +1990,11 @@ with coach_container:
                     if not ishikawas:
                         st.error("Crie um painel do Ishikawa primeiro (no painel central) antes de pedir sugestões.")
                     else:
-                        # Pega o primeiro ou o ativo, idealmente deveríamos pegar o que tá na tela. Mas vamos processar com base em tudo.
-                        # Na real, o usuário preencheu o problema. Pegou o ultimo por fallback
+                        # Tenta pegar quem está na tela ativamente selecionado
                         active = ishikawas[-1]
+                        if "active_ish_id" in st.session_state:
+                            active = next((i for i in ishikawas if i["id"] == st.session_state["active_ish_id"]), ishikawas[-1])
+                        
                         effect = str(active.get("effect", "")).strip()
                         if not effect:
                             st.error("Escreva o Problema primeiro na cabeça do peixe!")

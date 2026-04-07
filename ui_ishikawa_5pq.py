@@ -37,7 +37,7 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     ishi_options = {ix["id"]: ix["effect"] for ix in ishikawas}
     c_sel, c_btn = st.columns([3, 1])
     with c_sel:
-        selected_id = st.selectbox("Selecione o Ishikawa:", options=list(ishi_options.keys()), format_func=lambda x: ishi_options[x], label_visibility="collapsed")
+        st.write("")  # Placeholder
     with c_btn:
         if st.button("➕ Novo Diagrama", disabled=read_only, use_container_width=True):
             ishikawas.append({
@@ -47,8 +47,15 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
 
-    active_ish = next((ish for ish in ishikawas if ish["id"] == selected_id), None)
-    if not active_ish: return
+    if len(ishikawas) > 1:
+        st.markdown("<h3 style='color:#001C59;'>Navegue pela coleção Ishikawa</h3>", unsafe_allow_html=True)
+        active_ish_id = st.selectbox("Selecione o Diagrama Ishikawa", [ish['id'] for ish in ishikawas], format_func=lambda i: f"Diagrama de Causa e Efeito (ID: {i})")
+        active_ish = next(ish for ish in ishikawas if ish['id'] == active_ish_id)
+        # BIND GLOBAL: Diz ao app.py quem é o cara que está na tela sendo renderizado
+        st.session_state["active_ish_id"] = active_ish["id"]
+    else:
+        active_ish = ishikawas[0]
+        st.session_state["active_ish_id"] = active_ish["id"]
     
     # Migração para a estrutura de Lista (se ainda for um dict estático)
     if isinstance(active_ish.get("spines"), dict):
@@ -94,8 +101,8 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     }
     </style>""", unsafe_allow_html=True)
 
-    # BOTÕES DE CONTROLE GERAIS: Importar e Adicionar
-    c_imp, c_add, c_clr = st.columns([2, 2, 1])
+    # BOTÕES DE CONTROLE GERAIS: Importar e Adicionar e Apagar
+    c_imp, c_6m, c_add, c_clr = st.columns([2, 1.5, 1.5, 1])
     with c_imp:
         if st.button("📥 Preencher com Problema do Project Charter", disabled=read_only):
             val = project_state.get("charter", {}).get("problem", "")
@@ -107,16 +114,25 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                 st.rerun()
             else:
                 st.warning("O Project Charter ainda não tem um problema definido.")
+    with c_6m:
+        if st.button("🛠️ Estruturar 6M's Padrão", help="Gera as 6 categorias padrão da manufatura", disabled=read_only):
+            ms = ["Máquina", "Método", "Material", "Mão de Obra", "Meio Ambiente", "Medida"]
+            for m in ms:
+                active_ish["spines"].append({"id": get_new_id(), "category": m, "causes": [{"causa": ""}, {"causa": ""}, {"causa": ""}]})
+            project_state["ishikawas"] = ishikawas
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.rerun()
     with c_add:
-        if st.button("➕ Adicionar Nova Categoria na Espinha", disabled=read_only):
+        if st.button("➕ Adicionar Categoria Manual", disabled=read_only):
             active_ish["spines"].append({"id": get_new_id(), "category": "Nova Categoria", "causes": [{"causa": ""}, {"causa": ""}, {"causa": ""}]})
             project_state["ishikawas"] = ishikawas
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
     with c_clr:
-        if st.button("🧨 Apagar Todo o Diagrama", key=f"clr_all_ish_{active_ish['id']}", disabled=read_only, help="Cuidado: Isso apagará todas as categorias e causas deste diagrama!"):
-            active_ish["spines"] = []
-            project_state["ishikawas"] = ishikawas
+        if st.button("🧨 Apagar Diagrama", key=f"clr_all_ish_{active_ish['id']}", disabled=read_only, help="Exclui este Ishikawa para sempre!"):
+            # Apaga todo o Ishikawa definitivamente (efeito, causas e tudo) da lista mestra
+            project_state["ishikawas"] = [i for i in project_state["ishikawas"] if i["id"] != active_ish["id"]]
+            if "active_ish_id" in st.session_state: del st.session_state["active_ish_id"]
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
 
