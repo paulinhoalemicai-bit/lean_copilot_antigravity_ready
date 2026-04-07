@@ -95,7 +95,7 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     </style>""", unsafe_allow_html=True)
 
     # BOTÕES DE CONTROLE GERAIS: Importar e Adicionar
-    c_imp, c_add = st.columns(2)
+    c_imp, c_add, c_clr = st.columns([2, 2, 1])
     with c_imp:
         if st.button("📥 Preencher com Problema do Project Charter", disabled=read_only):
             val = project_state.get("charter", {}).get("problem", "")
@@ -110,6 +110,12 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     with c_add:
         if st.button("➕ Adicionar Nova Categoria na Espinha", disabled=read_only):
             active_ish["spines"].append({"id": get_new_id(), "category": "Nova Categoria", "causes": [{"causa": ""}, {"causa": ""}, {"causa": ""}]})
+            project_state["ishikawas"] = ishikawas
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.rerun()
+    with c_clr:
+        if st.button("🧨 Apagar Todo o Diagrama", key=f"clr_all_ish_{active_ish['id']}", disabled=read_only, help="Cuidado: Isso apagará todas as categorias e causas deste diagrama!"):
+            active_ish["spines"] = []
             project_state["ishikawas"] = ishikawas
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
