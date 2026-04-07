@@ -1,14 +1,8 @@
 import json
 import os
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY", "")
-client_ext = OpenAI(api_key=api_key) if api_key else None
+from .coach import _chat_json
 
 def suggest_ishikawa_eval(project_state, effect):
-    if not client_ext: return []
     prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico.
 Contexto: {project_state.get('name')} - {project_state.get('charter', {}).get('problem', '')}
 
@@ -17,19 +11,12 @@ Problema Central (Cabeça do Peixe): {effect}
 Você deve conduzir um brainstorming e sugerir Causas Primárias (nível 1 apenas) para este problema.
 Divida suas sugestões apenas nos 6M's clássicos.
 NÃO sugira causas profundas (níveis 2, 3), apenas os grandes grupos direcionadores.
-Retorne EXATAMENTE e APENAS uma lista JSON de objetos, com as chaves 'categoria' e 'causa'. Nada de markdown.
-Exemplo: [ {{"categoria": "Máquina", "causa": "Falta de manutenção preventiva"}}, {{"categoria": "Método", "causa": "Falta de padrão"}} ]
+Retorne EXATAMENTE e APENAS UM JSON com a chave "rows" sendo uma lista de objetos, com as chaves 'categoria' e 'causa'. 
+Exemplo: {{"rows": [ {{"categoria": "Máquina", "causa": "Falta de manutenção"}}] }}
 """
     try:
-        response = client_ext.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{'role':'user', 'content': prompt}],
-            temperature=0.3
-        )
-        content = response.choices[0].message.content
-        if "```json" in content:
-            content = content.replace("```json", "").replace("```", "")
-        return json.loads(content)
+        out = _chat_json(prompt, "Gere as causas.")
+        return out.get("rows", [])
     except Exception as e:
         print("Erro na IA Ishikawa:", e)
         return []
