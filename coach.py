@@ -792,3 +792,30 @@ Retorne EXATAMENTE UM JSON contendo a chave "branch" com um array de 5 strings r
         return out.get("branch", [])
     except Exception:
         return []
+
+def suggest_5pq_branches(project_state: dict, efeito: str, context_path: list) -> list:
+    """
+    context_path é uma lista de strings. 
+    Se len(context_path) == 0, pede as causas primárias do efeito (x1, x2, x3...)
+    Se len(context_path) > 0, pede 3 a 5 explicações (hipóteses) lógicas para a causa anterior.
+    """
+    niv = len(context_path) + 1
+    system = """
+    Você é um Master Black Belt liderando um brainstorming profundo na ferramenta 5 Porquês.
+    A ferramenta 5 Porquês não deve ser apenas uma linha única, mas sim uma árvore lógica de investigação.
+    Sua missão é fornecer a ramificação para o nó atual, gerando de 3 a 5 hipóteses diferentes ("Por Quês?") que explicam o último estado.
+    Retorne EXATAMENTE UM JSON no formato: {"hipoteses": ["causa A", "causa B", "causa C", "causa D"]}
+    """
+    
+    if not context_path:
+        user_str = f"O problema central é: '{efeito}'. Gere 3 a 5 causas primárias (hipóteses raiz) para este problema. Essas serão as raízes da investigação."
+    else:
+        path_str = " -> ".join([efeito] + context_path)
+        user_str = f"A engrenagem lógica exata que ocorreu foi: {path_str}.\n\nPara o último passo ('{context_path[-1]}'), responda 'POR QUE isso ocorreu?' fornecendo 3 a 5 hipóteses investigativas plausíveis de nível {niv}."
+        
+    try:
+        out = _chat_json(system, user_str)
+        return out.get("hipoteses", [])
+    except Exception:
+        return []
+

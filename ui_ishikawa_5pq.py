@@ -297,7 +297,26 @@ def render_5pqs_ui(project_state, pid, db, read_only):
     active_pq["effect"] = new_eff
 
     st.markdown("<br>", unsafe_allow_html=True)
-    
+        
+    c_eff, c_ai_eff = st.columns([4, 1])
+    with c_eff:
+        new_eff = st.text_input("Qual o Problema Central / Y desta análise?", value=active_pq["effect"], disabled=read_only)
+        active_pq["effect"] = new_eff
+    with c_ai_eff:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("✨ Sugerir Raízes Iniciais", disabled=read_only, help="Dr Lean: Cria a 1ª camada de Porquês"):
+            with st.spinner("Dr Lean pesquisando raízes primárias..."):
+                from coach import suggest_5pq_branches
+                roots = suggest_5pq_branches(project_state, active_pq["effect"], [])
+                if roots:
+                    if len(active_pq["branches"]) == 1 and all(not p.get("pq", "").strip() for p in active_pq["branches"][0] if p):
+                        active_pq["branches"].clear()
+                    for rt in roots:
+                        active_pq["branches"].append([{"pq": f"IA: {rt}"}])
+                    project_state["cinco_pqs"] = pqs
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+                    
     branches = active_pq["branches"]
     
     # -------------------------------------------------------------
@@ -338,12 +357,18 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         st.markdown("<div style='text-align: right; color: gray; font-size: 24px; margin-top: 50px;'>↳</div>", unsafe_allow_html=True)
                     else:
                         label = wbs_labels[b_idx][p_idx]
-                        c1, c2 = st.columns([4, 1])
+                        c1, c2, c3 = st.columns([3, 1, 1])
                         with c1:
                             st.markdown(f"**[{label}]** ➡️")
                         with c2:
-                            if st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Apagar daqui para frente"):
-                                branch[:] = branch[:p_idx]
+                            if st.button("➕", key=f"ins_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Inserir nova etapa ANTES desta (Desloca para direita)"):
+                                branch.insert(p_idx, {"pq": ""})
+                                project_state["cinco_pqs"] = pqs
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
+                        with c3:
+                            if st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Apagar SOMENTE esta célula (Desloca o resto para a esquerda)"):
+                                branch.pop(p_idx)
                                 def is_empty_branch(br):
                                     return len(br) == 0 or all(x is None for x in br)
                                 active_pq["branches"] = [b for b in active_pq["branches"] if not is_empty_branch(b)]
@@ -368,17 +393,38 @@ def render_5pqs_ui(project_state, pid, db, read_only):
             with bc[-1]:
                 st.markdown("<br>", unsafe_allow_html=True)
                 # Avançar horizontal pega o tamanho total da row sem padding lateral.
-                if len(branch) > 0 and st.button("➡️ Avançar para o Lado", key=f"add_{selected_id}_{b_idx}", disabled=read_only):
-                    branch.append({"pq": "Nova causa..."})
-                    project_state["cinco_pqs"] = pqs
-                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    st.rerun()
+                if len(branch) > 0:
+                    if st.button("➡️ Avançar para o Lado", key=f"add_{selected_id}_{b_idx}", disabled=read_only):
+                        branch.append({"pq": ""})
+                        project_state["cinco_pqs"] = pqs
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+                    
+                    if st.button("✨ Explorar Hipóteses", key=f"ai_{selected_id}_{b_idx}", disabled=read_only, help="Dr Lean: Sugere de 3 a 5 continuações lógicas partindo daqui!"):
+                        with st.spinner("Dr Lean estruturando o diagnóstico subseqüente..."):
+                            from coach import suggest_5pq_branches
+                            # Monta o contexto limpo para este braço
+                            ctx_path = [b["pq"] for b in branch if b and b.get("pq", "").strip()]
+                            answs = suggest_5pq_branches(project_state, active_pq["effect"], ctx_path)
+                            if answs:
+                                # A primeira resposta continua reto no branch atual
+                                branch.append({"pq": f"IA: {answs[0]}"})
+                                # As próximas bifurcam o caminho clonando o prefixo
+                                for extra_ans in answs[1:]:
+                                    clone_prefix = copy.deepcopy(branch[:-1])
+                                    clone_prefix.append({"pq": f"IA: {extra_ans}"})
+                                    active_pq["branches"].insert(b_idx + 1, clone_prefix)
+                                project_state["cinco_pqs"] = pqs
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.rerun()
 
     if not read_only:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🧨 Apagar Todo o Diagrama", use_container_width=True, type="secondary"):
-            active_pq["branches"] = [[{"pq": ""}]]
-            project_state["cinco_pqs"] = pqs
+        pop_clr = st.popover("🧨 Apagar Todo o Diagrama", use_container_width=True)
+        pop_clr.error("Certeza que deseja esmagar esta árvore inteira?")
+        if pop_clr.button("Mecha na lixeira! 🧨", disabled=read_only, use_container_width=True):
+            project_state["cinco_pqs"] = [i for i in project_state["cinco_pqs"] if i["id"] != active_pq["id"]]
+            if "active_pq_id" in st.session_state: del st.session_state["active_pq_id"]
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
 
