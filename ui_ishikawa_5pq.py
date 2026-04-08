@@ -291,11 +291,6 @@ def render_5pqs_ui(project_state, pid, db, read_only):
     
     if "branches" not in active_pq: active_pq["branches"] = [[{"pq": ""}]]
 
-    st.markdown("---")
-    
-    new_eff = st.text_input("Qual o Problema Central / Y desta análise?", value=active_pq["effect"], disabled=read_only)
-    active_pq["effect"] = new_eff
-
     st.markdown("<br>", unsafe_allow_html=True)
         
     c_eff, c_ai_eff = st.columns([4, 1])
