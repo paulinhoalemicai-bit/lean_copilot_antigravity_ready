@@ -2043,17 +2043,14 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                                     spine["causes"].append({"causa": f"IA: {c_text}"})
                                             used_cats.add(ai_cat)
                                             
-                                            # FORÇAR RE-RENDERIZAÇÃO INSTANTÂNEA: Sobrescrever a memória do Streamlit
-                                            for idx, cc in enumerate(spine["causes"]):
-                                                k1, k2 = f"c_{spine['id']}_{idx}", f"cb_{spine['id']}_{idx}"
-                                                if k1 in st.session_state: st.session_state[k1] = cc["causa"]
-                                                if k2 in st.session_state: st.session_state[k2] = cc["causa"]
-                                            
                                     # STREAMLIT FIX: Limpa TODAS as caixas c_ e cb_ da memoria
                                     # para que o Streamlit não re-sobrescreva o preenchimento da IA!
                                     keys_to_delete = [k for k in st.session_state.keys() if k.startswith(f"c_{spine.get('id')}") or k.startswith(f"cb_{spine.get('id')}")]
                                     for k in keys_to_delete:
-                                        del st.session_state[k]
+                                        try:
+                                            del st.session_state[k]
+                                        except KeyError:
+                                            pass
                                 
                                 import uuid
                                 def get_id(): return str(uuid.uuid4())[:8]
