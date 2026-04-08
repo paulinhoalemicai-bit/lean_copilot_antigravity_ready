@@ -157,7 +157,7 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
                 with cols_top[i]:
                     c_lbl, c_del = st.columns([5, 1])
                     with c_lbl:
-                        new_cat = st.text_input(f"Cat {spine['id']}", value=spine["category"], key=f"cat_{spine['id']}", disabled=read_only, label_visibility="collapsed")
+                        new_cat = st.text_input(f"Cat {spine['id']}", value=spine.get("category", "Categoria"), key=f"cat_{spine['id']}", disabled=read_only, label_visibility="collapsed")
                         spine["category"] = new_cat
                     with c_del:
                         if st.button("🗑️", key=f"del_{spine['id']}", help="Remover categoria", disabled=read_only):
@@ -221,7 +221,7 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
 
                     c_lbl, c_del = st.columns([5, 1])
                     with c_lbl:
-                        new_cat = st.text_input(f"Cat {spine['id']}", value=spine["category"], key=f"cat_{spine['id']}", disabled=read_only, label_visibility="collapsed")
+                        new_cat = st.text_input(f"Cat {spine['id']}", value=spine.get("category", "Categoria"), key=f"cat_{spine['id']}", disabled=read_only, label_visibility="collapsed")
                         spine["category"] = new_cat
                     with c_del:
                         if st.button("🗑️", key=f"del_{spine['id']}", help="Remover categoria", disabled=read_only):
