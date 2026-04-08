@@ -49,7 +49,9 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
 
     if len(ishikawas) > 1:
         st.markdown("<h3 style='color:#001C59;'>Navegue pela coleção Ishikawa</h3>", unsafe_allow_html=True)
-        active_ish_id = st.selectbox("Selecione o Diagrama Ishikawa", [ish['id'] for ish in ishikawas], format_func=lambda i: f"Diagrama de Causa e Efeito (ID: {i})")
+        def get_eff(i_id):
+            return next((x["effect"] for x in ishikawas if x["id"] == i_id), i_id)
+        active_ish_id = st.selectbox("Selecione o Diagrama Ishikawa", [ish['id'] for ish in ishikawas], format_func=lambda i: get_eff(i))
         active_ish = next(ish for ish in ishikawas if ish['id'] == active_ish_id)
         # BIND GLOBAL: Diz ao app.py quem é o cara que está na tela sendo renderizado
         st.session_state["active_ish_id"] = active_ish["id"]
@@ -129,8 +131,9 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
     with c_clr:
-        if st.button("🧨 Apagar Diagrama", key=f"clr_all_ish_{active_ish['id']}", disabled=read_only, help="Exclui este Ishikawa para sempre!"):
-            # Apaga todo o Ishikawa definitivamente (efeito, causas e tudo) da lista mestra
+        pop = st.popover("🧨 Apagar Diagrama", help="Exclui este Ishikawa para sempre!")
+        pop.error("Tem certeza absoluta? Isso apagará este diagrama (cabeça e causas) permanentemente!")
+        if pop.button("Sim, apagar! 🧨", key=f"clr_all_ish_{active_ish['id']}", disabled=read_only):
             project_state["ishikawas"] = [i for i in project_state["ishikawas"] if i["id"] != active_ish["id"]]
             if "active_ish_id" in st.session_state: del st.session_state["active_ish_id"]
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -233,9 +236,13 @@ def render_ishikawa_ui(project_state, pid, db, read_only):
     with col_head:
         st.markdown("**O PROBLEMA (Efeito)**")
         new_eff = st.text_area("O PROBLEMA", value=active_ish["effect"], key=f"eff_{active_ish['id']}", disabled=read_only, height=180, label_visibility="collapsed")
-        active_ish["effect"] = new_eff
+        if new_eff != active_ish["effect"]:
+            active_ish["effect"] = new_eff
+            project_state["ishikawas"] = ishikawas
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.rerun()
 
-    # Auto-save logic
+    # Auto-save logic para as demais mudanças
     if ishikawas != original_ishikawas and not read_only:
         project_state["ishikawas"] = ishikawas
         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])

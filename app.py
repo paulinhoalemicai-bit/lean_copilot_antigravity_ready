@@ -2003,7 +2003,8 @@ with coach_container:
                                 import json
                                 from coach import client
                                 prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico. Contexto: {project_state.get('name')} - {project_state.get('charter', {}).get('problem', '')}. Problema Central (Cabeça do Peixe): {effect}.
-Você deve conduzir um brainstorming e sugerir Causas Primárias (nível 1 apenas) para este problema. Divida suas sugestões nos 6M's (Máquina, Método, Material, Mão de Obra, Meio Ambiente, Medida).
+Você deve conduzir um brainstorming profundo e sugerir Causas Primárias criativas para este problema. Divida suas sugestões obrigatoriamente nas 6 categorias (Máquina, Método, Material, Mão de Obra, Meio Ambiente, Medida).
+Para CADA categoria, você deve apresentar no mínimo 3 a 5 hipóteses diferentes de causa! Não retorne apenas uma por categoria.
 Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", "causa": "..."}}, ...]}}"""
                                 res = client.chat.completions.create(model="gpt-4o-mini", temperature=0.3, response_format={"type": "json_object"}, messages=[{"role": "system", "content": prompt}, {"role": "user", "content": "Gere a matriz"}])
                                 data = json.loads(res.choices[0].message.content or "{}")
@@ -2033,7 +2034,7 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                             return re.sub(r'[^a-z0-9]', '', n)
                                         
                                         if norm_str(ai_cat) in norm_str(cat_name) or norm_str(cat_name) in norm_str(ai_cat):
-                                            for c_text in ai_causes:
+                                            for c_idx, c_text in enumerate(ai_causes):
                                                 # Procura uma caixa vazia na categoria para sobreescrever, senão adiciona
                                                 empty_slot = next((c for c in spine.setdefault("causes", []) if not c.get("causa", "").strip()), None)
                                                 if empty_slot:
@@ -2041,6 +2042,12 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                                 else:
                                                     spine["causes"].append({"causa": f"IA: {c_text}"})
                                             used_cats.add(ai_cat)
+                                            
+                                            # FORÇAR RE-RENDERIZAÇÃO INSTANTÂNEA: Sobrescrever a memória do Streamlit
+                                            for idx, cc in enumerate(spine["causes"]):
+                                                k1, k2 = f"c_{spine['id']}_{idx}", f"cb_{spine['id']}_{idx}"
+                                                if k1 in st.session_state: st.session_state[k1] = cc["causa"]
+                                                if k2 in st.session_state: st.session_state[k2] = cc["causa"]
                                             
                                     # STREAMLIT FIX: Limpa TODAS as caixas c_ e cb_ da memoria
                                     # para que o Streamlit não re-sobrescreva o preenchimento da IA!
