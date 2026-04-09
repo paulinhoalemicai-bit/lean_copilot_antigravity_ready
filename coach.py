@@ -843,109 +843,135 @@ def suggest_5pq_branches(project_state: dict, efeito: str, context_path: list, e
 
 def suggest_deep_5pq_tree(project_state: dict, efeito: str, existing_branches: list) -> list:
     """
-    Gera uma árvore profunda de 5 Porquês como um JSON estruturado.
-    Respeita o que já existe: só preenche ramificações vazias.
+    Gera / complementa a árvore profunda de 5 Porquês.
+    - Mantém todas as branches existentes com conteúdo INTACTAS.
+    - Para raízes existentes com menos de 4 sub-níveis, gera filhos complementares.
+    - Cria novas raízes até completar 10 na primeira coluna.
     Retorna a lista de branches no formato nativo [{pq: str} ou None].
     """
-    # ── monta snapshot do que já existe ──────────────────────────────────────
-    existing_paths = []
-    for b in existing_branches:
-        path = [c.get("pq", "").strip() for c in b if c and c.get("pq", "").strip()]
-        if path:
-            existing_paths.append(" -> ".join(path))
+    # ── análise estrutural do que já existe ──────────────────────────────────
+    def branch_has_content(b):
+        return any(c and c.get("pq", "").strip() for c in b if c is not None)
 
-    existing_ctx = ""
-    if existing_paths:
-        existing_ctx = "CAMINHOS JÁ PREENCHIDOS (Respeite — NÃO os repita):\n- " + "\n- ".join(existing_paths)
+    filled_branches = [b for b in existing_branches if branch_has_content(b)]
 
-    # Conta quantas raízes (col 0) já existem e têm conteúdo
-    roots_filled = sum(
-        1 for b in existing_branches
-        if b and len(b) > 0 and b[0] and b[0].get("pq", "").strip()
-    )
-    roots_needed = max(0, 10 - roots_filled)
+    # Agrupa branches por raiz (col 0) para calcular profundidade atual de cada raiz
+    root_map = {}  # root_text -> max_depth
+    for b in filled_branches:
+        col0 = b[0].get("pq", "").strip() if b and b[0] else ""
+        if not col0:
+            continue
+        depth = sum(1 for c in b if c and c.get("pq", "").strip())
+        if col0 not in root_map or root_map[col0] < depth:
+            root_map[col0] = depth
+
+    n_roots = len(root_map)
+    roots_needed = max(0, 10 - n_roots)
 
     proj_name = project_state.get("name", "Projeto LSS")
     proj_prob = project_state.get("charter", {}).get("problem", "")
+
+    # Constrói linhas de instrução para a IA sobre o que já existe
+    extend_instructions = []
+    for root_txt, depth in root_map.items():
+        levels_to_add = max(0, 5 - depth)  # já 1 existe, queremos até 5 total → 4 novos
+        if levels_to_add > 0:
+            extend_instructions.append(
+                f'ESTENDER: "{root_txt}" (profundidade atual: {depth} col(s)) → adicione até {levels_to_add} sub-níveis de causas filhas'
+            )
 
     system = """
     Você é um Master Black Belt arquitetando a estrutura COMPLETA de um 5 Porquês em JSON.
     
     REGRAS ABSOLUTAS:
     1. Retorne EXATAMENTE um JSON no formato abaixo — sem texto adicional fora do JSON.
-    2. Cada "raiz" representa um caminho investigativo de nível 1.
-    3. Cada raiz possui "causa" (texto da célula X) e "filhos" (lista de causas filhas — nível 2, 3, 4...).
-    4. Profundidade máxima: 4 níveis. Largura máxima: 10 raízes.
-    5. NUNCA repita causas já listadas no contexto de existentes.
-    6. Quantidade dinâmica: só gere filhos onde fizer sentido lógico real, não por obrigação.
+    2. Seção "estender": para raízes já existentes que precisam de filhos. Retorne APENAS os filhos (a causa raiz NÃO deve estar incluída na sua resposta, pois já existe na ferramenta).
+    3. Seção "novas": novas raízes completas (com causa + filhos) para preencher os slots vazios.
+    4. Profundidade máxima total: 5 colunas. Quantidade dinâmica: gere filhos onde fizer sentido real.
+    5. NUNCA repita causas que já existem na ferramenta.
     
     FORMATO JSON OBRIGATÓRIO:
     {
-      "raizes": [
-        {
-          "causa": "Causa primária X1",
+      "estender": {
+        "Texto exato da raiz existente": {
           "filhos": [
-            {
-              "causa": "Sub-causa X1.1",
-              "filhos": [
-                {"causa": "X1.1.1", "filhos": []},
-                {"causa": "X1.1.2", "filhos": []}
-              ]
-            },
-            {"causa": "Sub-causa X1.2", "filhos": []}
+            {"causa": "X1.1", "filhos": [{"causa": "X1.1.1", "filhos": []}]},
+            {"causa": "X1.2", "filhos": []}
+          ]
+        }
+      },
+      "novas": [
+        {
+          "causa": "Nova raiz X",
+          "filhos": [
+            {"causa": "Xa.1", "filhos": []},
+            {"causa": "Xa.2", "filhos": []}
           ]
         }
       ]
     }
     """
 
+    extend_str = "\n".join(extend_instructions) if extend_instructions else "Nenhuma raiz existente para estender."
     user_str = (
         f"PROJETO: {proj_name}\n"
         f"PROBLEMA GERAL DO CHARTER: {proj_prob}\n\n"
         f"PROBLEMA CENTRAL DESTA ANÁLISE: '{efeito}'\n\n"
-        f"{existing_ctx}\n\n"
-        f"Gere {roots_needed} novas raízes de nível 1 (além das já existentes acima), "
-        f"cada uma com sub-causas até nível 4 onde fizer sentido investigativo."
+        f"RAÍZES JÁ EXISTENTES NA FERRAMENTA (mantenha-as como referência — NÃO as repita como novas raízes):\n"
+        + "\n".join(f'- "{r}"' for r in root_map.keys()) + "\n\n"
+        f"RAÍZES A ESTENDER (adicione filhos para essas):\n{extend_str}\n\n"
+        f"NOVAS RAÍZES NECESSÁRIAS: Gere {roots_needed} novas raízes (com sub-causas até nível 4 onde fizer sentido)."
     )
 
     try:
         raw = _chat_json(system, user_str)
-        raizes = raw.get("raizes", [])
     except Exception:
-        return existing_branches if existing_branches else [[{"pq": ""}]]
+        return filled_branches if filled_branches else [[{"pq": ""}]]
 
-    # ── converte a árvore JSON para o formato nativo de branches ─────────────
+    # ── flatten: converte nó+filhos em rows do formato nativo ────────────────
     def flatten_tree(causa_dict, prefix_none_count=0):
-        """Recursivamente transforma nó e filhos em lista de branches (rows)."""
         rows = []
         root_cell = {"pq": f"IA: {causa_dict['causa']}"}
         filhos = causa_dict.get("filhos", [])
-
         if not filhos:
             rows.append([None] * prefix_none_count + [root_cell])
         else:
             first = True
             for filho in filhos:
-                # para o primeiro filho, a raiz está na mesma linha
                 sub_rows = flatten_tree(filho, prefix_none_count + 1)
                 if first:
-                    # mescla a raiz na primeira linha do filho
                     sub_rows[0] = [None] * prefix_none_count + [root_cell] + sub_rows[0][prefix_none_count + 1:]
                     first = False
                 rows.extend(sub_rows)
         return rows
 
-    new_branches = list(existing_branches)  # copia
+    def flatten_children_only(filhos_list, prefix_none_count):
+        """Para estender raízes existentes: gera só as linhas dos filhos (sem a raiz)."""
+        rows = []
+        for filho in filhos_list:
+            rows.extend(flatten_tree(filho, prefix_none_count))
+        return rows
 
-    # Remove branches completamente vazias existentes para dar lugar às novas
-    new_branches = [b for b in new_branches if any(c and c.get("pq", "").strip() for c in b if c)]
+    # ── mescla: parte das branches existentes preenchidas ────────────────────
+    result = list(filled_branches)
 
-    for raiz in raizes:
-        rows = flatten_tree(raiz)
-        new_branches.extend(rows)
+    # Estende raízes existentes com os filhos gerados
+    estender_map = raw.get("estender", {})
+    for root_txt, ext_data in estender_map.items():
+        # Descobre em que coluna a raiz existe e qual a maior profundidade atual
+        current_depth = root_map.get(root_txt, 1)
+        filhos = ext_data.get("filhos", [])
+        if filhos:
+            new_rows = flatten_children_only(filhos, current_depth)
+            result.extend(new_rows)
 
-    if not new_branches:
-        new_branches = [[{"pq": ""}]]
+    # Adiciona novas raízes
+    novas = raw.get("novas", [])
+    for raiz in novas:
+        result.extend(flatten_tree(raiz, 0))
 
-    return new_branches
+    if not result:
+        result = [[{"pq": ""}]]
+
+    return result
 

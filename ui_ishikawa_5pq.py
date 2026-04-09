@@ -312,9 +312,10 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                 from coach import suggest_5pq_branches
                 roots = suggest_5pq_branches(project_state, active_pq["effect"], [], active_pq["branches"])
                 if roots:
-                    is_empty = len(active_pq["branches"]) == 1 and not any((p and p.get("pq", "").strip()) for p in active_pq["branches"][0])
-                    if is_empty:
-                        active_pq["branches"].clear()
+                    # Remove todas as branches completamente vazias/None antes de inserir raizes
+                    def branch_is_empty(b):
+                        return not any(c and c.get("pq", "").strip() for c in b if c is not None)
+                    active_pq["branches"] = [b for b in active_pq["branches"] if not branch_is_empty(b)]
                     for rt in roots:
                         active_pq["branches"].append([{"pq": f"IA: {rt}"}])
                     project_state["cinco_pqs"] = pqs
@@ -326,25 +327,20 @@ def render_5pqs_ui(project_state, pid, db, read_only):
     st.markdown("<br>", unsafe_allow_html=True)
     c_zoom1, c_zoom2, c_zoom3 = st.columns([1, 2, 1])
     with c_zoom2:
-        zoom_level = st.slider("🔍 Ajuste de Zoom da Árvore (%)", min_value=50, max_value=200, value=100, step=10, help="Use isso para enxergar matrizes muito largas.")
-        
-    st.markdown(f"""
-        <style>
-        .scrollable-matrix {{
-            overflow-x: auto;
-            white-space: nowrap;
-            padding-bottom: 20px;
-            width: 100%;
-        }}
-        .matrix-zoom {{
-            transform: scale({zoom_level / 100.0});
-            transform-origin: top left;
-            width: {int(100 * (100 / zoom_level))}%; /* Compensa a contração do wrapper para não cortar div */
-        }}
-        </style>
-    """, unsafe_allow_html=True)
+        col_width = st.slider("🔍 Largura das Colunas (px)", min_value=150, max_value=450, value=220, step=10,
+                              help="Aumente para mais espaço de leitura. Diminua para ver mais colunas.")
     
-    st.markdown('<div class="scrollable-matrix"><div class="matrix-zoom">', unsafe_allow_html=True)
+    # Calcula quantas colunas tem a linha mais larga para definir o min-width total
+    max_cols = max((len(b) for b in branches if b), default=1) + 1  # +1 para coluna de botões
+    total_min_width = col_width * max_cols
+    
+    # Mesma técnica da Matriz de Indicadores: força min-width nos blocos horizontais do Streamlit
+    st.markdown(
+        f'<style>'
+        f'div[data-testid="stHorizontalBlock"] {{ min-width: {total_min_width}px !important; }}'
+        f'</style>',
+        unsafe_allow_html=True
+    )
     
     # -------------------------------------------------------------
     # Algoritmo para calcular numeração WBS (ex: X1, X1.1, X1.2.1)
@@ -444,8 +440,6 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
-
-    st.markdown('</div></div>', unsafe_allow_html=True)
 
     if not read_only:
         st.markdown("<br>", unsafe_allow_html=True)
