@@ -29,33 +29,47 @@ Retorne EXATAMENTE UM JSON em formato válido:
         err = traceback.format_exc()
         return [{"categoria": "FALHA CÓDIGO", "causa": str(e)[:150]}]
 
-def suggest_valida_causa(client, model, project_context, causa_nome, dados_input, estatistico=False):
-    perfil_validador = "estatístico rigoroso e analista de dados" if estatistico else "avaliador empírico e analítico de processos"
-    prompt = f"""Atue como um {perfil_validador} em Lean Seis Sigma.
-Contexto do Projeto: {project_context}
-O aluno deseja validar a causa potencial: '{causa_nome}'.
+def suggest_modelo_validacao(project_state, causa_nome, parent_causa_nome, focus):
+    perfil = "analista de dados pragmático" if focus == "Simples" else "estatístico avançado"
+    c_context = f"Causa Pai: {parent_causa_nome}\n" if parent_causa_nome else ""
+    prompt = f"""Atue como {perfil}.
+Contexto do Projeto: {project_state.get('name', 'N/A')}
+{c_context}Causa a Validar: {causa_nome}
 
-Ele inseriu esta evidência/dados coletados:
-'''
-{dados_input}
-'''
-
-Sua Tarefa:
-1. Avalie a QUALIDADE da evidência. É apenas uma opinião fraca, dados confusos, ou realmente prova a relação de causa/efeito?
-2. Se a evidência não é suficiente, NEGE a validação duramente e informe que os dados são inconclusivos.
-3. Se for suficiente (mesmo analiticamente para coisas simples), declare que a hipótese pode ser validada.
-IMPORTANTE: Não invente conclusões se os dados forem lixo.
+Sugira brevemente (em 1 ou 2 frases curtas) COMO validar se essa causa é verdadeira e se tem impacto.
 """
     try:
         response = client.chat.completions.create(
-            model=model,
-            messages=[{'role':'user', 'content': prompt}],
-            temperature=0.2
+            model="gpt-4o-mini",
+            temperature=0.4,
+            messages=[{"role":"user", "content": prompt}]
         )
         return response.choices[0].message.content
     except Exception as e:
         return f"Erro na IA: {e}"
 
+def analyze_validation_data(project_state, causa_nome, dados_input):
+    prompt = f"""Atue como um Master Black Belt avaliador RIGOROSO.
+Causa a validar: '{causa_nome}'.
+O aluno coletou os seguintes dados/observações:
+'''
+{dados_input}
+'''
+Tarefa:
+1. Avalie a qualidade da prova. É apenas "achismo", "testei aqui", ou há sustentação lógica/analítica?
+2. Se a prova for ruim ou insuficiente, RECUSE validar imediatamente explicando o que faltou mostrar.
+3. Se a prova for suficiente, concorde e conclua com o aluno.
+Seja técnico e direto.
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.2,
+            messages=[{"role":"user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Erro na IA: {e}"
 def suggest_solucoes_basico(client, model, root_causes):
     prompt = f"""Atue como Master Black Belt Lean.
 Para as seguintes Causas Raízes Validadas: {root_causes}

@@ -1656,8 +1656,8 @@ with tool_container:
         ui_ishikawa_5pq.render_5pqs_ui(project_state, pid, db, read_only)
 
     elif tool == "Plano de Validação de Causas":
-        st.subheader(" Plano de Validação de Causas")
-        st.info("💡 Valide estatisticamente as causas roots que encontrou no painel anterior!")
+        import ui_plano_validacao
+        ui_plano_validacao.render_plano_validacao_ui(project_state, pid, db, read_only)
 
     elif tool == "Plano de Soluções":
         st.subheader("📝 Plano de Soluções (B.A.S.I.C.O)")
