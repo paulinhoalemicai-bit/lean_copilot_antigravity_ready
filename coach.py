@@ -807,11 +807,14 @@ def suggest_5pq_branches(project_state: dict, efeito: str, context_path: list) -
     Retorne EXATAMENTE UM JSON no formato: {"hipoteses": ["causa A", "causa B", "causa C", "causa D"]}
     """
     
+    proj_name = project_state.get("name", "Projeto LSS")
+    proj_prob = project_state.get("charter", {}).get("problem", "")
+    
     if not context_path:
-        user_str = f"O problema central é: '{efeito}'. Gere 3 a 5 causas primárias (hipóteses raiz) para este problema. Essas serão as raízes da investigação."
+        user_str = f"PROJETO: {proj_name} | CONTEXTO GERAL: {proj_prob}\nO problema central é: '{efeito}'. Gere 3 a 5 causas primárias (hipóteses raiz) para este problema. Essas serão as raízes da investigação."
     else:
         path_str = " -> ".join([efeito] + context_path)
-        user_str = f"A engrenagem lógica exata que ocorreu foi: {path_str}.\n\nPara o último passo ('{context_path[-1]}'), responda 'POR QUE isso ocorreu?' fornecendo 3 a 5 hipóteses investigativas plausíveis de nível {niv}."
+        user_str = f"PROJETO: {proj_name} | CONTEXTO GERAL: {proj_prob}\nA engrenagem lógica exata que ocorreu foi: {path_str}.\n\nPara o último passo ('{context_path[-1]}'), responda 'POR QUE isso ocorreu?' fornecendo 3 a 5 hipóteses investigativas plausíveis de nível {niv}."
         
     try:
         out = _chat_json(system, user_str)
