@@ -294,9 +294,9 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
                             pt_row = next((pr for pr in rows if pr["wbs"] == r["parent_wbs"]), None)
                             if pt_row:
                                 parent_text = pt_row.get("causa", "")
-                                parent_text = re.sub(r"^(?i)ia[\s\-:]+", "", parent_text).strip()
+                                parent_text = re.sub(r"^ia[\s\-:]+", "", parent_text, flags=re.IGNORECASE).strip()
                                 
-                        clean_causa = re.sub(r"^(?i)ia[\s\-:]+", "", r["causa"]).strip()
+                        clean_causa = re.sub(r"^ia[\s\-:]+", "", r["causa"], flags=re.IGNORECASE).strip()
                         sugestao = suggest_modelo_validacao(project_state, clean_causa, parent_text, active_plano.get("effect", ""), "Simples")
                         r["modelo_validacao"] = f"Sugestão IA: {sugestao}"
                         st.session_state["pv_gen_ver"] = gen_ver + 1
