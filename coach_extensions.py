@@ -93,7 +93,6 @@ Apenas o JSON array e nada mais.
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            response_format={"type": "json_object"} if False else {}, # Fake flag actually we just parse it easily
             messages=[{'role':'user', 'content': prompt}],
             temperature=0.4
         )
