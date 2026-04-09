@@ -324,22 +324,16 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                     
     branches = active_pq["branches"]
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    c_zoom1, c_zoom2, c_zoom3 = st.columns([1, 2, 1])
-    with c_zoom2:
-        col_width = st.slider("🔍 Largura das Colunas (px)", min_value=150, max_value=450, value=220, step=10,
-                              help="Aumente para mais espaço de leitura. Diminua para ver mais colunas.")
-    
-    # Coluna mais larga define o min-width total (para rolagem horizontal)
+    # Linha mais larga define o total de colunas (todas as rows usam o mesmo max_cols para alinhar)
     max_cols = max((len(b) for b in branches if b), default=1) + 1  # +1 para coluna de botões
-    total_min_width = col_width * max_cols
     
-    # Mesma técnica da Matriz de Indicadores: força min-width nos blocos horizontais do Streamlit.
-    # Usamos o seletor mais específico possível para não afetar coluninhas internas.
+    # CSS de rolagem horizontal: 250px por coluna de forma fixa.
+    # O seletor `> stHorizontalBlock` (filho DIRETO) garante que as coluninhas
+    # internas dos botões (dentro de st.container()) NÃO recebam o min-width.
     st.markdown(
         f'<style>'
-        # Somente o primeiro nível de stHorizontalBlock dentro de stVerticalBlock recebe o min-width
-        f'[data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {{ min-width: {total_min_width}px !important; }}'
+        f'[data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] '
+        f'{{ min-width: {max(max_cols * 250, 800)}px !important; overflow-x: visible; }}'
         f'</style>',
         unsafe_allow_html=True
     )
@@ -388,18 +382,25 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         st.markdown("<div style='text-align:right; color:gray; font-size:26px; margin-top:60px; padding-right:4px;'>↳</div>", unsafe_allow_html=True)
                     else:
                         label = wbs_labels[b_idx][p_idx]
-                        # Label compacto + botões NO MESMO CONTAINER - sem st.columns internas!
                         st.markdown(
-                            f"<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;'>"
-                            f"<b>[{label}] ➡️</b></div>",
+                            f"<div style='margin-bottom:4px;'><b>[{label}] ➡️</b></div>",
                             unsafe_allow_html=True
                         )
-                        # Botões sem colunas internas (evita o conflito com o CSS de min-width)
+                        # Botões ➕ e 🗑️ lado a lado.
+                        # IMPORTANTE: o st.container() cria um stVerticalBlock intermediário
+                        # que impede que o st.columns(2) interno seja afetado pelo
+                        # CSS de min-width que só alcança filhos DIRETOS do stVerticalBlock externo.
                         if not read_only:
-                            btn_ins = st.button("➕", key=f"ins_{selected_id}_{b_idx}_{p_idx}",
-                                               help="Inserir célula ANTES desta (Desloca para direita)")
-                            btn_del = st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}",
-                                               help="Apagar SOMENTE esta célula (Desloca para esquerda)")
+                            with st.container():
+                                btn_c = st.columns(2)
+                                with btn_c[0]:
+                                    btn_ins = st.button("➕", key=f"ins_{selected_id}_{b_idx}_{p_idx}",
+                                                       help="Inserir célula ANTES (Desloca para direita)",
+                                                       use_container_width=True)
+                                with btn_c[1]:
+                                    btn_del = st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}",
+                                                       help="Apagar SOMENTE esta célula (Desloca para esquerda)",
+                                                       use_container_width=True)
                             if btn_ins:
                                 branch.insert(p_idx, {"pq": ""})
                                 project_state["cinco_pqs"] = pqs
