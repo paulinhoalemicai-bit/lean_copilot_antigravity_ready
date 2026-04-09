@@ -86,13 +86,27 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
         key=f"dados_{plano_atual['id']}_{row_idx}_v{gen_key}"
     )
     
+    uploaded_file = st.file_uploader("Opcional: Anexar arquivo (Excel/CSV) para leitura de dados", type=["csv", "xlsx"])
+    
+    arquivo_resumo = ""
+    if uploaded_file:
+        try:
+            import pandas as pd
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+            arquivo_resumo = f"\n\n[DADOS DO ARQUIVO ANEXADO]\n- Linhas: {len(df)}\n- Colunas: {list(df.columns)}\n- Amostra (head):\n{df.head().to_string()}\n"
+        except Exception as e:
+            st.error(f"Erro ao ler arquivo: {e}")
+
     c1, c2 = st.columns([1, 1])
     with c1:
-        if st.button("🧠 Pedir Análise da IA", disabled=read_only or not novos_dados.strip(), use_container_width=True):
+        if st.button("🧠 Pedir Análise da IA", disabled=read_only or (not novos_dados.strip() and not arquivo_resumo), use_container_width=True):
             with st.spinner("Analisando dados..."):
                 from coach_extensions import analyze_validation_data
                 row["dados_coletados"] = novos_dados
-                ia_resp = analyze_validation_data(project_state, row["causa"], novos_dados)
+                ia_resp = analyze_validation_data(project_state, row["causa"], novos_dados + arquivo_resumo)
                 row["veredito_ia"] = ia_resp
                 st.session_state[f"pv_modal_gen_{plano_atual['id']}_{row_idx}"] = gen_key + 1
                 db_module.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
@@ -255,7 +269,7 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
                 
         row_disabled = read_only or is_locked_by_parent
 
-        cols = st.columns([1, 1, 4, 5, 1.5, 2, 2])
+        cols = st.columns([1, 1, 4, 4.5, 2.5, 2, 1.5])
         
         status_ico = "⏳"
         if r.get("status") == "validada": status_ico = "✅"
@@ -274,7 +288,15 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
                 if st.button("✨ Sugerir", key=f"btn_ia_{selected_id}_{idx}", use_container_width=True):
                     from coach_extensions import suggest_modelo_validacao
                     with st.spinner("IA..."):
-                        sugestao = suggest_modelo_validacao(project_state, r["causa"], r.get("parent_wbs"), "Simples")
+                        parent_text = ""
+                        if r.get("parent_wbs"):
+                            pt_row = next((pr for pr in rows if pr["wbs"] == r["parent_wbs"]), None)
+                            if pt_row:
+                                parent_text = pt_row.get("causa", "")
+                                if parent_text.startswith("IA: "): parent_text = parent_text[4:]
+                                
+                        clean_causa = r["causa"][4:] if r["causa"].startswith("IA: ") else r["causa"]
+                        sugestao = suggest_modelo_validacao(project_state, clean_causa, parent_text, active_plano.get("effect", ""), "Simples")
                         r["modelo_validacao"] = f"Sugestão IA: {sugestao}"
                         st.session_state["pv_gen_ver"] = gen_ver + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])

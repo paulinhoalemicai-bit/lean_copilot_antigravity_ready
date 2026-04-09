@@ -29,14 +29,16 @@ Retorne EXATAMENTE UM JSON em formato válido:
         err = traceback.format_exc()
         return [{"categoria": "FALHA CÓDIGO", "causa": str(e)[:150]}]
 
-def suggest_modelo_validacao(project_state, causa_nome, parent_causa_nome, focus):
+def suggest_modelo_validacao(project_state, causa_nome, parent_causa_nome, effect_n0, focus):
     perfil = "analista de dados pragmático" if focus == "Simples" else "estatístico avançado"
-    c_context = f"Causa Pai: {parent_causa_nome}\n" if parent_causa_nome else ""
+    c_context = f"Causa Pai Imediata: {parent_causa_nome}\nEfeito Global (Y do 5 Porquês): {effect_n0}\n" if parent_causa_nome else f"Efeito Global (Y do 5 Porquês): {effect_n0}\n"
     prompt = f"""Atue como {perfil}.
 Contexto do Projeto: {project_state.get('name', 'N/A')}
-{c_context}Causa a Validar: {causa_nome}
+{c_context}Causa a Validar (Foco Principal): {causa_nome}
 
-Sugira brevemente (em 1 ou 2 frases curtas) COMO validar se essa causa é verdadeira e se tem impacto.
+Sugira brevemente (em 1 ou 2 frases curtas) COMO validar se essa Causa a Validar é verdadeira. 
+Para isso, sugira prioritariamente comparar os dados dessa causa com a Causa Pai Imediata. Caso seja uma causa de nível muito profundo e faça mais sentido/seja mais simples, sugira comparar a causa com o Efeito Global (Y).
+Não use "eu recomendo" ou "eu sugiro", vá direto ao ponto com a ação que o usuário deve tomar.
 """
     try:
         response = client.chat.completions.create(
