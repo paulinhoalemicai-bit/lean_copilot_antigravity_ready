@@ -31,7 +31,6 @@ from coach import (
 
 from coach_extensions import (
     suggest_ishikawa_eval,
-    suggest_solucoes_basico,
     suggest_acao_5w2h
 )
 
