@@ -793,28 +793,46 @@ Retorne EXATAMENTE UM JSON contendo a chave "branch" com um array de 5 strings r
     except Exception:
         return []
 
-def suggest_5pq_branches(project_state: dict, efeito: str, context_path: list) -> list:
+def suggest_5pq_branches(project_state: dict, efeito: str, context_path: list, existing_tree: list = None) -> list:
     """
     context_path é uma lista de strings. 
     Se len(context_path) == 0, pede as causas primárias do efeito (x1, x2, x3...)
-    Se len(context_path) > 0, pede 3 a 5 explicações (hipóteses) lógicas para a causa anterior.
+    Se len(context_path) > 0, pede explicações lógicas para a causa anterior.
     """
     niv = len(context_path) + 1
+    
+    # Monta uma representação do que já existe na árvore para evitar clones
+    tree_context = ""
+    if existing_tree:
+        tree_txt = []
+        for b in existing_tree:
+            linha = " -> ".join([c.get("pq", "") for c in b if c and c.get("pq")])
+            if linha: tree_txt.append(linha)
+        if tree_txt:
+            tree_context = "CAUSAS JÁ MAPDEADAS NESTA ÁRVORE (NÃO REPITA ISSO):\n- " + "\n- ".join(tree_txt)
+            
     system = """
     Você é um Master Black Belt liderando um brainstorming profundo na ferramenta 5 Porquês.
-    A ferramenta 5 Porquês não deve ser apenas uma linha única, mas sim uma árvore lógica de investigação.
-    Sua missão é fornecer a ramificação para o nó atual, gerando de 3 a 5 hipóteses diferentes ("Por Quês?") que explicam o último estado.
-    Retorne EXATAMENTE UM JSON no formato: {"hipoteses": ["causa A", "causa B", "causa C", "causa D"]}
+    A ferramenta 5 Porquês não deve ser apenas uma linha única, mas sim uma árvore lógica de investigação prática e assertiva.
+    
+    DIRETRIZES CRÍTICAS:
+    1. JAMAIS crie um looping lógico ou repita causas que já foram citadas na árvore.
+    2. Quantidade Dinâmica: Se houver apenas 1 resposta puramente óbvia e estritamente necessária, retorne APENAS 1 resposta. Porém, se o fenômeno abrir margem para ramificações investigativas totalmente distintas, retorne até 5 hipóteses. (Foque em QUALIDADE PRÁTICA sobre quantidade).
+    3. As causas devem ser engrenagens físicas ou operacionais, não desculpas teóricas.
+    
+    Retorne EXATAMENTE UM JSON no formato: {"hipoteses": ["causa A", "causa B"]}
     """
     
     proj_name = project_state.get("name", "Projeto LSS")
     proj_prob = project_state.get("charter", {}).get("problem", "")
     
+    user_str = f"PROJETO: {proj_name}\nCONTEXTO GERAL DAS DORES: {proj_prob}\n\n{tree_context}\n\n"
+    
     if not context_path:
-        user_str = f"PROJETO: {proj_name} | CONTEXTO GERAL: {proj_prob}\nO problema central é: '{efeito}'. Gere 3 a 5 causas primárias (hipóteses raiz) para este problema. Essas serão as raízes da investigação."
+        user_str += f"O PROBLEMA CENTRAL É: '{efeito}'.\n\nGere as causas primárias (Nível 1) para o Problema Central. Seja objetivo."
     else:
         path_str = " -> ".join([efeito] + context_path)
-        user_str = f"PROJETO: {proj_name} | CONTEXTO GERAL: {proj_prob}\nA engrenagem lógica exata que ocorreu foi: {path_str}.\n\nPara o último passo ('{context_path[-1]}'), responda 'POR QUE isso ocorreu?' fornecendo 3 a 5 hipóteses investigativas plausíveis de nível {niv}."
+        user_str += f"A CORRENTE LÓGICA ATUAL DESTE BRAÇO É:\n{path_str}\n\nResponda: POR QUE o último evento ('{context_path[-1]}') ocorreu? Crie hipóteses de nível {niv}."
         
     try:
         out = _chat_json(system, user_str)

@@ -302,7 +302,7 @@ def render_5pqs_ui(project_state, pid, db, read_only):
         if st.button("✨ Sugerir Raízes Iniciais", disabled=read_only, help="Dr Lean: Cria a 1ª camada de Porquês"):
             with st.spinner("Dr Lean pesquisando raízes primárias..."):
                 from coach import suggest_5pq_branches
-                roots = suggest_5pq_branches(project_state, active_pq["effect"], [])
+                roots = suggest_5pq_branches(project_state, active_pq["effect"], [], active_pq["branches"])
                 if roots:
                     if len(active_pq["branches"]) == 1 and all(not p.get("pq", "").strip() for p in active_pq["branches"][0] if p):
                         active_pq["branches"].clear()
@@ -400,7 +400,7 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                             from coach import suggest_5pq_branches
                             # Monta o contexto limpo para este braço
                             ctx_path = [b["pq"] for b in branch if b and b.get("pq", "").strip()]
-                            answs = suggest_5pq_branches(project_state, active_pq["effect"], ctx_path)
+                            answs = suggest_5pq_branches(project_state, active_pq["effect"], ctx_path, active_pq["branches"])
                             if answs:
                                 # A primeira resposta continua reto no branch atual
                                 branch.append({"pq": f"IA: {answs[0]}"})
