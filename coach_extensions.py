@@ -72,22 +72,76 @@ Seja técnico e direto.
         return response.choices[0].message.content
     except Exception as e:
         return f"Erro na IA: {e}"
-def suggest_solucoes_basico(client, model, root_causes):
+def suggest_5_solucoes_basico(project_state, effect, ancestrais, causa_raiz):
+    import json
     prompt = f"""Atue como Master Black Belt Lean.
-Para as seguintes Causas Raízes Validadas: {root_causes}
-Pense em até 5 soluções totais para eliminá-las.
-Descreva os prós e contras textualmente usando a matriz B.A.S.I.C.O na explicação qualitativa, SEM atribuir pontuação numérica.
-Responda em formato markdown estruturado.
+Contexto do Projeto / Efeito Global: {effect}
+Trilha do Problema (Ancestrais): {ancestrais}
+Causa Raiz em Foco: {causa_raiz}
+
+Pense em até 5 soluções totais para mitigar ou eliminar essa causa raiz.
+Avalie cada solução atribuindo uma nota de 1 a 5 para Custo (1=muito caro, 5=muito barato/gratis), Esforço (1=muito dificil, 5=muito facil), Impacto (1=pouco impacto, 5=muito impacto na causa).
+Forneça um Comentário descrevendo Prós e Contras da solução.
+
+Retorne EXATAMENTE UM JSON com formato:
+[
+  {{"solucao": "...", "custo": 4, "esforco": 3, "impacto": 5, "comentario": "Prós: ... Contras: ..."}},
+  ...
+]
+Apenas o JSON array e nada mais.
 """
     try:
         response = client.chat.completions.create(
-            model=model,
+            model="gpt-4o-mini",
+            response_format={"type": "json_object"} if False else {}, # Fake flag actually we just parse it easily
             messages=[{'role':'user', 'content': prompt}],
             temperature=0.4
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        data = json.loads(content)
+        if isinstance(data, dict) and "solucoes" in data:
+            return data["solucoes"]
+        if isinstance(data, dict): # just in case it returns an object with a key array
+            for k in data:
+                if isinstance(data[k], list): return data[k]
+        return data if isinstance(data, list) else []
     except Exception as e:
-        return f"Erro na IA: {e}"
+        return [{"solucao": "Erro ao gerar", "custo":1, "esforco":1, "impacto":1, "comentario": str(e)}]
+
+def suggest_1_solucao_basico(project_state, effect, ancestrais, causa_raiz):
+    import json
+    prompt = f"""Atue como Master Black Belt Lean.
+Contexto do Projeto / Efeito Global: {effect}
+Trilha do Problema (Ancestrais): {ancestrais}
+Causa Raiz em Foco: {causa_raiz}
+
+Pense em 1 solução excelente para mitigar ou eliminar essa causa raiz.
+Avalie a solução atribuindo uma nota de 1 a 5 para Custo (1=muito caro, 5=muito barato/gratis), Esforço (1=muito dificil, 5=muito facil), Impacto (1=pouco impacto, 5=muito impacto na causa).
+Forneça um Comentário descrevendo Prós e Contras da solução.
+
+Retorne EXATAMENTE UM JSON com formato:
+{{"solucao": "...", "custo": 4, "esforco": 3, "impacto": 5, "comentario": "Prós: ... Contras: ..."}}
+Apenas o JSON object e nada mais.
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{'role':'user', 'content': prompt}],
+            temperature=0.5
+        )
+        content = response.choices[0].message.content
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        data = json.loads(content)
+        return data
+    except Exception as e:
+        return {"solucao": "Erro ao gerar", "custo":1, "esforco":1, "impacto":1, "comentario": str(e)}
 
 def suggest_acao_5w2h(client, model, solucao):
     prompt = f"""Para a solução: '{solucao}'

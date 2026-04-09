@@ -1659,8 +1659,8 @@ with tool_container:
         ui_plano_validacao.render_plano_validacao_ui(project_state, pid, db, read_only)
 
     elif tool == "Plano de Soluções":
-        st.subheader("📝 Plano de Soluções (B.A.S.I.C.O)")
-        st.info("💡 Sugira e analise formas de mitigar as causas validadas.")
+        import ui_plano_solucoes
+        ui_plano_solucoes.render_plano_solucoes_ui(project_state, pid, db, read_only)
 
     elif tool == "Plano de Ação":
         st.subheader(" Plano de Ação (5W2H)")
