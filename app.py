@@ -2129,6 +2129,10 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 active["branches"] = new_branches
 
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                # Limpa cache de text_areas para exibir imediatamente os valores gerados pela IA
+                                for k in [k for k in st.session_state if k.startswith(f"txt_{selected_id}_")]:
+                                    try: del st.session_state[k]
+                                    except KeyError: pass
                                 st.session_state["ai_generated_warning"] = "✨ ⚠️ Árvore Estrutural Profunda gerada com sucesso pela arquitetura JSON do Doutor Lean!"
                                 st.rerun()
 

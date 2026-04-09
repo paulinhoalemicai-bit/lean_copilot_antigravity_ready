@@ -320,6 +320,12 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         active_pq["branches"].append([{"pq": f"IA: {rt}"}])
                     project_state["cinco_pqs"] = pqs
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    # ── CRÍTICO: limpa o cache dos text_areas para que o Streamlit
+                    # releia o valor correto do dict e não o valor vazio que estava em memória ──
+                    keys_to_del = [k for k in st.session_state if k.startswith(f"txt_{selected_id}_")]
+                    for k in keys_to_del:
+                        try: del st.session_state[k]
+                        except KeyError: pass
                     st.rerun()
                     
     branches = active_pq["branches"]
@@ -460,6 +466,10 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                                     active_pq["branches"].insert(b_idx + 1, clone_prefix)
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                # Limpa cache dos text_areas para exibir imediatamente os valores da IA
+                                for k in [k for k in st.session_state if k.startswith(f"txt_{selected_id}_")]:
+                                    try: del st.session_state[k]
+                                    except KeyError: pass
                                 st.rerun()
 
     if not read_only:
