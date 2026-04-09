@@ -326,17 +326,22 @@ def render_5pqs_ui(project_state, pid, db, read_only):
     
     # Linha mais larga define o total de colunas (todas as rows usam o mesmo max_cols para alinhar)
     max_cols = max((len(b) for b in branches if b), default=1) + 1  # +1 para coluna de botões
-    
-    # CSS de rolagem horizontal: 250px por coluna de forma fixa.
-    # O seletor `> stHorizontalBlock` (filho DIRETO) garante que as coluninhas
-    # internas dos botões (dentro de st.container()) NÃO recebam o min-width.
+    total_width = max(max_cols * 250, 900)  # 250px por coluna, mínimo 900px
+
+    # ── Estratégia de rolagem horizontal (2 regras CSS) ─────────────────────
+    # Regra 1: Força min-width em TODOS os stHorizontalBlock (linhas de branch)
+    # Regra 2: Reseta para 0 nos stHorizontalBlock que estão DENTRO de um stColumn
+    #          (colunaas internas de botões); como regra 2 é mais específica, ela vence.
+    # O <div> invisível abaixo força a largura da página e ativa a scrollbar do browser.
     st.markdown(
         f'<style>'
-        f'[data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] '
-        f'{{ min-width: {max(max_cols * 250, 800)}px !important; overflow-x: visible; }}'
-        f'</style>',
+        f'div[data-testid="stHorizontalBlock"] {{ min-width: {total_width}px !important; }}'
+        f'[data-testid="stColumn"] div[data-testid="stHorizontalBlock"] {{ min-width: 0 !important; }}'
+        f'</style>'
+        f'<div style="min-width:{total_width}px; height:1px; visibility:hidden;"></div>',
         unsafe_allow_html=True
     )
+
     
     # -------------------------------------------------------------
     # Algoritmo para calcular numeração WBS (ex: X1, X1.1, X1.2.1)
