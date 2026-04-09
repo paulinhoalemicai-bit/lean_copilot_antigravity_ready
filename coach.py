@@ -840,3 +840,112 @@ def suggest_5pq_branches(project_state: dict, efeito: str, context_path: list, e
     except Exception:
         return []
 
+
+def suggest_deep_5pq_tree(project_state: dict, efeito: str, existing_branches: list) -> list:
+    """
+    Gera uma árvore profunda de 5 Porquês como um JSON estruturado.
+    Respeita o que já existe: só preenche ramificações vazias.
+    Retorna a lista de branches no formato nativo [{pq: str} ou None].
+    """
+    # ── monta snapshot do que já existe ──────────────────────────────────────
+    existing_paths = []
+    for b in existing_branches:
+        path = [c.get("pq", "").strip() for c in b if c and c.get("pq", "").strip()]
+        if path:
+            existing_paths.append(" -> ".join(path))
+
+    existing_ctx = ""
+    if existing_paths:
+        existing_ctx = "CAMINHOS JÁ PREENCHIDOS (Respeite — NÃO os repita):\n- " + "\n- ".join(existing_paths)
+
+    # Conta quantas raízes (col 0) já existem e têm conteúdo
+    roots_filled = sum(
+        1 for b in existing_branches
+        if b and len(b) > 0 and b[0] and b[0].get("pq", "").strip()
+    )
+    roots_needed = max(0, 10 - roots_filled)
+
+    proj_name = project_state.get("name", "Projeto LSS")
+    proj_prob = project_state.get("charter", {}).get("problem", "")
+
+    system = """
+    Você é um Master Black Belt arquitetando a estrutura COMPLETA de um 5 Porquês em JSON.
+    
+    REGRAS ABSOLUTAS:
+    1. Retorne EXATAMENTE um JSON no formato abaixo — sem texto adicional fora do JSON.
+    2. Cada "raiz" representa um caminho investigativo de nível 1.
+    3. Cada raiz possui "causa" (texto da célula X) e "filhos" (lista de causas filhas — nível 2, 3, 4...).
+    4. Profundidade máxima: 4 níveis. Largura máxima: 10 raízes.
+    5. NUNCA repita causas já listadas no contexto de existentes.
+    6. Quantidade dinâmica: só gere filhos onde fizer sentido lógico real, não por obrigação.
+    
+    FORMATO JSON OBRIGATÓRIO:
+    {
+      "raizes": [
+        {
+          "causa": "Causa primária X1",
+          "filhos": [
+            {
+              "causa": "Sub-causa X1.1",
+              "filhos": [
+                {"causa": "X1.1.1", "filhos": []},
+                {"causa": "X1.1.2", "filhos": []}
+              ]
+            },
+            {"causa": "Sub-causa X1.2", "filhos": []}
+          ]
+        }
+      ]
+    }
+    """
+
+    user_str = (
+        f"PROJETO: {proj_name}\n"
+        f"PROBLEMA GERAL DO CHARTER: {proj_prob}\n\n"
+        f"PROBLEMA CENTRAL DESTA ANÁLISE: '{efeito}'\n\n"
+        f"{existing_ctx}\n\n"
+        f"Gere {roots_needed} novas raízes de nível 1 (além das já existentes acima), "
+        f"cada uma com sub-causas até nível 4 onde fizer sentido investigativo."
+    )
+
+    try:
+        raw = _chat_json(system, user_str)
+        raizes = raw.get("raizes", [])
+    except Exception:
+        return existing_branches if existing_branches else [[{"pq": ""}]]
+
+    # ── converte a árvore JSON para o formato nativo de branches ─────────────
+    def flatten_tree(causa_dict, prefix_none_count=0):
+        """Recursivamente transforma nó e filhos em lista de branches (rows)."""
+        rows = []
+        root_cell = {"pq": f"IA: {causa_dict['causa']}"}
+        filhos = causa_dict.get("filhos", [])
+
+        if not filhos:
+            rows.append([None] * prefix_none_count + [root_cell])
+        else:
+            first = True
+            for filho in filhos:
+                # para o primeiro filho, a raiz está na mesma linha
+                sub_rows = flatten_tree(filho, prefix_none_count + 1)
+                if first:
+                    # mescla a raiz na primeira linha do filho
+                    sub_rows[0] = [None] * prefix_none_count + [root_cell] + sub_rows[0][prefix_none_count + 1:]
+                    first = False
+                rows.extend(sub_rows)
+        return rows
+
+    new_branches = list(existing_branches)  # copia
+
+    # Remove branches completamente vazias existentes para dar lugar às novas
+    new_branches = [b for b in new_branches if any(c and c.get("pq", "").strip() for c in b if c)]
+
+    for raiz in raizes:
+        rows = flatten_tree(raiz)
+        new_branches.extend(rows)
+
+    if not new_branches:
+        new_branches = [[{"pq": ""}]]
+
+    return new_branches
+

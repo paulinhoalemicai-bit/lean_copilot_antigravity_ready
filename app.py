@@ -1860,8 +1860,15 @@ with coach_container:
         ce_mode = None
         mode_str = None  # default — only set to "review"/"generate" when button is clicked
         btn_label = "🔎 Iniciar Revisão" if ia_action == "Revisão do Coach IA" else "✨ Gerar Sugestão"
-        if st.button(btn_label, disabled=read_only, use_container_width=True):
-            mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
+        
+        if tool == "5 Porquês" and ia_action != "Revisão do Coach IA":
+            pop_5pq = st.popover("✨ Gerar Matriz Profunda", use_container_width=True)
+            pop_5pq.warning("⚠️ **Alerta:** A Inteligência Artificial irá preencher todo o seu diagrama lendo o contexto já existente. Ela criará até 10 camadas principais preenchendo até o 4º nível! Tem certeza que deseja dar a ordem de geração macro?")
+            if pop_5pq.button("🚀 Confirmar Arquitetura Profunda", disabled=read_only, use_container_width=True):
+                mode_str = "generate"
+        else:
+            if st.button(btn_label, disabled=read_only, use_container_width=True):
+                mode_str = "review" if ia_action == "Revisão do Coach IA" else "generate"
 
         # --- Só executa a IA quando o botão foi clicado (mode_str não é None) ---
         if mode_str is not None:
@@ -2101,34 +2108,28 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                         st.rerun()
 
             # --- FLUXO ESPECIAL: Geração dos 5 Porquês ---
+            # --- FLUXO ESPECIAL: Geração (Macro/Matrizes Arqueológicas) dos 5 Porquês ---
             elif tool == "5 Porquês" and mode_str == "generate":
-                with st.spinner("Doutor Lean escavando 5 camadas de causas em sequência linear..."):
+                with st.spinner("Doutor Lean atuando como Mestre Arquiteto de Árvores (Isso pode levar de 15 a 30 segundos)..."):
                     pqs = project_state.get("cinco_pqs", [])
                     if not pqs:
                         st.error("Crie um painel do 5 Porquês primeiro (no painel central) antes de pedir sugestões.")
                     else:
-                        active = pqs[-1]
+                        selected_id = st.session_state.get("cinco_pqs_selected_id")
+                        active = next((p for p in pqs if p.get("id") == selected_id), pqs[-1])
                         effect = str(active.get("effect", "")).strip()
                         if not effect:
                             st.error("Escreva o Problema Central / Y desta análise primeiro!")
                         else:
-                            from coach import suggest_5_porques
-                            sugestoes = suggest_5_porques(project_state, effect)
-                            if not sugestoes:
-                                st.error("Falha ao gerar os 5 Porquês. Tente um problema mais claro.")
+                            from coach import suggest_deep_5pq_tree
+                            new_branches = suggest_deep_5pq_tree(project_state, effect, active.get("branches", []))
+                            if not new_branches:
+                                st.error("Falha ao gerar Árvore Estruturada. Refine o problema.")
                             else:
-                                new_branch = [{"pq": f"IA: {ans}"} for ans in sugestoes]
-                                if "branches" not in active:
-                                    active["branches"] = [new_branch]
-                                else:
-                                    # Substitui o preenchimento se tiver apenas um vazio, ou adiciona ramificação nova
-                                    if len(active["branches"]) == 1 and all(not p.get("pq", "").strip() for p in active["branches"][0] if p):
-                                        active["branches"][0] = new_branch
-                                    else:
-                                        active["branches"].append(new_branch)
+                                active["branches"] = new_branches
 
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                                st.session_state["ai_generated_warning"] = "✨ ⚠️ Caminho linear de 5 Porquês gerado! Verifique a lógica de causa e efeito."
+                                st.session_state["ai_generated_warning"] = "✨ ⚠️ Árvore Estrutural Profunda gerada com sucesso pela arquitetura JSON do Doutor Lean!"
                                 st.rerun()
 
             # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---

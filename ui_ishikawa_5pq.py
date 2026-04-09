@@ -274,14 +274,22 @@ def render_5pqs_ui(project_state, pid, db, read_only):
         return
 
     pq_options = {ix["id"]: ix["effect"] for ix in pqs}
+    pq_opts_list = list(pq_options.keys())
+    default_idx = 0
+    if "cinco_pqs_selected_id" in st.session_state and st.session_state["cinco_pqs_selected_id"] in pq_opts_list:
+        default_idx = pq_opts_list.index(st.session_state["cinco_pqs_selected_id"])
+
     c_sel, c_btn = st.columns([3, 1])
     with c_sel:
-        selected_id = st.selectbox("Selecione o Fluxo 5 PQs:", options=list(pq_options.keys()), format_func=lambda x: pq_options[x], label_visibility="collapsed")
+        selected_id = st.selectbox("Selecione o Fluxo 5 PQs:", options=pq_opts_list, format_func=lambda x: pq_options[x], label_visibility="collapsed", index=default_idx)
+        st.session_state["cinco_pqs_selected_id"] = selected_id
     with c_btn:
         if st.button("➕ Novo Escopo", disabled=read_only, use_container_width=True):
+            new_id = get_new_id()
             pqs.append({
-                "id": get_new_id(), "effect": f"Análise {len(pqs)+1}", "branches": [[{"pq": ""}]]
+                "id": new_id, "effect": f"Análise {len(pqs)+1}", "branches": [[{"pq": ""}]]
             })
+            st.session_state["cinco_pqs_selected_id"] = new_id
             project_state["cinco_pqs"] = pqs
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
@@ -304,7 +312,8 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                 from coach import suggest_5pq_branches
                 roots = suggest_5pq_branches(project_state, active_pq["effect"], [], active_pq["branches"])
                 if roots:
-                    if len(active_pq["branches"]) == 1 and all(not p.get("pq", "").strip() for p in active_pq["branches"][0] if p):
+                    is_empty = len(active_pq["branches"]) == 1 and not any((p and p.get("pq", "").strip()) for p in active_pq["branches"][0])
+                    if is_empty:
                         active_pq["branches"].clear()
                     for rt in roots:
                         active_pq["branches"].append([{"pq": f"IA: {rt}"}])
@@ -313,6 +322,29 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                     st.rerun()
                     
     branches = active_pq["branches"]
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    c_zoom1, c_zoom2, c_zoom3 = st.columns([1, 2, 1])
+    with c_zoom2:
+        zoom_level = st.slider("🔍 Ajuste de Zoom da Árvore (%)", min_value=50, max_value=200, value=100, step=10, help="Use isso para enxergar matrizes muito largas.")
+        
+    st.markdown(f"""
+        <style>
+        .scrollable-matrix {{
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 20px;
+            width: 100%;
+        }}
+        .matrix-zoom {{
+            transform: scale({zoom_level / 100.0});
+            transform-origin: top left;
+            width: {int(100 * (100 / zoom_level))}%; /* Compensa a contração do wrapper para não cortar div */
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="scrollable-matrix"><div class="matrix-zoom">', unsafe_allow_html=True)
     
     # -------------------------------------------------------------
     # Algoritmo para calcular numeração WBS (ex: X1, X1.1, X1.2.1)
@@ -412,6 +444,8 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
     if not read_only:
         st.markdown("<br>", unsafe_allow_html=True)
