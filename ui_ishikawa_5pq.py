@@ -330,14 +330,16 @@ def render_5pqs_ui(project_state, pid, db, read_only):
         col_width = st.slider("🔍 Largura das Colunas (px)", min_value=150, max_value=450, value=220, step=10,
                               help="Aumente para mais espaço de leitura. Diminua para ver mais colunas.")
     
-    # Calcula quantas colunas tem a linha mais larga para definir o min-width total
+    # Coluna mais larga define o min-width total (para rolagem horizontal)
     max_cols = max((len(b) for b in branches if b), default=1) + 1  # +1 para coluna de botões
     total_min_width = col_width * max_cols
     
-    # Mesma técnica da Matriz de Indicadores: força min-width nos blocos horizontais do Streamlit
+    # Mesma técnica da Matriz de Indicadores: força min-width nos blocos horizontais do Streamlit.
+    # Usamos o seletor mais específico possível para não afetar coluninhas internas.
     st.markdown(
         f'<style>'
-        f'div[data-testid="stHorizontalBlock"] {{ min-width: {total_min_width}px !important; }}'
+        # Somente o primeiro nível de stHorizontalBlock dentro de stVerticalBlock recebe o min-width
+        f'[data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"] {{ min-width: {total_min_width}px !important; }}'
         f'</style>',
         unsafe_allow_html=True
     )
@@ -369,53 +371,69 @@ def render_5pqs_ui(project_state, pid, db, read_only):
 
     # Edição por cada ramificação ("Cadeia")
     for b_idx, branch in enumerate(branches):
-        st.markdown("<div style='margin-bottom: 20px;'>", unsafe_allow_html=True)
         with st.container(border=False):
-            num_cols = len(branch) + 1  
-            bc = st.columns(num_cols)
+            # TODAS as rows usam o mesmo número de colunas (max_cols)
+            # para garantir alinhamento vertical perfeito entre níveis
+            bc = st.columns(max_cols)
             
-            for p_idx, block in enumerate(branch):
+            for p_idx in range(max_cols - 1):  # -1 porque última col é sempre de botões
                 with bc[p_idx]:
+                    if p_idx >= len(branch):
+                        # Coluna fora do alcance desta linha: espaço em branco para alinhar
+                        st.markdown("<div style='height:168px'></div>", unsafe_allow_html=True)
+                        continue
+                    
+                    block = branch[p_idx]
                     if block is None:
-                        st.markdown("<div style='text-align: right; color: gray; font-size: 24px; margin-top: 50px;'>↳</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='text-align:right; color:gray; font-size:26px; margin-top:60px; padding-right:4px;'>↳</div>", unsafe_allow_html=True)
                     else:
                         label = wbs_labels[b_idx][p_idx]
-                        c1, c2, c3 = st.columns([3, 1, 1])
-                        with c1:
-                            st.markdown(f"**[{label}]** ➡️")
-                        with c2:
-                            if st.button("➕", key=f"ins_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Inserir nova etapa ANTES desta (Desloca para direita)"):
+                        # Label compacto + botões NO MESMO CONTAINER - sem st.columns internas!
+                        st.markdown(
+                            f"<div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;'>"
+                            f"<b>[{label}] ➡️</b></div>",
+                            unsafe_allow_html=True
+                        )
+                        # Botões sem colunas internas (evita o conflito com o CSS de min-width)
+                        if not read_only:
+                            btn_ins = st.button("➕", key=f"ins_{selected_id}_{b_idx}_{p_idx}",
+                                               help="Inserir célula ANTES desta (Desloca para direita)")
+                            btn_del = st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}",
+                                               help="Apagar SOMENTE esta célula (Desloca para esquerda)")
+                            if btn_ins:
                                 branch.insert(p_idx, {"pq": ""})
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
-                        with c3:
-                            if st.button("🗑️", key=f"del_{selected_id}_{b_idx}_{p_idx}", disabled=read_only, help="Apagar SOMENTE esta célula (Desloca o resto para a esquerda)"):
+                            if btn_del:
                                 branch.pop(p_idx)
                                 def is_empty_branch(br):
                                     return len(br) == 0 or all(x is None for x in br)
                                 active_pq["branches"] = [b for b in active_pq["branches"] if not is_empty_branch(b)]
-                                # Garante sempre uma origem viva:
                                 if not active_pq["branches"]:
                                     active_pq["branches"] = [[{"pq": ""}]]
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
-                                
-                        new_txt = st.text_area(f"hidden_{b_idx}_{p_idx}", value=block["pq"], key=f"txt_{selected_id}_{b_idx}_{p_idx}", height=120, disabled=read_only, label_visibility="collapsed")
+
+                        new_txt = st.text_area(
+                            f"hidden_{b_idx}_{p_idx}",
+                            value=block["pq"],
+                            key=f"txt_{selected_id}_{b_idx}_{p_idx}",
+                            height=120, disabled=read_only, label_visibility="collapsed"
+                        )
                         block["pq"] = new_txt
                         
                         if not read_only:
                             if st.button("🔽 Avançar para Baixo", key=f"bif_{selected_id}_{b_idx}_{p_idx}"):
-                                new_branch = [None] * p_idx + [{"pq": "Nova ramificação..."}]
+                                new_branch = [None] * p_idx + [{"pq": ""}]
                                 active_pq["branches"].insert(b_idx + 1, new_branch)
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.rerun()
-                    
+                
             with bc[-1]:
                 st.markdown("<br>", unsafe_allow_html=True)
-                # Avançar horizontal pega o tamanho total da row sem padding lateral.
                 if len(branch) > 0:
                     if st.button("➡️ Avançar para o Lado", key=f"add_{selected_id}_{b_idx}", disabled=read_only):
                         branch.append({"pq": ""})
@@ -423,16 +441,13 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
                     
-                    if st.button("✨ Explorar Hipóteses", key=f"ai_{selected_id}_{b_idx}", disabled=read_only, help="Dr Lean: Sugere de 3 a 5 continuações lógicas partindo daqui!"):
-                        with st.spinner("Dr Lean estruturando o diagnóstico subseqüente..."):
+                    if st.button("✨ Explorar Hipóteses", key=f"ai_{selected_id}_{b_idx}", disabled=read_only, help="Dr Lean: Sugere continuações lógicas partindo daqui!"):
+                        with st.spinner("Dr Lean estruturando..."):
                             from coach import suggest_5pq_branches
-                            # Monta o contexto limpo para este braço
                             ctx_path = [b["pq"] for b in branch if b and b.get("pq", "").strip()]
                             answs = suggest_5pq_branches(project_state, active_pq["effect"], ctx_path, active_pq["branches"])
                             if answs:
-                                # A primeira resposta continua reto no branch atual
                                 branch.append({"pq": f"IA: {answs[0]}"})
-                                # As próximas bifurcam o caminho saltando as colunas anteriores com None
                                 prefix_len = len(branch) - 1
                                 for extra_ans in answs[1:]:
                                     clone_prefix = [None] * prefix_len + [{"pq": f"IA: {extra_ans}"}]
