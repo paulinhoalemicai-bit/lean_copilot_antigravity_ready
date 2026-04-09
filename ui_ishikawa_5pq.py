@@ -404,10 +404,10 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                             if answs:
                                 # A primeira resposta continua reto no branch atual
                                 branch.append({"pq": f"IA: {answs[0]}"})
-                                # As próximas bifurcam o caminho clonando o prefixo
+                                # As próximas bifurcam o caminho saltando as colunas anteriores com None
+                                prefix_len = len(branch) - 1
                                 for extra_ans in answs[1:]:
-                                    clone_prefix = copy.deepcopy(branch[:-1])
-                                    clone_prefix.append({"pq": f"IA: {extra_ans}"})
+                                    clone_prefix = [None] * prefix_len + [{"pq": f"IA: {extra_ans}"}]
                                     active_pq["branches"].insert(b_idx + 1, clone_prefix)
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
