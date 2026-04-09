@@ -102,7 +102,7 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
 
     c1, c2 = st.columns([1, 1])
     with c1:
-        if st.button("🧠 Pedir Análise da IA", disabled=read_only or (not novos_dados.strip() and not arquivo_resumo), use_container_width=True):
+        if st.button("🧠 Pedir Análise da IA", disabled=read_only or (not novos_dados.strip() and not arquivo_resumo)):
             with st.spinner("Analisando dados..."):
                 from coach_extensions import analyze_validation_data
                 row["dados_coletados"] = novos_dados
@@ -113,7 +113,7 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
                 st.rerun()
                 
     with c2:
-        if st.button("🤔 Sugerir Interpretação (Aluno)", disabled=read_only or not row.get("veredito_ia"), use_container_width=True):
+        if st.button("🤔 Sugerir Interpretação (Aluno)", disabled=read_only or not row.get("veredito_ia")):
             st.warning("Feature: Sugerir interpretação (em construção)")
             # todo: implementar interação do aluno para interpretar a IA
             
@@ -133,13 +133,13 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
         st.rerun()
 
     with res_c1:
-        if st.button("✅ Considerar Validada", type="primary" if row_status=="validada" else "secondary", disabled=read_only, use_container_width=True):
+        if st.button("✅ Considerar Validada", type="primary" if row_status=="validada" else "secondary", disabled=read_only):
             update_status("validada")
     with res_c2:
-        if st.button("❌ Considerar Recusada", type="primary" if row_status=="recusada" else "secondary", disabled=read_only, use_container_width=True):
+        if st.button("❌ Considerar Recusada", type="primary" if row_status=="recusada" else "secondary", disabled=read_only):
             update_status("recusada")
     with res_c3:
-        if st.button("⏳ Deixar Pendente", type="primary" if row_status=="pendente" else "secondary", disabled=read_only, use_container_width=True):
+        if st.button("⏳ Deixar Pendente", type="primary" if row_status=="pendente" else "secondary", disabled=read_only):
             update_status("pendente")
 
 
@@ -299,6 +299,16 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
                         clean_causa = re.sub(r"^ia[\s\-:]+", "", r["causa"], flags=re.IGNORECASE).strip()
                         sugestao = suggest_modelo_validacao(project_state, clean_causa, parent_text, active_plano.get("effect", ""), "Simples")
                         r["modelo_validacao"] = f"Sugestão IA: {sugestao}"
+                        st.session_state["pv_gen_ver"] = gen_ver + 1
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        st.rerun()
+
+                if r.get("modelo_validacao") and st.button("📝 Detalhar", key=f"btn_det_{selected_id}_{idx}", help="Como coletar e tamanho de amostra"):
+                    from coach_extensions import suggest_pratica_validacao
+                    with st.spinner("Prática..."):
+                        como, amostra = suggest_pratica_validacao(project_state, r["causa"], r["modelo_validacao"])
+                        r["como"] = como
+                        r["amostra"] = amostra
                         st.session_state["pv_gen_ver"] = gen_ver + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()

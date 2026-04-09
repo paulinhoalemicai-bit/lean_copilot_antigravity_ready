@@ -102,3 +102,36 @@ Sugira apenas o 'O que (What)' e o 'Como (How)' do plano de ação para implanta
         return response.choices[0].message.content
     except Exception as e:
         return f"Erro na IA: {e}"
+
+def suggest_pratica_validacao(project_state, causa_nome, modelo_validacao):
+    prompt = f"""Atue como um Master Black Belt.
+Contexto: {project_state.get('name', 'N/A')}
+Causa a validar: {causa_nome}
+Modelo Macro de Validação: {modelo_validacao}
+
+Seu objetivo é sugerir "Como" coletar os dados na prática e qual o "Tamanho da Amostra" recomendado em 2 seções separadas exatas.
+Não faça introduções. Retorne a resposta EXATAMENTE no seguinte formato:
+COMO: [sua sugestão prática e direta de como fazer a coleta/validação no genba]
+AMOSTRA: [sua sugestão de tamanho do N ou período de tempo]"""
+    try:
+        from coach import client
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.3,
+            messages=[{"role":"user", "content": prompt}]
+        )
+        content = response.choices[0].message.content
+        como = ""
+        amostra = ""
+        for line in content.split("\n"):
+            line = line.strip()
+            if line.upper().startswith("COMO:"):
+                como = line[5:].strip()
+            elif line.upper().startswith("AMOSTRA:"):
+                amostra = line[8:].strip()
+        if not como and not amostra:
+            como = content
+            amostra = "Indefinida"
+        return como, amostra
+    except Exception as e:
+        return "Erro na IA", str(e)
