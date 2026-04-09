@@ -232,14 +232,14 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
 
     st.markdown(
         '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
-        '<div style="display: flex; align-items: center;">'
-        '<div style="flex: 0.1; padding: 0 5px; font-size: 0.85em;"><b>Status</b></div>'
-        '<div style="flex: 0.1; padding: 0 5px; font-size: 0.85em;"><b>Nó</b></div>'
-        '<div style="flex: 0.4; padding: 0 5px; font-size: 0.85em;"><b>Causa (Hipótese)</b></div>'
-        '<div style="flex: 0.5; padding: 0 5px; font-size: 0.85em;"><b>Modelo de Validação</b></div>'
-        '<div style="flex: 0.2; padding: 0 5px; font-size: 0.85em;"><b>Amostra</b></div>'
-        '<div style="flex: 0.2; padding: 0 5px; font-size: 0.85em;"><b>Como</b></div>'
-        '<div style="flex: 0.15; padding: 0 5px; font-size: 0.85em;"><b>Ação</b></div>'
+        '<div style="display: flex; gap: 1rem; align-items: center; padding: 0 4px;">'
+        '<div style="flex: 1; font-size: 0.85em;"><b>Status</b></div>'
+        '<div style="flex: 1; font-size: 0.85em;"><b>Nó</b></div>'
+        '<div style="flex: 4; font-size: 0.85em;"><b>Causa (Hipótese)</b></div>'
+        '<div style="flex: 5; font-size: 0.85em;"><b>Modelo de Validação</b></div>'
+        '<div style="flex: 1.5; font-size: 0.85em;"><b>Ação</b></div>'
+        '<div style="flex: 2; font-size: 0.85em;"><b>Como</b></div>'
+        '<div style="flex: 2; font-size: 0.85em;"><b>Amostra</b></div>'
         '</div></div><br>',
         unsafe_allow_html=True
     )
@@ -255,7 +255,7 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
                 
         row_disabled = read_only or is_locked_by_parent
 
-        cols = st.columns([0.1, 0.1, 0.4, 0.5, 0.2, 0.2, 0.15])
+        cols = st.columns([1, 1, 4, 5, 1.5, 2, 2])
         
         status_ico = "⏳"
         if r.get("status") == "validada": status_ico = "✅"
@@ -268,28 +268,29 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
         h = 100
         new_c = cols[2].text_area("causa", value=r.get("causa", ""), key=f"pv_c_{selected_id}_{idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=row_disabled)
         new_m = cols[3].text_area("mod", value=r.get("modelo_validacao", ""), key=f"pv_m_{selected_id}_{idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=row_disabled)
-        new_a = cols[4].text_area("amo", value=r.get("amostra", ""), key=f"pv_a_{selected_id}_{idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=row_disabled)
-        new_k = cols[5].text_area("como", value=r.get("como", ""), key=f"pv_k_{selected_id}_{idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=row_disabled)
         
-        r["causa"] = new_c
-        r["modelo_validacao"] = new_m
-        r["amostra"] = new_a
-        r["como"] = new_k
-
-        with cols[6]:
+        with cols[4]:
             if not row_disabled:
-                if st.button("✨ Gerar Validação", key=f"btn_ia_{selected_id}_{idx}", use_container_width=True):
+                if st.button("✨ Sugerir", key=f"btn_ia_{selected_id}_{idx}", use_container_width=True):
                     from coach_extensions import suggest_modelo_validacao
-                    with st.spinner("Dr Lean pensando..."):
+                    with st.spinner("IA..."):
                         sugestao = suggest_modelo_validacao(project_state, r["causa"], r.get("parent_wbs"), "Simples")
                         r["modelo_validacao"] = f"Sugestão IA: {sugestao}"
                         st.session_state["pv_gen_ver"] = gen_ver + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
 
-                if st.button("🔬 Analisar / Validar", key=f"btn_mod_{selected_id}_{idx}", use_container_width=True):
+                if st.button("🔬 Analisar", key=f"btn_mod_{selected_id}_{idx}", use_container_width=True):
                     modal_analise_causa(project_state, pid, db, active_plano_idx, idx, read_only)
             else:
                 if is_locked_by_parent:
-                    st.caption("🔒 Validar pai primeiro")
+                    st.caption("🔒 Pais pendentes")
+
+        new_k = cols[5].text_area("como", value=r.get("como", ""), key=f"pv_k_{selected_id}_{idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=row_disabled)
+        new_a = cols[6].text_area("amo", value=r.get("amostra", ""), key=f"pv_a_{selected_id}_{idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=row_disabled)
+        
+        r["causa"] = new_c
+        r["modelo_validacao"] = new_m
+        r["amostra"] = new_a
+        r["como"] = new_k
 
