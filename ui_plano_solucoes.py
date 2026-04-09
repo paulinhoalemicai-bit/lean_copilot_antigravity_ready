@@ -31,9 +31,9 @@ def extract_valid_causes(plano_validacao_rows):
         if row.get("status") == "validada":
             # Strip IA tag if it slipped through
             import re
-            c_text = re.sub(r"^(?i)ia[\s\-:]+", "", row.get("causa", "")).strip()
+            c_text = re.sub(r"^ia[\s\-:]+", "", row.get("causa", ""), flags=re.IGNORECASE).strip()
             path_text = get_path(row)
-            path_text = re.sub(r"(?i)ia[\s\-:]+", "", path_text).strip()
+            path_text = re.sub(r"^ia[\s\-:]+", "", path_text, flags=re.IGNORECASE).strip()
             
             valid_causes.append({
                 "causa_id": row.get("id"),
