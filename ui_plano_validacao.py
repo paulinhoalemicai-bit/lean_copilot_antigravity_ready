@@ -285,24 +285,25 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
         
         with cols[4]:
             if not row_disabled:
-                if st.button("✨ Sugerir", key=f"btn_ia_{selected_id}_{idx}", use_container_width=True):
+                if st.button("✨ Sugerir", key=f"btn_ia_{selected_id}_{idx}"):
                     from coach_extensions import suggest_modelo_validacao
+                    import re
                     with st.spinner("IA..."):
                         parent_text = ""
                         if r.get("parent_wbs"):
                             pt_row = next((pr for pr in rows if pr["wbs"] == r["parent_wbs"]), None)
                             if pt_row:
                                 parent_text = pt_row.get("causa", "")
-                                if parent_text.startswith("IA: "): parent_text = parent_text[4:]
+                                parent_text = re.sub(r"^(?i)ia[\s\-:]+", "", parent_text).strip()
                                 
-                        clean_causa = r["causa"][4:] if r["causa"].startswith("IA: ") else r["causa"]
+                        clean_causa = re.sub(r"^(?i)ia[\s\-:]+", "", r["causa"]).strip()
                         sugestao = suggest_modelo_validacao(project_state, clean_causa, parent_text, active_plano.get("effect", ""), "Simples")
                         r["modelo_validacao"] = f"Sugestão IA: {sugestao}"
                         st.session_state["pv_gen_ver"] = gen_ver + 1
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
 
-                if st.button("🔬 Analisar", key=f"btn_mod_{selected_id}_{idx}", use_container_width=True):
+                if st.button("🔬 Analisar", key=f"btn_mod_{selected_id}_{idx}"):
                     modal_analise_causa(project_state, pid, db, active_plano_idx, idx, read_only)
             else:
                 if is_locked_by_parent:
