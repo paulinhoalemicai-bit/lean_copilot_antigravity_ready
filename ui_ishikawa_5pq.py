@@ -258,6 +258,8 @@ def render_5pqs_ui(project_state, pid, db, read_only):
 
     pqs = project_state.get("cinco_pqs", [])
     original_pqs = copy.deepcopy(pqs)
+    # Contador de gerações de IA: incluso no key dos text_areas para forçar widget novo após cada geração
+    gen_ver = st.session_state.get("pq_gen_ver", 0)
 
     if not pqs:
         if st.button("Criar Nova Análise 5 Porquês", disabled=read_only):
@@ -320,12 +322,9 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         active_pq["branches"].append([{"pq": f"IA: {rt}"}])
                     project_state["cinco_pqs"] = pqs
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                    # ── CRÍTICO: limpa o cache dos text_areas para que o Streamlit
-                    # releia o valor correto do dict e não o valor vazio que estava em memória ──
-                    keys_to_del = [k for k in st.session_state if k.startswith(f"txt_{selected_id}_")]
-                    for k in keys_to_del:
-                        try: del st.session_state[k]
-                        except KeyError: pass
+                    # Incrementa o contador de geração para forçar keys NOVAS nos text_areas
+                    # Com keys novas, Streamlit não tem cache e OBRIGATORIAMENTE usa value=block["pq"]
+                    st.session_state["pq_gen_ver"] = st.session_state.get("pq_gen_ver", 0) + 1
                     st.rerun()
                     
     branches = active_pq["branches"]
@@ -431,7 +430,7 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                         new_txt = st.text_area(
                             f"hidden_{b_idx}_{p_idx}",
                             value=block["pq"],
-                            key=f"txt_{selected_id}_{b_idx}_{p_idx}",
+                            key=f"txt_{selected_id}_{b_idx}_{p_idx}_v{gen_ver}",
                             height=120, disabled=read_only, label_visibility="collapsed"
                         )
                         block["pq"] = new_txt
@@ -466,10 +465,8 @@ def render_5pqs_ui(project_state, pid, db, read_only):
                                     active_pq["branches"].insert(b_idx + 1, clone_prefix)
                                 project_state["cinco_pqs"] = pqs
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                                # Limpa cache dos text_areas para exibir imediatamente os valores da IA
-                                for k in [k for k in st.session_state if k.startswith(f"txt_{selected_id}_")]:
-                                    try: del st.session_state[k]
-                                    except KeyError: pass
+                                # Incrementa contador para forçar keys novas nos text_areas
+                                st.session_state["pq_gen_ver"] = st.session_state.get("pq_gen_ver", 0) + 1
                                 st.rerun()
 
     if not read_only:
