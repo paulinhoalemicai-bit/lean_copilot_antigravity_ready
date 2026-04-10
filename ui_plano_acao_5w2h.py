@@ -210,7 +210,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                 continue
 
         cols = st.columns(col_weights)
-        h = 68 # Reduzido para compactar visual
+        h = 82 # Aumentado em ~20% a partir dos 68 anteriores
 
         # Se não for parent (linhas "filhas"), não renderizamos fundo nem campo, apenas texto vazio
         is_parent = row.get("is_parent", False)
