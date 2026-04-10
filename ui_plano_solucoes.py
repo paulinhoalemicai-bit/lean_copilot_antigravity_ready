@@ -322,7 +322,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
 
     # Header Row
     st.markdown(
-        '<div style="background-color: #001C59; color: white; padding: 10px; border-radius: 6px;">'
+        '<div style="background-color: #001C59; color: white; padding: 15px 10px; border-radius: 6px;">'
         '<div style="display: flex; gap: 1rem; align-items: center; padding: 0 4px;">'
         '<div style="flex: 0.5; font-size: 0.85em;"><b>Eleger</b></div>'
         '<div style="flex: 4; font-size: 0.85em;"><b>Solução</b></div>'
