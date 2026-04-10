@@ -212,3 +212,51 @@ AMOSTRA: [sua sugestão de tamanho do N ou período de tempo]"""
         return como, amostra
     except Exception as e:
         return "Erro na IA", str(e)
+
+
+def analyze_measurement_data(project_state, data_sample, user_query, chat_history):
+    import json
+    from coach import client
+
+    # Montar histórico em texto
+    history_text = ""
+    for msg in chat_history:
+        role = "Usuário" if msg["role"] == "user" else "Dr. Lean"
+        history_text += f"{role}: {msg['content']}\n"
+    
+    prompt = f"""Atue como um Cientista de Dados Black Belt e Estatístico.
+Seu papel é ajudar o aluno na fase de MEDIÇÃO ou ANÁLISE do DMAIC interpretando os dados fornecidos.
+
+REGRA CRÍTICA: Você DEVE DEIXAR CLARO, de forma educada, em sua resposta de texto, que sua análise é baseada apenas em matemática e padrões, e que A INTERPRETAÇÃO HUMANA E O CONHECIMENTO DO PROCESSO (GEMBA) SÃO FUNDAMENTAIS para validar qualquer causa verdadeira.
+
+DADOS RECENTES (Amostra / Head do DataFrame ou Descrição):
+{data_sample}
+
+HISTÓRICO DA CONVERSA:
+{history_text}
+
+PERGUNTA ATUAL DO USUÁRIO:
+{user_query}
+
+Sua resposta deve ser EXATAMENTE um JSON válido atendendo ao schema abaixo. NÃO retorne nada além do JSON.
+{{
+  "resposta": "Sua resposta analítica detalhada em texto markdown habilitado. Lembre-se da REGRA CRÍTICA e ensine quais dados faltam se precisar.",
+  "vega_lite": {{
+     // OPCIONAL: Se o usuário pedir um gráfico ou for super pertinente criar um (Histograma, Pareto, Dispersão, Boxplot), 
+     // retorne a especificação JSON COMPLETA E VÁLIDA do Vega-Lite v5 (usando os dados diretamente em 'values' caso pequeno)
+     // Deixe null se nenhum gráfico for necessário ou se os dados não permitirem.
+  }}
+}}
+"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{'role':'user', 'content': prompt}],
+            temperature=0.2,
+            response_format={ "type": "json_object" }
+        )
+        content = response.choices[0].message.content
+        data = json.loads(content)
+        return data
+    except Exception as e:
+        return {"resposta": f"Ops, enfrentei um problema ao analisar os dados: {str(e)}", "vega_lite": None}

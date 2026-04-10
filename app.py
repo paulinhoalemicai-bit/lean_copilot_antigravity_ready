@@ -1730,6 +1730,10 @@ with tool_container:
         import ui_quick_wins
         ui_quick_wins.render_quick_wins_ui(project_state, pid, db, read_only)
 
+    elif tool == "Repositório de Medições":
+        import ui_repositorio_dados
+        ui_repositorio_dados.render_repositorio_dados_ui(project_state, pid, db, read_only)
+
     else:
         st.info("Outras ferramentas estão na fila de atualização para a nuvem.")
         draft = db.load_draft(pid, tool) or {}
@@ -1817,9 +1821,9 @@ with coach_container:
                     del st.session_state["saving_coach_feedback"]
                 
             q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", key="coach_saving_desc", height=250, disabled=read_only, on_change=clear_saving_feedback)
-        elif tool == "Matriz de Indicadores":
-            st.info("💡 **Geração Automática de Indicadores:** A IA analisará o problema do projeto e a natureza das etapas listadas (Processo) para sugerir preenchimentos para cada coluna.")
-            st.warning("A IA apenas retornará dados preenchidos se detectar que a Tabela de Processos (no painel central) já possui Etapas (P) válidas.")
+        elif tool == "Repositório de Medições":
+            st.info("💡 **Cientista de Dados Black Belt:** Cole ou faça o upload de tabelas de dados. O Doutor Lean ajudará na interpretação e vai te pedir para orientar a análise para montar os gráficos.")
+            st.warning("⚠️ Lembre-se: O robô não sabe como é o Gemba. A interpretação humana dos padrões matemáticos listados aqui é VITAL.")
         elif tool == "Causa & Efeito - Esforço Impacto":
             st.info("💡 **Análise de Causa & Efeito:** O Doutor Lean analisará cada X e gerará só o **Impacto** ou só o **Esforço**, dependendo do botão escolhido abaixo.")
             st.warning("⚠️ Preencha os X's na tabela ao lado e certifique-se que o Problema está salvo no Project Charter.")
@@ -2278,11 +2282,20 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 st.session_state["ai_generated_warning"] = "✨ Quick Wins táticos gerados com sucesso!"
                                 st.rerun()
 
-            # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
-            else:
-                text_for_ai = new_text
+                contexto_medicoes = ""
+                reps = project_state.get("measurement_reports", [])
+                if reps:
+                    contexto_medicoes = "\n\n[DADOS HISTÓRICOS DE REPORT]:\nO aluno também gerou análises de gráficos neste projeto, considere-os:\n"
+                    for r in reps[-3:]: # max 3 pra nao estourar token
+                        contexto_medicoes += f"--- {r['title']} ---\n"
+                        for m in r.get("logs", []):
+                            if m["role"] == "assistant":
+                                contexto_medicoes += f"Análise: {m['content']}\n"
+                
+                text_for_ai = new_text + contexto_medicoes
+
                 if mode_str == "generate" and ai_context_prompt.strip():
-                    text_for_ai = f"PEDIDO ESPECÍFICO DO USUÁRIO PARA ESTA GERAÇÃO: {ai_context_prompt}\n\nDADOS ATUAIS DA FERRAMENTA:\n{new_text}"
+                    text_for_ai = f"PEDIDO ESPECÍFICO DO USUÁRIO PARA ESTA GERAÇÃO: {ai_context_prompt}\n\nDADOS ATUAIS DA FERRAMENTA:\n{new_text}{contexto_medicoes}"
 
                 with st.spinner("Doutor Lean processando os dados..."):
                     coach_json, rubric_scores, _ = coach_run(tool, project_state, text_for_ai, mode=mode_str)

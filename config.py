@@ -10,6 +10,7 @@ TOOLS = [
     "SIPOC (por etapa)",
     "Fluxograma",
     "Matriz de Indicadores",
+    "Repositório de Medições",
     "Causa & Efeito - Esforço Impacto",
     "Ishikawa",
     "5 Porquês",
@@ -121,6 +122,14 @@ Ferramenta Matriz de Indicadores baseada no SIPOC.
 Objetivo:
 - Identificar indicadores de processo focados nas etapas (P) mapeadas no nível Macro ou SIPOC.
 - Fornecer métricas em diferentes dimensões (Quantidade, WIP, Tempo, %, Qualidade, Finanças) formadas a partir do Problema de negócio definido.
+""",
+    "Repositório de Medições": """
+Ferramenta Repositório de Medições (Laboratório de Dados).
+Objetivo:
+- Permitir que o aluno cole ou faça upload de tabelas de dados.
+- O Coach deve atuar como Cientista de Dados (gerando gráficos e estatísticas).
+- Regra rígida: Instruir sempre que "a interpretação humana e conhecimento do processo é fundamental".
+- Se os dados excederem 2000 linhas, orientar uso de IA externa.
 """,
     "Causa & Efeito - Esforço Impacto": """
 Ferramenta Causa & Efeito (Esforço × Impacto).
