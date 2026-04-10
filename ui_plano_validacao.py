@@ -97,8 +97,8 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
             elif ext in ["xlsx", "xls"]:
                 df = pd.read_excel(uploaded_file)
             elif ext == "pdf":
-                import PyPDF2
-                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                import pypdf
+                pdf_reader = pypdf.PdfReader(uploaded_file)
                 doc_text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
                 arquivo_resumo = f"Documento PDF Fornecido:\n{doc_text[:3000]}..."
                 st.success(f"PDF carregado e texto extraído ({len(doc_text)} caracteres).")
