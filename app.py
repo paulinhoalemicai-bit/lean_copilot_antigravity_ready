@@ -494,8 +494,34 @@ def sync_dynamic_tables():
         if updated_ind:
             project_state["matriz_indicadores"] = ind_data
 
+    # 4. Plano de Ação 5W2H
+    updated_pa = False
+    if "planos_acao" in project_state and project_state["planos_acao"]:
+        planos_acao = project_state["planos_acao"]
+        active_plano = planos_acao[0]
+        rows = active_plano.get("rows", [])
+        for row in rows:
+            rid = row.get("row_id")
+            k_acao = f"paa_acao_{rid}"
+            k_onde = f"paa_onde_{rid}"
+            k_inip = f"paa_inip_{rid}"
+            k_fimp = f"paa_fimp_{rid}"
+            k_inir = f"paa_inir_{rid}"
+            k_fimr = f"paa_fimr_{rid}"
+            k_quem = f"paa_quem_{rid}"
+            k_stat = f"paa_stat_{rid}"
+
+            mapping_pa = {
+                k_acao: "acao", k_onde: "onde", k_inip: "ini_prev", k_fimp: "fim_prev",
+                k_inir: "ini_real", k_fimr: "fim_real", k_quem: "quem", k_stat: "status"
+            }
+            for k, field in mapping_pa.items():
+                if k in st.session_state:
+                    row[field] = st.session_state[k]
+                    updated_pa = True
+
     # --- SALVAMENTO AUTOMÁTICO NA SINCRONIZAÇÃO ---
-    if updated_ce or updated_pl or updated_ind:
+    if updated_ce or updated_pl or updated_ind or updated_pa:
         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
 
 if not read_only:
@@ -1662,8 +1688,8 @@ with tool_container:
         ui_plano_solucoes.render_plano_solucoes_ui(project_state, pid, db, read_only)
 
     elif tool == "Plano de Ação":
-        st.subheader(" Plano de Ação (5W2H)")
-        st.info("💡 Registre as atividades necessárias para implementar suas soluções!")
+        import ui_plano_acao_5w2h
+        ui_plano_acao_5w2h.render_plano_acao_ui(project_state, pid, db, read_only)
 
     else:
         st.info("Outras ferramentas estão na fila de atualização para a nuvem.")
@@ -1761,6 +1787,9 @@ with coach_container:
         elif tool == "Plano de Coleta de Dados":
             st.info("💡 **Doutor Lean:** O robô analisará as causas prioritárias (Matriz C&E) ou indicadores mapeados para sugerir um plano de coleta robusto.")
             st.caption("Certifique-se de que a Matriz C&E possui itens marcados como 'Alta Prioridade' (Verde) para melhores sugestões.")
+        elif tool == "Plano de Ação":
+            st.info("💡 **Desdobramento de Ações:** O Coach analisará uma Solução específica e sugerirá as ações táticas (O que / Como) para alcançá-la.")
+            st.caption("A IA preencherá apenas textos de ação; prazos e responsáveis continuam no seu controle.")
         else:
             st.info("💡 **Dica:** A IA lerá todo o contexto do seu projeto automaticamente. Se quiser, você pode direcioná-la adicionando um pedido específico abaixo.")
             ai_context_prompt = st.text_area(
@@ -2130,6 +2159,51 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 # Incrementa contador de geração para forçar re-render dos text_areas
                                 st.session_state["pq_gen_ver"] = st.session_state.get("pq_gen_ver", 0) + 1
                                 st.session_state["ai_generated_warning"] = "✨ ⚠️ Árvore Estrutural Profunda gerada com sucesso pela arquitetura JSON do Doutor Lean!"
+                                st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração do Plano de Ação (5W2H) ---
+            elif tool == "Plano de Ação" and mode_str == "generate":
+                with st.spinner("Doutor Lean desdobrando ações operacionais..."):
+                    # Precisamos saber se o aluno importou algo
+                    planos_acao = project_state.get("planos_acao", [])
+                    if not planos_acao or not planos_acao[0].get("rows", []):
+                        st.error("Nenhuma Solução disponível no Plano de Ação. Importe as soluções primeiro!")
+                    else:
+                        rows = planos_acao[0]["rows"]
+                        import coach_extensions
+                        # A IA vai ler a lista e pra cada `solucao` vazia (sem acoes vinculadas ou as que o usuario marcou como vazias), ela pode gerar.
+                        # Para facilitar, a IA pode processar a 1ª linha vazia que achar!
+                        # Vamos buscar a primeira linha que é is_parent e onde a "acao" tá vazia.
+                        target_row_idx = next((i for i, r in enumerate(rows) if not str(r.get("acao", "")).strip()), -1)
+                        if target_row_idx == -1:
+                            st.error("Todas as linhas já possuem pelo menos uma ação descrita! Limpe a ação de alguma solução para eu descrevê-la novamente.")
+                        else:
+                            target_row = rows[target_row_idx]
+                            causa = str(target_row.get("causa", ""))
+                            solucao = str(target_row.get("solucao", ""))
+                            acoes_sugeridas = coach_extensions.suggest_acao_5w2h(project_state, causa, solucao)
+                            if not acoes_sugeridas:
+                                st.error("Falha ao quebrar a solução em ações passo a passo.")
+                            else:
+                                # A primeira ação preenche a linha atual
+                                target_row["acao"] = acoes_sugeridas[0]
+                                # As próximas viram filhas
+                                import uuid
+                                for idx_adic, ax in enumerate(acoes_sugeridas[1:]):
+                                    nova_filha = {
+                                        "row_id": str(uuid.uuid4())[:12],
+                                        "sol_id": target_row.get("sol_id"),
+                                        "is_parent": False,
+                                        "id_display": target_row.get("id_display", "-"),
+                                        "causa": target_row.get("causa", ""),
+                                        "solucao": target_row.get("solucao", ""),
+                                        "acao": ax, "onde": "", "ini_prev": "", "fim_prev": "",
+                                        "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado"
+                                    }
+                                    rows.insert(target_row_idx + 1 + idx_adic, nova_filha)
+                                
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.session_state["ai_generated_warning"] = f"✨ ⚠️ A Solução `{solucao[:30]}...` foi desdobrada em {len(acoes_sugeridas)} ações passo a passo! Agora preencha os prazos/donos localmente."
                                 st.rerun()
 
             # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---

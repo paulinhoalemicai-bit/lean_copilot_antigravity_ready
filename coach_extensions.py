@@ -142,20 +142,40 @@ Apenas o JSON object e nada mais.
     except Exception as e:
         return {"solucao": "Erro ao gerar", "custo":1, "esforco":1, "impacto":1, "comentario": str(e)}
 
-def suggest_acao_5w2h(client, model, solucao):
-    prompt = f"""Para a solução: '{solucao}'
-Sugira apenas o 'O que (What)' e o 'Como (How)' do plano de ação para implantar essa solução.
+def suggest_acao_5w2h(project_state, causa, solucao):
+    import json
+    prompt = f"""Atue como um gerente de projetos ágil.
+Problema / Causa Raiz: {causa}
+Solução Escolhida: {solucao}
+
+Desdobre essa Solução em ações táticas sequenciais, descrevendo "O Que" deve ser feito e o "Como".
+Pense em 2 a 5 etapas lógicas para implantar essa solução com eficiência. Não crie passos desnecessários.
+
+Retorne EXATAMENTE UM JSON ARRAY de strings, onde cada string é uma ação. 
+Exemplo de formato:
+[
+  "Ação 1: [O que] realizar xpto através de [Como] abc.",
+  "Ação 2: [O que] testar abcd através de [Como] rty."
+]
+Apenas o JSON e nada mais.
 """
     try:
         response = client.chat.completions.create(
-            model=model,
+            model="gpt-4o-mini",
             messages=[{'role':'user', 'content': prompt}],
-            temperature=0.4
+            temperature=0.3
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        data = json.loads(content)
+        if isinstance(data, list) and len(data) > 0:
+            return data
+        return [content]
     except Exception as e:
-        return f"Erro na IA: {e}"
-
+        return [f"Ação sugerida 1: Iniciar planejamento da solução (Erro na IA: {str(e)})"]
 def suggest_pratica_validacao(project_state, causa_nome, modelo_validacao):
     prompt = f"""Atue como um Master Black Belt.
 Contexto: {project_state.get('name', 'N/A')}
