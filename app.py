@@ -502,7 +502,8 @@ def sync_dynamic_tables():
         rows = active_plano.get("rows", [])
         for row in rows:
             rid = row.get("row_id")
-            k_acao = f"paa_acao_{rid}"
+            v = row.get("version_ai", 0)
+            k_acao = f"paa_acao_{rid}_{v}"
             k_onde = f"paa_onde_{rid}"
             k_inip = f"paa_inip_{rid}"
             k_fimp = f"paa_fimp_{rid}"

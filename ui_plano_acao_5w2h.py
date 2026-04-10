@@ -242,8 +242,9 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
         # É melhor ter todos registrados no sync_dynamic_tables. Para isso, os `key` devem seguir um padrão!
         # Usaremos: paa_{campo}_{row_id} para não ter risco de key changes ao inserir linhas.
         rid = row.get("row_id")
+        v = row.get("version_ai", 0)
 
-        acao_val = cols[3].text_area("acao", value=row.get("acao", ""), key=f"paa_acao_{rid}", height=h, label_visibility="collapsed", disabled=read_only)
+        acao_val = cols[3].text_area("acao", value=row.get("acao", ""), key=f"paa_acao_{rid}_{v}", height=h, label_visibility="collapsed", disabled=read_only)
         onde_val = cols[4].text_area("onde", value=row.get("onde", ""), key=f"paa_onde_{rid}", height=h, label_visibility="collapsed", disabled=read_only)
         inip_val = cols[5].text_input("inip", value=row.get("ini_prev", ""), key=f"paa_inip_{rid}", label_visibility="collapsed", disabled=read_only)
         fimp_val = cols[6].text_input("fimp", value=row.get("fim_prev", ""), key=f"paa_fimp_{rid}", label_visibility="collapsed", disabled=read_only)
@@ -293,7 +294,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                         acoes_sugeridas = coach_extensions.suggest_acao_5w2h(project_state, c_txt, s_txt)
                         if acoes_sugeridas:
                             row["acao"] = acoes_sugeridas[0]
-                            st.session_state[f"paa_acao_{rid}"] = acoes_sugeridas[0] # FORÇA CACHE OVERRIDE DO TEXT_AREA
+                            row["version_ai"] = row.get("version_ai", 0) + 1
                             # As próximas viram filhas em sequencia logo abaixo desta que foi clicada
                             for idx_adic, ax in enumerate(acoes_sugeridas[1:]):
                                 nv_id = str(uuid.uuid4())[:12]
@@ -305,10 +306,10 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                                     "causa": row.get("causa", ""),
                                     "solucao": row.get("solucao", ""),
                                     "acao": ax, "onde": "", "ini_prev": "", "fim_prev": "",
-                                    "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado"
+                                    "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado",
+                                    "version_ai": 0
                                 }
                                 rows.insert(i + 1 + idx_adic, nova_filha)
-                                st.session_state[f"paa_acao_{nv_id}"] = ax
                         dirty = True
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Linhas criadas pela IA com sucesso!"
 
