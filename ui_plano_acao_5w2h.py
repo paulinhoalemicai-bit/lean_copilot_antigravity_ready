@@ -1,5 +1,8 @@
 import streamlit as st
 import uuid
+import pandas as pd
+import altair as alt
+from datetime import datetime, date
 
 def render_plano_acao_ui(project_state, pid, db, read_only):
     st.subheader("📋 Plano de Ação (5W2H)")
@@ -59,11 +62,13 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
             else:
                 st.warning("⚠️ Nenhuma nova Solução Eleita foi encontrada para importação.")
 
-    # Injeção de CSS para o Grid Dinâmico Gigante
+    # Injeção de CSS para o Grid Dinâmico Gigante e Botões Inline
     st.markdown(
         f'<style>'
         f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(12)) {{ min-width: 2200px !important; }}'
         f'[data-testid="stColumn"] div[data-testid="stHorizontalBlock"]:has(> div:nth-child(12)) {{ min-width: 0 !important; }}'
+        f'/* Reduz padding dos botões de ação para caber lado a lado */'
+        f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(12)) > div:nth-child(12) div[data-testid="stButton"] button {{ padding: 2px 8px !important; min-height: 0px !important; line-height: 1.5; }}'
         f'</style>'
         f'<div style="min-width:2200px; height:1px; visibility:hidden;"></div>',
         unsafe_allow_html=True
@@ -89,8 +94,79 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
             st.rerun()
         return
 
-    # Header Row com 12 colunas (sendo a última para os botões)
-    col_weights = [0.6, 2.0, 2.5, 3.0, 1.2, 1.0, 1.0, 1.0, 1.0, 1.2, 1.1, 0.4]
+    # Lógica de Cálculo de Status
+    hoje = datetime.now().date()
+    # Adicionamos um cálculo interno simulado antes de desenhar o grid para o KPI e Filtros
+    total_acoes = 0
+    atrasadas = 0
+    concluidas = 0
+    df_chart = []
+    
+    # Atualiza status e cores em tempo real do loop pre-render
+    for r in rows:
+        st_val = r.get("status", "Não Iniciado")
+        
+        # Parse da data de forma limpa dd/mm/yyyy
+        f_p = r.get("fim_prev", "").strip()
+        diff_days = None
+        if f_p:
+            try:
+                dt_obj = pd.to_datetime(f_p, format="%d/%m/%Y").date()
+                diff_days = (dt_obj - hoje).days
+            except:
+                pass
+        
+        # Inteligência da cor (Traffic Light / e Atraso Automático virtual)
+        cor = "" # neutro
+        if st_val == "Concluído":
+            cor = "#4CAF50" # Verde Escuro
+            concluidas += 1
+        else:
+            if st_val == "Atrasado":
+                cor = "#F44336" # Vermelho
+                atrasadas += 1
+            else:
+                if diff_days is not None:
+                    if diff_days < 0 and st_val not in ["Cancelado"]:
+                        cor = "#F44336" # Vermelho auto
+                        atrasadas += 1
+                    elif 0 <= diff_days <= 3 and st_val not in ["Cancelado"]:
+                        cor = "#FFC107" # Amarelo (Vence em 3 dias ou hoje)
+        
+        # Armazena estado visual temporário na row para o render mais abaixo
+        r["_cor"] = cor
+        total_acoes += 1
+        df_chart.append({"Status": st_val if cor != "#F44336" else ("Atrasado" if st_val != "Concluído" else st_val)})
+        
+    # --- DASHBOARD KPI ---
+    st.markdown("### Resumo Executivo do Plano")
+    kpi_d1, kpi_d2, kpi_d3, kpi_chart = st.columns([1, 1, 1, 2])
+    kpi_d1.metric("Total de Ações", total_acoes)
+    kpi_d2.metric("Ações Atrasadas", atrasadas)
+    perc = round((concluidas / total_acoes) * 100) if total_acoes > 0 else 0
+    kpi_d3.metric("Ações Concluídas", f"{perc}%")
+    
+    with kpi_chart:
+        if df_chart:
+            pdf = pd.DataFrame(df_chart)
+            conta = pdf.groupby("Status").size().reset_index(name="Quantidade")
+            color_scale = alt.Scale(domain=["Não Iniciado", "Em Andamento", "Atrasado", "Concluído", "Cancelado"], 
+                                    range=["#9E9E9E", "#2196F3", "#F44336", "#4CAF50", "#607D8B"])
+            
+            donut = alt.Chart(conta).mark_arc(innerRadius=40).encode(
+                theta=alt.Theta(field="Quantidade", type="quantitative"),
+                color=alt.Color(field="Status", type="nominal", scale=color_scale),
+                tooltip=["Status", "Quantidade"]
+            ).properties(height=180, width=300)
+            st.altair_chart(donut, use_container_width=True)
+
+    # --- FILTRO POR STATUS ---
+    status_options = ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído", "Cancelado"]
+    filtro_status = st.multiselect("Filtrar ações exibidas:", options=status_options, default=[], help="Deixe em branco para exibir todas.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Grid Setup Redimensionado para comportar os botões agrupados
+    col_weights = [0.6, 1.8, 2.2, 3.2, 1.2, 1.0, 1.0, 1.0, 1.0, 1.2, 1.1, 0.8]
     headers = st.columns(col_weights)
     labels = ["ID", "Causa", "Solução", "Ação", "Onde", "Início (Prev)", "Fim (Prev)", "Início (Real)", "Fim (Real)", "Quem", "Status", "⚙️"]
     for hc, lab in zip(headers, labels):
@@ -107,14 +183,25 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
     status_options = ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído", "Cancelado"]
 
     for i, row in enumerate(rows):
+        c_status = row.get("status", "Não Iniciado")
+        if filtro_status and c_status not in filtro_status and row.get("_cor") != "#F44336":
+            # Força exibição dos atrasados implícitos se "Atrasado" marcado, caso contrário pula
+            if "Atrasado" in filtro_status and row.get("_cor") == "#F44336":
+                pass
+            else:
+                continue
+
         cols = st.columns(col_weights)
         h = 100
 
         # Se não for parent (linhas "filhas"), não renderizamos fundo nem campo, apenas texto vazio
         is_parent = row.get("is_parent", False)
 
-        # ID
-        cols[0].markdown(f"<div style='text-align:center; padding-top: 30px;'><b>{row.get('id_display', '')}</b></div>", unsafe_allow_html=True)
+        # ID com Traffic Light dinâmico
+        c_bg = row.get("_cor", "") # Pegar variável pré gerada acima
+        c_font = "white" if c_bg else "inherit"
+        bg_style = f"background-color: {c_bg}; color: {c_font};" if c_bg else ""
+        cols[0].markdown(f"<div style='text-align:center; padding: 30px 5px; border-radius: 6px; {bg_style}'><b>{row.get('id_display', '')}</b></div>", unsafe_allow_html=True)
 
         if is_parent:
             cols[1].text_area("causa", value=row.get("causa", ""), key=f"pa_causa_{i}", height=h, label_visibility="collapsed", disabled=read_only)
@@ -147,8 +234,8 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
 
         with cols[11]:
             if not read_only:
-                st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                if st.button("➕", key=f"pa_add_{rid}", help="Adicionar Ação desdobrada nesta mesma Solução"):
+                b1, b2, b3 = st.columns(3)
+                if b1.button("➕", key=f"pa_add_{rid}", help="Adicionar Ação desdobrada nesta mesma Solução"):
                     # Insert a new child row directly below this one
                     filha = {
                         "row_id": str(uuid.uuid4())[:12],
@@ -163,16 +250,15 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                     rows.insert(i + 1, filha)
                     dirty = True
 
-                if st.button("🗑️", key=f"pa_del_{rid}"):
-                    # Deletar esta linha. Se for parent, e houver filhas embaixo, a próxima filha vira parent?
-                    # Ou deita a árvore toda? Vamos simplificar: deleta a linha. Se deletar a parent e sobrar filha, paciência, o aluno conserta. Mas vamos adotar a lógica: se é parent e a de baixo é mesma sol e não-parent, herda.
+                if b3.button("🗑️", key=f"pa_del_{rid}"):
+                    # Deletar esta linha.
                     if is_parent and (i + 1 < len(rows)) and not rows[i+1].get("is_parent", True) and rows[i+1].get("sol_id") == row.get("sol_id"):
                         rows[i+1]["is_parent"] = True
                     
                     rows.pop(i)
                     dirty = True
                 
-                if st.button("🤖", key=f"pa_ai_{rid}", help="A IA preencherá automaticamente campos de Ação (O que / Como) para esta solução!"):
+                if b2.button("🤖", key=f"pa_ai_{rid}", help="A IA preencherá automaticamente campos de Ação (O que / Como) para esta solução!"):
                     import coach_extensions
                     c_txt = row.get("causa", "")
                     s_txt = row.get("solucao", "")
@@ -180,10 +266,12 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                         acoes_sugeridas = coach_extensions.suggest_acao_5w2h(project_state, c_txt, s_txt)
                         if acoes_sugeridas:
                             row["acao"] = acoes_sugeridas[0]
+                            st.session_state[f"paa_acao_{rid}"] = acoes_sugeridas[0] # FORÇA CACHE OVERRIDE DO TEXT_AREA
                             # As próximas viram filhas em sequencia logo abaixo desta que foi clicada
                             for idx_adic, ax in enumerate(acoes_sugeridas[1:]):
+                                nv_id = str(uuid.uuid4())[:12]
                                 nova_filha = {
-                                    "row_id": str(uuid.uuid4())[:12],
+                                    "row_id": nv_id,
                                     "sol_id": row.get("sol_id"),
                                     "is_parent": False,
                                     "id_display": row.get("id_display", "-"),
@@ -193,6 +281,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                                     "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado"
                                 }
                                 rows.insert(i + 1 + idx_adic, nova_filha)
+                                st.session_state[f"paa_acao_{nv_id}"] = ax
                         dirty = True
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Linhas criadas pela IA com sucesso!"
 
