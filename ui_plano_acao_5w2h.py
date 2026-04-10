@@ -101,10 +101,19 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
     atrasadas = 0
     concluidas = 0
     df_chart = []
+    has_concluido_error = False
     
     # Atualiza status e cores em tempo real do loop pre-render
     for r in rows:
         st_val = r.get("status", "Não Iniciado")
+        
+        # Validação: Só pode estar concluído se houver data real de fim
+        if st_val == "Concluído" and not r.get("fim_real", "").strip():
+            st_val = "Em Andamento"
+            r["status"] = st_val
+            if f"paa_stat_{r['row_id']}" in st.session_state:
+                st.session_state[f"paa_stat_{r['row_id']}"] = st_val
+            has_concluido_error = True
         
         # Parse da data de forma limpa dd/mm/yyyy
         f_p = r.get("fim_prev", "").strip()
@@ -130,6 +139,11 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                     if diff_days < 0 and st_val not in ["Cancelado"]:
                         cor = "#F44336" # Vermelho auto
                         atrasadas += 1
+                        # Forçar o status para atrasado (atualiza memória)
+                        st_val = "Atrasado"
+                        r["status"] = st_val
+                        if f"paa_stat_{r['row_id']}" in st.session_state:
+                            st.session_state[f"paa_stat_{r['row_id']}"] = st_val
                     elif 0 <= diff_days <= 3 and st_val not in ["Cancelado"]:
                         cor = "#FFC107" # Amarelo (Vence em 3 dias ou hoje)
         
@@ -163,6 +177,10 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
     # --- FILTRO POR STATUS ---
     status_options = ["Não Iniciado", "Em Andamento", "Atrasado", "Concluído", "Cancelado"]
     filtro_status = st.multiselect("Filtrar ações exibidas:", options=status_options, default=[], help="Deixe em branco para exibir todas.")
+    
+    if has_concluido_error:
+        st.warning("⚠️ Algumas ações não puderam ser marcadas como 'Concluídas'. Você precisa preencher a data no campo 'Fim (Real)' primeiro!")
+    
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Grid Setup Redimensionado para comportar os botões agrupados
@@ -192,7 +210,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                 continue
 
         cols = st.columns(col_weights)
-        h = 100
+        h = 68 # Reduzido para compactar visual
 
         # Se não for parent (linhas "filhas"), não renderizamos fundo nem campo, apenas texto vazio
         is_parent = row.get("is_parent", False)
@@ -201,7 +219,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
         c_bg = row.get("_cor", "") # Pegar variável pré gerada acima
         c_font = "white" if c_bg else "inherit"
         bg_style = f"background-color: {c_bg}; color: {c_font};" if c_bg else ""
-        cols[0].markdown(f"<div style='text-align:center; padding: 30px 5px; border-radius: 6px; {bg_style}'><b>{row.get('id_display', '')}</b></div>", unsafe_allow_html=True)
+        cols[0].markdown(f"<div style='text-align:center; padding: 15px 5px; border-radius: 6px; margin-top: 5px; {bg_style}'><b>{row.get('id_display', '')}</b></div>", unsafe_allow_html=True)
 
         if is_parent:
             cols[1].text_area("causa", value=row.get("causa", ""), key=f"pa_causa_{i}", height=h, label_visibility="collapsed", disabled=read_only)
@@ -285,7 +303,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                         dirty = True
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Linhas criadas pela IA com sucesso!"
 
-        st.markdown("---")
+        st.markdown("<hr style='margin: 5px 0px; border-color: #e0e0e0;'>", unsafe_allow_html=True)
 
     if not read_only:
         if st.button("➕ Adicionar Nova Causa/Solução Manual"):
