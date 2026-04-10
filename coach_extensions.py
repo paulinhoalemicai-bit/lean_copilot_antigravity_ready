@@ -255,9 +255,25 @@ Sua resposta deve ser EXATAMENTE um JSON válido atendendo ao schema abaixo. NÃ
 }}
 """
     try:
+        # Verifica se data_sample é uma imagem base64
+        if isinstance(data_sample, tuple) and data_sample[0] == "IMAGE":
+            # Remove a representação estranha da imagem do prompt de texto
+            prompt = prompt.replace(str(data_sample), "[[DADOS FORNECIDOS COMO IMAGEM - VEJA O ANEXO]]")
+            messages_payload = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_sample[1]}}
+                    ]
+                }
+            ]
+        else:
+            messages_payload = [{'role': 'user', 'content': prompt}]
+
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[{'role':'user', 'content': prompt}],
+            messages=messages_payload,
             temperature=0.2,
             response_format={ "type": "json_object" }
         )

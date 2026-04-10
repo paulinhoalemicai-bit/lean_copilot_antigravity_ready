@@ -78,19 +78,43 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
     # 1. Carregamento de Dados (Mini)
     col_upload, col_paste = st.columns([1, 2])
     with col_upload:
-        uploaded_file = st.file_uploader("Upload de CSV/Excel (Mínimo)", type=["csv", "xlsx"], disabled=read_only)
+        uploaded_file = st.file_uploader("Upload de Documentos / Imagens", type=["csv", "xlsx", "xls", "pdf", "docx", "png", "jpg", "jpeg"], disabled=read_only)
     with col_paste:
         novos_dados = st.text_area("Ou Cole Dados/Observações", value=row.get("dados_coletados", ""), height=100, disabled=read_only)
         row["dados_coletados"] = novos_dados # Sync direto com session state virtual da pagina mestre
 
     df = None
     arquivo_resumo = ""
+    vision_data = None
     try:
+        import base64
         import pandas as pd
         import io
         if uploaded_file is not None:
-            if uploaded_file.name.endswith(".csv"): df = pd.read_csv(uploaded_file)
-            else: df = pd.read_excel(uploaded_file)
+            ext = uploaded_file.name.split(".")[-1].lower()
+            if ext == "csv":
+                df = pd.read_csv(uploaded_file)
+            elif ext in ["xlsx", "xls"]:
+                df = pd.read_excel(uploaded_file)
+            elif ext == "pdf":
+                import PyPDF2
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                doc_text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
+                arquivo_resumo = f"Documento PDF Fornecido:\n{doc_text[:3000]}..."
+                st.success(f"PDF carregado e texto extraído ({len(doc_text)} caracteres).")
+            elif ext == "docx":
+                import docx
+                doc = docx.Document(uploaded_file)
+                doc_text = "\n".join([para.text for para in doc.paragraphs])
+                arquivo_resumo = f"Documento Word Fornecido:\n{doc_text[:3000]}..."
+                st.success(f"Word carregado e texto extraído ({len(doc_text)} caracteres).")
+            elif ext in ["png", "jpg", "jpeg"]:
+                b64_str = base64.b64encode(uploaded_file.getvalue()).decode("utf-8")
+                mime = f"image/{ext}" if ext != "jpg" else "image/jpeg"
+                vision_data = ("IMAGE", f"data:{mime};base64,{b64_str}")
+                arquivo_resumo = vision_data
+                st.success("Imagem anexada para Visão Computacional.")
+                st.image(uploaded_file, width=300)
         elif novos_dados.strip():
             df = pd.read_csv(io.StringIO(novos_dados), sep="\t")
         
@@ -100,6 +124,7 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
                 df = None
             else:
                 arquivo_resumo = f"Resumo do DataFrame:\n{df.head(10).to_csv(index=False)}"
+                st.success(f"Tabela carregada: {len(df)} linhas.")
     except Exception:
         if novos_dados.strip(): arquivo_resumo = f"Observações Práticas: {novos_dados}"
 

@@ -15,60 +15,68 @@ def render_repositorio_dados_ui(project_state, pid, db, read_only):
     """)
 
     # 1. Carregamento de Dados
-    st.markdown("### 1. Importar Base de Dados")
-    st.info("💡 Cole seus dados na caixa de texto abaixo OU faça upload de um arquivo CSV/Excel.")
+    st.markdown("### 1. Importar Base de Dados / Documentação")
+    st.info("💡 Cole seus dados na caixa de texto abaixo OU faça upload de um arquivo (CSV, Excel, PDF, Word, JPG, PNG).")
     
     col_upload, col_paste = st.columns([1, 2])
     with col_upload:
-        uploaded_file = st.file_uploader("Upload de Arquivo", type=["csv", "xlsx", "xls"], disabled=read_only)
+        uploaded_file = st.file_uploader("Upload de Arquivo", type=["csv", "xlsx", "xls", "pdf", "docx", "png", "jpg", "jpeg"], disabled=read_only)
     with col_paste:
         pasted_data = st.text_area("Ou Cole os Dados Aqui (tab-separated)", height=80, disabled=read_only)
 
     df = None
+    doc_text = ""
+    vision_data = None
     
     # Processar o upload ou colagem
     try:
+        import base64
         if uploaded_file is not None:
-            if uploaded_file.name.endswith(".csv"):
+            ext = uploaded_file.name.split(".")[-1].lower()
+            if ext == "csv":
                 df = pd.read_csv(uploaded_file)
-            else:
+            elif ext in ["xlsx", "xls"]:
                 df = pd.read_excel(uploaded_file)
+            elif ext == "pdf":
+                import PyPDF2
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                doc_text = "\n".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
+            elif ext == "docx":
+                import docx
+                doc = docx.Document(uploaded_file)
+                doc_text = "\n".join([para.text for para in doc.paragraphs])
+            elif ext in ["png", "jpg", "jpeg"]:
+                b64_str = base64.b64encode(uploaded_file.getvalue()).decode("utf-8")
+                mime = f"image/{ext}" if ext != "jpg" else "image/jpeg"
+                vision_data = ("IMAGE", f"data:{mime};base64,{b64_str}")
         elif pasted_data.strip():
             df = pd.read_csv(io.StringIO(pasted_data), sep="\t")
             
         # Tenta carregar o que já estava salvo se não houver um novo input agora
-        if df is None and project_state.get("measurements_raw"):
+        if df is None and not doc_text and not vision_data and project_state.get("measurements_raw"):
             try:
+                # Caso fosse tabela salva
                 df = pd.read_json(io.StringIO(project_state["measurements_raw"]), orient="records")
             except:
                 pass
 
     except Exception as e:
-        st.error(f"Erro ao ler os dados: {str(e)}")
+        st.error(f"Erro ao processar o arquivo: {str(e)}")
 
     if df is not None:
         if len(df) > 2000:
             st.error("⚠️ **Limite de Processamento Excedido!**")
-            st.warning("""
-                Sua base de dados possui mais de 2.000 linhas, o que excede a capacidade de inferência online desta ferramenta.
-                
-                **Como proceder?**
-                1. Utilize sua plataforma de IA preferida (ex: ChatGPT, Claude) para fazer o *heavy lifting* desses dados.
-                2. Gere os gráficos e análises estatísticas brutas por lá.
-                3. Volte aqui e apenas cole o **Resumo / Análise Crítica** na caixa de chat abaixo para registrarmos o seu Relatório Oficial do projeto.
-            """)
             df = None
         else:
-            st.success(f"✅ Base carregada com sucesso: {len(df)} linhas e {len(df.columns)} colunas.")
-            with st.expander("👁️ Visualizar Amostra dos Dados"):
-                st.dataframe(df.head(50), use_container_width=True)
-                if len(df) > 50:
-                    st.caption("Mostrando apenas as primeiras 50 linhas.")
-            
-            # Salva na sessao para nao perder ao recarregar
+            st.success(f"✅ Tabela estruturada (CSV/Excel) carregada: {len(df)} linhas.")
             if not read_only:
                 project_state["measurements_raw"] = df.to_json(orient="records")
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+    elif doc_text:
+        st.success(f"✅ Documento Texto importado ({len(doc_text)} caracteres).")
+    elif vision_data:
+        st.success("✅ Imagem importada para análise via Visão Computacional.")
+        st.image(uploaded_file, caption="Anexo da Mesa de Trabalho", width=300)
 
     st.markdown("---")
     
@@ -108,9 +116,12 @@ def render_repositorio_dados_ui(project_state, pid, db, read_only):
                     import coach_extensions
                     
                     data_str_context = "O aluno não forneceu uma tabela de dados válida ainda."
-                    if df is not None:
-                        # Mandar amostra ou descrever
+                    if vision_data:
+                        data_str_context = vision_data
+                    elif df is not None:
                         data_str_context = f"Resumo do DataFrame (shape {df.shape}):\n{df.head(10).to_csv(index=False)}"
+                    elif doc_text:
+                        data_str_context = f"Resumo do Documento PDF/Word fornecido:\n{doc_text[:3000]}..."
 
                     # Executa IA
                     resultado_json = coach_extensions.analyze_measurement_data(
