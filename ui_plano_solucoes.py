@@ -179,7 +179,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                         st.rerun()
 
     if selected_macro_id == "GLOBAL":
-        st.info("Visão global das soluções ELEITAS (Flegadas) por todos os planos. Somente leitura.")
+        st.info("Visão global das soluções ELEITAS (Flegadas) por todos os planos. Você pode desmarcar a caixa caso desista de uma solução prioritária.")
         todas_solucoes_eleitas = []
         for p in planos_sol:
             for c in p.get("causas", []):
@@ -193,9 +193,17 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             
             st.markdown("---")
             st.markdown("### Soluções Eleitas (Global)")
+            
+            dirty_global = False
             for i, sol in enumerate(todas_solucoes_eleitas):
                 cols = st.columns([1, 4, 1.5, 1.5, 1.5, 1.5])
-                cols[0].markdown(f"**#{i+1}**")
+                
+                # Checkbox interagível na primeira coluna
+                new_sel = cols[0].checkbox(f"#{i+1}", value=sol.get("selecionada", True), key=f"globsel_{sol.get('id', i)}")
+                if new_sel != sol.get("selecionada"):
+                    sol["selecionada"] = new_sel
+                    dirty_global = True
+                    
                 cols[1].write(sol.get("desc", ""))
                 cols[2].write(f"**Custo:** {sol.get('c_score', 0)}")
                 cols[3].write(f"**Esforço:** {sol.get('e_score', 0)}")
@@ -203,6 +211,10 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                 cols[5].write(f"**Score:** {sol.get('final_score', 0)}")
                 st.caption(sol.get("comentario", ""))
                 st.markdown("---")
+                
+            if dirty_global:
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                st.rerun()
         else:
             st.warning("Nenhuma solução foi 'Eleita' (Flegada) em todo o projeto ainda.")
         return
