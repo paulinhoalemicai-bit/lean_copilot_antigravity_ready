@@ -26,8 +26,8 @@ def render_grafico_dispersao(solucoes_list):
         c_inv = 6 - c
         e_inv = 6 - e
         
-        # Color based on Custo
-        c_color = "🟢 Baixo Custo" if c >= 4 else ("🔴 Alto Custo" if c <= 2 else "🟡 Custo Médio")
+        # Color based on Custo (1=Cheap, 5=Expensive)
+        c_color = "🔴 Alto Custo" if c >= 4 else ("🟢 Baixo Custo" if c <= 2 else "🟡 Custo Médio")
         
         data.append({
             "ID_Vis": str(s.get("_num_only", "")),
@@ -207,7 +207,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             st.markdown("### Soluções Eleitas (Global)")
             
             # Header Row
-            g_headers = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5])
+            g_headers = st.columns([0.85, 1.2, 4, 1.5, 1.5, 1.5, 1.5])
             g_labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total"]
             for hc, lab in zip(g_headers, g_labels):
                 hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; height: 100%; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
@@ -215,7 +215,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             
             dirty_global = False
             for i, sol in enumerate(todas_solucoes_eleitas):
-                cols = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5])
+                cols = st.columns([0.85, 1.2, 4, 1.5, 1.5, 1.5, 1.5])
                 
                 # Checkbox interagível na primeira coluna
                 new_sel = cols[0].checkbox("V", value=sol.get("selecionada", True), key=f"globsel_{sol.get('id', i)}", label_visibility="collapsed")
@@ -337,18 +337,18 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                 else:
                     st.error("Erro na resposta da IA.")
     
-    # CSS Custom Grid (1400px scrollable)
+    # CSS Custom Grid (1400px scrollable) targeting only the main matrix Grid (blocks with at least 8 columns) to prevent blowing up the Weights Header
     st.markdown(
         f'<style>'
-        f'div[data-testid="stHorizontalBlock"] {{ min-width: 1400px !important; }}'
-        f'[data-testid="stColumn"] div[data-testid="stHorizontalBlock"] {{ min-width: 0 !important; }}'
+        f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) {{ min-width: 1400px !important; }}'
+        f'[data-testid="stColumn"] div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) {{ min-width: 0 !important; }}'
         f'</style>'
         f'<div style="min-width:1400px; height:1px; visibility:hidden;"></div>',
         unsafe_allow_html=True
     )
 
     # Header Row
-    headers = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
+    headers = st.columns([0.85, 1.2, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
     labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total", "Análise / Prós e Contras", "Ação"]
     for hc, lab in zip(headers, labels):
         hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; height: 100%; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
@@ -359,7 +359,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     dirty = False
 
     for s_idx, sol in enumerate(solucoes):
-        cols = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
+        cols = st.columns([0.85, 1.2, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
         
         h = 100
         # Checkbox
