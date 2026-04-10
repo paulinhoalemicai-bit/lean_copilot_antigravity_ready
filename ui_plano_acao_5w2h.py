@@ -62,6 +62,15 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
             else:
                 st.warning("⚠️ Nenhuma nova Solução Eleita foi encontrada para importação.")
 
+    with colB:
+        if not read_only and rows:
+            with st.popover("🗑️ Apagar Todo o Plano", use_container_width=True):
+                st.warning("Tem certeza? Esta ação removerá TODAS as linhas do plano 5W2H e não pode ser desfeita.")
+                if st.button("Sim, apagar tudo!", type="primary"):
+                    active_plano["rows"] = []
+                    db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                    st.rerun()
+
     # Injeção de CSS para o Grid Dinâmico Gigante e Botões Inline
     st.markdown(
         f'<style>'
