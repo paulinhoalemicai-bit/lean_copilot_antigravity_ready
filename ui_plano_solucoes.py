@@ -263,21 +263,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
         active_causa["causa_text"] = n_causa
         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
 
-    # Chart block
     solucoes = active_causa.get("solucoes", [])
-    all_sols_this_plan = []
-    for c in active_macro.get("causas", []):
-        for s in c.get("solucoes", []):
-            if s.get("desc", "").strip():
-                all_sols_this_plan.append(s)
-    
-    if all_sols_this_plan:
-        st.markdown("---")
-        st.markdown("### Matriz Esforço x Impacto (Soluções deste Plano)")
-        graf_local = render_grafico_dispersao(all_sols_this_plan)
-        if graf_local:
-            st.altair_chart(graf_local, use_container_width=True)
-
     st.markdown("<br>", unsafe_allow_html=True)
     c_btn1, c_btn2 = st.columns([1, 4])
     with c_btn1:
@@ -419,3 +405,17 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             })
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.rerun()
+
+    # Chart block
+    all_sols_this_plan = []
+    for c in active_macro.get("causas", []):
+        for s in c.get("solucoes", []):
+            if s.get("desc", "").strip():
+                all_sols_this_plan.append(s)
+    
+    if all_sols_this_plan:
+        st.markdown("---")
+        st.markdown("### Matriz Esforço x Impacto (Soluções deste Plano)")
+        graf_local = render_grafico_dispersao(all_sols_this_plan)
+        if graf_local:
+            st.altair_chart(graf_local, use_container_width=True)
