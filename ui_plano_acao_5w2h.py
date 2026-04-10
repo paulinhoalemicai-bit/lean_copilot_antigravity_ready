@@ -24,7 +24,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
     active_plano = planos_acao[0]
     rows = active_plano.get("rows", [])
     
-    colA, colB = st.columns([2, 1])
+    colA, colB, colZ = st.columns([1.5, 1, 1])
     with colA:
         if st.button("📥 Importar Soluções Eleitas (do Plano de Soluções)", disabled=read_only, help="Puxa todas as soluções com a flag marcada como 'Eleita'"):
             planos_sol = project_state.get("planos_solucoes", [])
@@ -51,7 +51,8 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                                     "ini_real": "",
                                     "fim_real": "",
                                     "quem": "",
-                                    "status": "Não Iniciado"
+                                    "status": "Não Iniciado",
+                                    "version_ai": 0
                                 })
                                 importados += 1
             if importados > 0:
@@ -71,9 +72,14 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                     db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                     st.rerun()
 
+    with colZ:
+        zoom_opt = st.selectbox("🔍 Zoom Visual da Tabela", ["50%", "65%", "70%", "80%", "90%", "100%"], index=5, help="Ajusta o tamanho visual temporário para enquadrar planos grandes na tela sem precisar usar as configurações do Chrome.")
+
     # Injeção de CSS para o Grid Dinâmico Gigante e Botões Inline
+    z_val = zoom_opt.replace('%', '')
     st.markdown(
         f'<style>'
+        f'.block-container {{ zoom: {z_val}% !important; }}'
         f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(12)) {{ min-width: 2200px !important; }}'
         f'[data-testid="stColumn"] div[data-testid="stHorizontalBlock"]:has(> div:nth-child(12)) {{ min-width: 0 !important; }}'
         f'/* Reduz padding dos botões de ação para caber lado a lado */'
