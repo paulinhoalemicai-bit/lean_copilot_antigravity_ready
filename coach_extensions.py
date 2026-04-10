@@ -144,11 +144,15 @@ Apenas o JSON object e nada mais.
 
 def suggest_acao_5w2h(project_state, causa, solucao):
     import json
-    prompt = f"""Atue como um gerente de projetos ágil.
+    prompt = f"""Atue como um gerente de projetos e Lean Master Black Belt.
+Contexto: Este Plano de Ação é parte de um projeto DMAIC na Fase de MELHORIA (Improve). As atividades prévias de medição e validação lógica dessa causa raiz já foram realizadas.
+
 Problema / Causa Raiz: {causa}
 Solução Escolhida: {solucao}
 
-Desdobre essa Solução em ações táticas sequenciais, descrevendo "O Que" deve ser feito e o "Como".
+Sua tarefa: Desdobre essa Solução em ações táticas sequenciais, descrevendo "O Que" deve ser feito e o "Como" focado ESTRITAMENTE NA IMPLANTAÇÃO DA MELHORIA.
+Atenção: NÃO crie ações pertinentes à Fase de Controle (ex: criar dashboards de acompanhamento permanente, definir rotinas de auditoria, monitorar kpis a longo prazo), pois o "Plano de Controle" será uma ferramenta usada no futuro. Limite-se estritamente à execução da solução.
+
 Pense em 2 a 5 etapas lógicas para implantar essa solução com eficiência. Não crie passos desnecessários.
 
 Retorne EXATAMENTE UM JSON ARRAY de strings, onde cada string é uma ação. 
