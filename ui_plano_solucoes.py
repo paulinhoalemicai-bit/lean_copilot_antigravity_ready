@@ -30,7 +30,7 @@ def render_grafico_dispersao(solucoes_list):
         c_color = "🟢 Baixo Custo" if c >= 4 else ("🔴 Alto Custo" if c <= 2 else "🟡 Custo Médio")
         
         data.append({
-            "ID_Vis": s.get("_display_id", ""),
+            "ID_Vis": str(s.get("_num_only", "")),
             "Solução": desc[:40] + ("..." if len(desc)>40 else ""),
             "Impacto": i,
             "Esforço": e,
@@ -188,16 +188,16 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                         st.rerun()
 
     if selected_macro_id == "GLOBAL":
-        st.info("Visão global das soluções ELEITAS (Flegadas) por todos os planos. Você pode desmarcar a caixa caso desista de uma solução prioritária.")
+        st.info("Visão global com TODAS as soluções geradas nos planos. Você pode desmarcar a caixa caso desista de uma solução prioritária.")
         todas_solucoes_eleitas = []
         global_seq = 1
         for p in planos_sol:
             for c in p.get("causas", []):
                 for s in c.get("solucoes", []):
-                    if s.get("selecionada") is True:
-                        s["_display_id"] = f"{global_seq} - {c.get('wbs', 'X')}"
-                        global_seq += 1
-                        todas_solucoes_eleitas.append(s)
+                    s["_display_id"] = f"{global_seq} - {c.get('wbs', 'X')}"
+                    s["_num_only"] = global_seq
+                    global_seq += 1
+                    todas_solucoes_eleitas.append(s)
         
         grafico = render_grafico_dispersao(todas_solucoes_eleitas)
         if grafico:
@@ -257,6 +257,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     for cx in causas:
         for sx in cx.get("solucoes", []):
             sx["_display_id"] = f"{local_seq} - {cx.get('wbs', 'X')}"
+            sx["_num_only"] = local_seq
             local_seq += 1
             
     if not causas:
@@ -443,15 +444,14 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             st.rerun()
 
     # Chart block
-    all_sols_this_plan = []
-    for c in active_macro.get("causas", []):
-        for s in c.get("solucoes", []):
-            if s.get("desc", "").strip():
-                all_sols_this_plan.append(s)
+    all_sols_this_causa = []
+    for s in active_causa.get("solucoes", []):
+        if s.get("desc", "").strip():
+            all_sols_this_causa.append(s)
     
-    if all_sols_this_plan:
+    if all_sols_this_causa:
         st.markdown("---")
-        st.markdown("### Matriz Esforço x Impacto (Soluções deste Plano)")
-        graf_local = render_grafico_dispersao(all_sols_this_plan)
+        st.markdown(f"### Matriz Esforço x Impacto (Soluções da Causa: {active_causa.get('causa_text', '')})")
+        graf_local = render_grafico_dispersao(all_sols_this_causa)
         if graf_local:
             st.altair_chart(graf_local, use_container_width=True)
