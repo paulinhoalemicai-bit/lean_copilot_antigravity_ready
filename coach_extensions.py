@@ -80,7 +80,7 @@ Trilha do Problema (Ancestrais): {ancestrais}
 Causa Raiz em Foco: {causa_raiz}
 
 Pense em até 5 soluções totais para mitigar ou eliminar essa causa raiz.
-Avalie cada solução atribuindo uma nota de 1 a 5 para Custo (1=muito caro, 5=muito barato/gratis), Esforço (1=muito dificil, 5=muito facil), Impacto (1=pouco impacto, 5=muito impacto na causa).
+Avalie cada solução atribuindo uma nota de 1 a 5 para Custo (1=muito barato, 5=muito caro), Esforço (1=muito fácil, 5=muito difícil), Impacto (1=pouco impacto, 5=muito impacto). Ou seja, 5 sempre representa ALTO custo, ALTO esforço, ALTO impacto.
 Forneça um Comentário descrevendo Prós e Contras da solução.
 
 Retorne EXATAMENTE UM JSON com formato:
@@ -119,7 +119,7 @@ Trilha do Problema (Ancestrais): {ancestrais}
 Causa Raiz em Foco: {causa_raiz}
 
 Pense em 1 solução excelente para mitigar ou eliminar essa causa raiz.
-Avalie a solução atribuindo uma nota de 1 a 5 para Custo (1=muito caro, 5=muito barato/gratis), Esforço (1=muito dificil, 5=muito facil), Impacto (1=pouco impacto, 5=muito impacto na causa).
+Avalie a solução atribuindo uma nota de 1 a 5 para Custo (1=muito barato, 5=muito caro), Esforço (1=muito fácil, 5=muito difícil), Impacto (1=pouco impacto, 5=muito impacto). Ou seja, 5 sempre representa ALTO custo, ALTO esforço, ALTO impacto.
 Forneça um Comentário descrevendo Prós e Contras da solução.
 
 Retorne EXATAMENTE UM JSON com formato:

@@ -6,6 +6,56 @@ from db import upsert_project
 def get_new_id():
     return f"ps_{uuid.uuid4().hex[:8]}"
 
+def render_grafico_dispersao(solucoes_list):
+    import altair as alt
+    import pandas as pd
+    
+    if not solucoes_list:
+        return None
+        
+    data = []
+    for s in solucoes_list:
+        desc = s.get("desc", "").strip()
+        if not desc: continue
+        # Inverted scores for X and Y plotting: we want 5=easy, 5=cheap. 
+        # But wait! user said "para calculo do score, fazer com que a nota considerada seja a oposta... Do ponto de vista do grafico, no warnig, seguir a logica igual a matriz esforço imacto existente"
+        # In Ishikawa, Impacto is Y, Esforço is X.
+        c = int(s.get("c_score", 3))
+        e  = int(s.get("e_score", 3))
+        i  = int(s.get("i_score", 3))
+        c_inv = 6 - c
+        e_inv = 6 - e
+        
+        # Color based on Custo
+        c_color = "🟢 Baixo Custo" if c >= 4 else ("🔴 Alto Custo" if c <= 2 else "🟡 Custo Médio")
+        
+        data.append({
+            "Solução": desc[:40] + ("..." if len(desc)>40 else ""),
+            "Impacto": i,
+            "Esforço": e,
+            "Custo Cor": c_color,
+            "Score": s.get("final_score", 0),
+            "Desc Full": desc
+        })
+        
+    if not data: return None
+        
+    df = pd.DataFrame(data)
+    
+    # Domains 1 to 5
+    scatter = alt.Chart(df).mark_circle(size=250, opacity=0.8).encode(
+        x=alt.X('Esforço:Q', scale=alt.Scale(domain=[1, 5]), title="Esforço (1=Fácil, 5=Difícil)"),
+        y=alt.Y('Impacto:Q', scale=alt.Scale(domain=[1, 5]), title="Impacto (1=Baixo, 5=Alto)"),
+        color=alt.Color('Custo Cor:N', scale=alt.Scale(domain=["🟢 Baixo Custo", "🟡 Custo Médio", "🔴 Alto Custo"], range=["green", "#d4af37", "red"])),
+        tooltip=['Solução', 'Impacto', 'Esforço', 'Custo Cor', 'Score', 'Desc Full']
+    ).interactive()
+    
+    # Adding lines for quadrants
+    line_x = alt.Chart(pd.DataFrame({'x': [3]})).mark_rule(strokeDash=[4, 4], color='gray').encode(x='x:Q')
+    line_y = alt.Chart(pd.DataFrame({'y': [3]})).mark_rule(strokeDash=[4, 4], color='gray').encode(y='y:Q')
+    
+    return (scatter + line_x + line_y).properties(width='container', height=400)
+
 def extract_valid_causes(plano_validacao_rows):
     """
     Search for valid causes and format their ancestral path.
@@ -92,13 +142,19 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
 
     # Select Macro Plan
     p_opts = {p["id"]: p["effect"] for p in planos_sol}
+    p_opts_with_global = {"GLOBAL": "🌎 Plano Global Consolidado (Read-only)"}
+    p_opts_with_global.update(p_opts)
+    
     default_p_idx = 0
-    if "ps_selected_macro_id" in st.session_state and st.session_state["ps_selected_macro_id"] in p_opts:
-        default_p_idx = list(p_opts.keys()).index(st.session_state["ps_selected_macro_id"])
+    if "ps_selected_macro_id" in st.session_state and st.session_state["ps_selected_macro_id"] in p_opts_with_global:
+        default_p_idx = list(p_opts_with_global.keys()).index(st.session_state["ps_selected_macro_id"])
 
     c_sel, c_btn = st.columns([3, 1])
     with c_sel:
-        selected_macro_id = st.selectbox("Selecione a Coleção de Soluções (Macro):", options=list(p_opts.keys()), format_func=lambda x: f"[{x[:4]}] {p_opts[x]}", index=default_p_idx)
+        def fmt_macro(x):
+            if x == "GLOBAL": return p_opts_with_global[x]
+            return f"[{x[:4]}] {p_opts_with_global[x]}"
+        selected_macro_id = st.selectbox("Selecione a Coleção de Soluções (Macro):", options=list(p_opts_with_global.keys()), format_func=fmt_macro, index=default_p_idx)
         st.session_state["ps_selected_macro_id"] = selected_macro_id
     with c_btn:
         with st.popover("➕ Novo Plano Macro", use_container_width=True):
@@ -122,6 +178,35 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
 
+    if selected_macro_id == "GLOBAL":
+        st.info("Visão global das soluções ELEITAS (Flegadas) por todos os planos. Somente leitura.")
+        todas_solucoes_eleitas = []
+        for p in planos_sol:
+            for c in p.get("causas", []):
+                for s in c.get("solucoes", []):
+                    if s.get("selecionada") is True:
+                        todas_solucoes_eleitas.append(s)
+        
+        grafico = render_grafico_dispersao(todas_solucoes_eleitas)
+        if grafico:
+            st.altair_chart(grafico, use_container_width=True)
+            
+            st.markdown("---")
+            st.markdown("### Soluções Eleitas (Global)")
+            for i, sol in enumerate(todas_solucoes_eleitas):
+                cols = st.columns([1, 4, 1.5, 1.5, 1.5, 1.5])
+                cols[0].markdown(f"**#{i+1}**")
+                cols[1].write(sol.get("desc", ""))
+                cols[2].write(f"**Custo:** {sol.get('c_score', 0)}")
+                cols[3].write(f"**Esforço:** {sol.get('e_score', 0)}")
+                cols[4].write(f"**Impacto:** {sol.get('i_score', 0)}")
+                cols[5].write(f"**Score:** {sol.get('final_score', 0)}")
+                st.caption(sol.get("comentario", ""))
+                st.markdown("---")
+        else:
+            st.warning("Nenhuma solução foi 'Eleita' (Flegada) em todo o projeto ainda.")
+        return
+    
     active_macro = next((p for p in planos_sol if p["id"] == selected_macro_id), None)
     if not active_macro: return
 
@@ -178,8 +263,21 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
         active_causa["causa_text"] = n_causa
         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
 
+    # Chart block
     solucoes = active_causa.get("solucoes", [])
+    all_sols_this_plan = []
+    for c in active_macro.get("causas", []):
+        for s in c.get("solucoes", []):
+            if s.get("desc", "").strip():
+                all_sols_this_plan.append(s)
     
+    if all_sols_this_plan:
+        st.markdown("---")
+        st.markdown("### Matriz Esforço x Impacto (Soluções deste Plano)")
+        graf_local = render_grafico_dispersao(all_sols_this_plan)
+        if graf_local:
+            st.altair_chart(graf_local, use_container_width=True)
+
     st.markdown("<br>", unsafe_allow_html=True)
     c_btn1, c_btn2 = st.columns([1, 4])
     with c_btn1:
@@ -192,6 +290,8 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                         c = int(obj.get("custo", 3))
                         e = int(obj.get("esforco", 3))
                         i = int(obj.get("impacto", 3))
+                        c_inv = 6 - c
+                        e_inv = 6 - e
                         solucoes.append({
                             "id": str(uuid.uuid4()),
                             "selecionada": False,
@@ -200,7 +300,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                             "e_score": e,
                             "i_score": i,
                             "comentario": obj.get("comentario", ""),
-                            "final_score": (c * active_macro.get("p_c_peso", 1)) + (e * active_macro.get("p_e_peso", 1)) + (i * active_macro.get("p_i_peso", 1))
+                            "final_score": (c_inv * active_macro.get("p_c_peso", 1)) + (e_inv * active_macro.get("p_e_peso", 1)) + (i * active_macro.get("p_i_peso", 1))
                         })
                     active_causa["solucoes"] = solucoes
                     # Força nova geração
@@ -226,9 +326,9 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
         '<div style="display: flex; gap: 1rem; align-items: center; padding: 0 4px;">'
         '<div style="flex: 0.5; font-size: 0.85em;"><b>Eleger</b></div>'
         '<div style="flex: 4; font-size: 0.85em;"><b>Solução</b></div>'
-        '<div style="flex: 1.5; font-size: 0.85em;"><b>Custo (1-5)</b></div>'
-        '<div style="flex: 1.5; font-size: 0.85em;"><b>Esforço (1-5)</b></div>'
-        '<div style="flex: 1.5; font-size: 0.85em;"><b>Impacto (1-5)</b></div>'
+        '<div style="flex: 1.5; font-size: 0.85em;"><b>Custo (5=Caro)</b></div>'
+        '<div style="flex: 1.5; font-size: 0.85em;"><b>Esforço (5=Difícil)</b></div>'
+        '<div style="flex: 1.5; font-size: 0.85em;"><b>Impacto (5=Alto)</b></div>'
         '<div style="flex: 1.5; font-size: 0.85em;"><b>Score Total</b></div>'
         '<div style="flex: 4; font-size: 0.85em;"><b>Análise / Prós e Contras</b></div>'
         '<div style="flex: 0.8; font-size: 0.85em;"><b>Ação</b></div>'
@@ -255,12 +355,17 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
         new_e = cols[3].number_input("E", min_value=1, max_value=5, value=sol.get("e_score", 3), key=f"e_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
         new_i = cols[4].number_input("I", min_value=1, max_value=5, value=sol.get("i_score", 3), key=f"i_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
         
-        # Total Score
+        # Total Score logic: Invert Cost and Effort for the Score.
         old_score = sol.get("final_score", 0)
-        calc_score = (new_c * active_macro.get("p_c_peso", 1)) + (new_e * active_macro.get("p_e_peso", 1)) + (new_i * active_macro.get("p_i_peso", 1))
+        c_inv = 6 - new_c
+        e_inv = 6 - new_e
+        calc_score = (c_inv * active_macro.get("p_c_peso", 1)) + (e_inv * active_macro.get("p_e_peso", 1)) + (new_i * active_macro.get("p_i_peso", 1))
         
-        color_score = "green" if calc_score >= 30 else ("orange" if calc_score >= 15 else "red")
-        cols[5].markdown(f"<div style='text-align:center; padding-top:20px; font-size:24px; color:{color_score}; font-weight:bold;'>{calc_score}</div>", unsafe_allow_html=True)
+        # Adjusting color logic: max possible score is 15 * total weight. Assuming weight 1 for all = max 15. Wait, 5*1 + 5*1 + 5*1 = 15. If weight is 5 for all = 75.
+        # So we can't hardcode 30 as green. Let's make it proportional.
+        max_possible = 5 * (active_macro.get("p_c_peso",1) + active_macro.get("p_e_peso",1) + active_macro.get("p_i_peso",1))
+        color_score = "green" if calc_score >= (max_possible * 0.7) else ("orange" if calc_score >= (max_possible * 0.4) else "red")
+        cols[5].markdown(f"<div style='text-align:center; padding-top:20px; font-size:24px; color:{color_score}; font-weight:bold;' title='Esforço Invertido + Custo Invertido + Impacto'>{calc_score}</div>", unsafe_allow_html=True)
         
         # Comentario Text
         new_com = cols[6].text_area("com", value=sol.get("comentario", ""), key=f"com_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=read_only)
