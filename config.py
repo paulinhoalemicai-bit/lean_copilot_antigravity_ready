@@ -14,8 +14,8 @@ TOOLS = [
     "Ishikawa",
     "5 Porquês",
     "Plano de Validação de Causas",
-    "Plano de Soluções",
     "Plano de Ação",
+    "Quick Wins",
     "Saving Realizado"
 ]
 
@@ -95,6 +95,12 @@ Ferramenta Plano de Ação (5W2H).
 Objetivo:
 - Detalhar as ações das soluções escolhidas (o que, como, quem, etc).
 - Coach deve auxiliar apenas no "O que" e "Como".
+""",
+    "Quick Wins": """
+Ferramenta Quick Wins (Ganhos Rápidos).
+Objetivo:
+- Mapear e executar ações de baixa complexidade e alto impacto imediato que não exigem validações complexas.
+- Segue a estrutura 5W2H para execução ágil.
 """,
     "Saving Projetado": """
 Ferramenta Financeira de Cálculo de Saving Projetado (Define).

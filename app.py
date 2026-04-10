@@ -521,8 +521,42 @@ def sync_dynamic_tables():
                     row[field] = st.session_state[k]
                     updated_pa = True
 
+    # 5. Quick Wins
+    updated_qw = False
+    if "quick_wins" in project_state and project_state["quick_wins"]:
+        qw_data = project_state["quick_wins"]
+        active_qw = qw_data[0]
+        rows = active_qw.get("rows", [])
+        for row in rows:
+            rid = row.get("row_id")
+            v = row.get("version_ai", 0)
+            
+            # Mapeamento para Quick Wins (qw_ e qwa_)
+            k_acao = f"qwa_acao_{rid}_{v}"
+            k_onde = f"qwa_onde_{rid}"
+            k_inip = f"qwa_inip_{rid}"
+            k_fimp = f"qwa_fimp_{rid}"
+            k_inir = f"qwa_inir_{rid}"
+            k_fimr = f"qwa_fimr_{rid}"
+            k_quem = f"qwa_quem_{rid}"
+            k_stat = f"qwa_stat_{rid}"
+            
+            # Campos de texto livre (causa/solucao)
+            k_causa = f"qw_causa_{rid}"
+            k_sol = f"qw_sol_{rid}"
+
+            mapping_qw = {
+                k_acao: "acao", k_onde: "onde", k_inip: "ini_prev", k_fimp: "fim_prev",
+                k_inir: "ini_real", k_fimr: "fim_real", k_quem: "quem", k_stat: "status",
+                k_causa: "causa", k_sol: "solucao"
+            }
+            for k, field in mapping_qw.items():
+                if k in st.session_state:
+                    row[field] = st.session_state[k]
+                    updated_qw = True
+
     # --- SALVAMENTO AUTOMÁTICO NA SINCRONIZAÇÃO ---
-    if updated_ce or updated_pl or updated_ind or updated_pa:
+    if updated_ce or updated_pl or updated_ind or updated_pa or updated_qw:
         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
 
 if not read_only:
@@ -1692,6 +1726,10 @@ with tool_container:
         import ui_plano_acao_5w2h
         ui_plano_acao_5w2h.render_plano_acao_ui(project_state, pid, db, read_only)
 
+    elif tool == "Quick Wins":
+        import ui_quick_wins
+        ui_quick_wins.render_quick_wins_ui(project_state, pid, db, read_only)
+
     else:
         st.info("Outras ferramentas estão na fila de atualização para a nuvem.")
         draft = db.load_draft(pid, tool) or {}
@@ -2205,6 +2243,39 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 
                                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                                 st.session_state["ai_generated_warning"] = f"✨ ⚠️ A Solução `{solucao[:30]}...` foi desdobrada em {len(acoes_sugeridas)} ações passo a passo! Agora preencha os prazos/donos localmente."
+                                st.rerun()
+
+            # --- FLUXO ESPECIAL: Geração do Quick Wins ---
+            elif tool == "Quick Wins" and mode_str == "generate":
+                with st.spinner("Doutor Lean desdobrando Quick Wins..."):
+                    qw_data = project_state.get("quick_wins", [])
+                    if not qw_data or not qw_data[0].get("rows", []):
+                        st.error("Nenhuma Oportunidade disponível no Quick Wins. Adicione uma linha primeiro!")
+                    else:
+                        rows = qw_data[0]["rows"]
+                        import coach_extensions
+                        target_row_idx = next((i for i, r in enumerate(rows) if not str(r.get("acao", "")).strip()), -1)
+                        if target_row_idx == -1:
+                            st.error("Todas as oportunidades já possuem ações! Limpe o campo para eu gerar novamente.")
+                        else:
+                            target_row = rows[target_row_idx]
+                            causa = str(target_row.get("causa", ""))
+                            solucao = str(target_row.get("solucao", ""))
+                            acoes_sugeridas = coach_extensions.suggest_acao_5w2h(project_state, causa, solucao)
+                            if not acoes_sugeridas:
+                                st.error("Falha ao gerar o passo a passo.")
+                            else:
+                                target_row["acao"] = acoes_sugeridas[0]
+                                target_row["version_ai"] = target_row.get("version_ai", 0) + 1
+                                import uuid
+                                for idx_adic, ax in enumerate(acoes_sugeridas[1:]):
+                                    rows.insert(target_row_idx + 1 + idx_adic, {
+                                        "row_id": str(uuid.uuid4())[:12], "sol_id": target_row.get("sol_id"), "is_parent": False,
+                                        "id_display": target_row.get("id_display", "-"), "causa": target_row.get("causa", ""), "solucao": target_row.get("solucao", ""),
+                                        "acao": ax, "onde": "", "ini_prev": "", "fim_prev": "", "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado", "version_ai": 0
+                                    })
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                                st.session_state["ai_generated_warning"] = "✨ Quick Wins táticos gerados com sucesso!"
                                 st.rerun()
 
             # --- FLUXO PADRÃO (Revisão ou Outras ferramentas) ---
