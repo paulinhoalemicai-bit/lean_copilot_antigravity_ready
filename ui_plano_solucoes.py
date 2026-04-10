@@ -206,6 +206,13 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             st.markdown("---")
             st.markdown("### Soluções Eleitas (Global)")
             
+            # Header Row
+            g_headers = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5])
+            g_labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total"]
+            for hc, lab in zip(g_headers, g_labels):
+                hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; height: 100%; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
             dirty_global = False
             for i, sol in enumerate(todas_solucoes_eleitas):
                 cols = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5])
@@ -341,21 +348,11 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     )
 
     # Header Row
-    st.markdown(
-        '<div style="background-color: #001C59; color: white; padding: 15px 10px; border-radius: 6px;">'
-        '<div style="display: flex; gap: 1rem; align-items: center; padding: 0 4px;">'
-        '<div style="flex: 0.5; font-size: 0.85em;"><b>Eleger</b></div>'
-        '<div style="flex: 1.2; font-size: 0.85em;"><b>ID</b></div>'
-        '<div style="flex: 4; font-size: 0.85em;"><b>Solução</b></div>'
-        '<div style="flex: 1.5; font-size: 0.85em;"><b>Custo (5=Caro)</b></div>'
-        '<div style="flex: 1.5; font-size: 0.85em;"><b>Esforço (5=Difícil)</b></div>'
-        '<div style="flex: 1.5; font-size: 0.85em;"><b>Impacto (5=Alto)</b></div>'
-        '<div style="flex: 1.5; font-size: 0.85em;"><b>Score Total</b></div>'
-        '<div style="flex: 4; font-size: 0.85em;"><b>Análise / Prós e Contras</b></div>'
-        '<div style="flex: 0.8; font-size: 0.85em;"><b>Ação</b></div>'
-        '</div></div><br>',
-        unsafe_allow_html=True
-    )
+    headers = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
+    labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total", "Análise / Prós e Contras", "Ação"]
+    for hc, lab in zip(headers, labels):
+        hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; height: 100%; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     gen_ver = st.session_state.get("ps_gen_ver", 0)
     
