@@ -7,7 +7,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
     
     planos_acao = project_state.get("planos_acao", [])
     if not planos_acao:
-        if st.button("Iniciar Novo Plano de Ação 5W2H", disabled=read_only):
+        if st.button("Iniciar Novo Plano em Branco", disabled=read_only):
             planos_acao.append({
                 "id": str(uuid.uuid4())[:8],
                 "effect": "Plano Principal",
@@ -33,7 +33,7 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                             # Evitar duplicação da raiz da solução
                             exists = any(r.get("sol_id") == s.get("id") and r.get("is_parent", False) for r in rows)
                             if not exists:
-                                parent_causa = c.get("descricao", "Causa Desconhecida")
+                                parent_causa = c.get("causa_text", "Causa Desconhecida")
                                 rows.append({
                                     "row_id": str(uuid.uuid4())[:12],
                                     "sol_id": s.get("id"),
@@ -72,7 +72,21 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
     st.markdown("---")
     
     if not rows:
-        st.info("Nenhuma solução importada ainda. Clique no botão acima para construir sua base.")
+        st.info("Plano vazio. Clique no botão de importação acima ou adicione uma linha manualmente abaixo para construir sua base.")
+        if st.button("➕ Adicionar Linha Manual", disabled=read_only):
+            rows.append({
+                "row_id": str(uuid.uuid4())[:12],
+                "sol_id": str(uuid.uuid4())[:8],
+                "is_parent": True,
+                "id_display": "-",
+                "causa": "Causa Manual",
+                "solucao": "Solução Manual",
+                "acao": "", "onde": "", "ini_prev": "", "fim_prev": "",
+                "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado"
+            })
+            active_plano["rows"] = rows
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.rerun()
         return
 
     # Header Row com 12 colunas (sendo a última para os botões)
@@ -103,8 +117,8 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
         cols[0].markdown(f"<div style='text-align:center; padding-top: 30px;'><b>{row.get('id_display', '')}</b></div>", unsafe_allow_html=True)
 
         if is_parent:
-            cols[1].text_area("causa", value=row.get("causa", ""), key=f"pa_causa_{i}", height=h, label_visibility="collapsed", disabled=True)
-            cols[2].text_area("sol", value=row.get("solucao", ""), key=f"pa_sol_{i}", height=h, label_visibility="collapsed", disabled=True)
+            cols[1].text_area("causa", value=row.get("causa", ""), key=f"pa_causa_{i}", height=h, label_visibility="collapsed", disabled=read_only)
+            cols[2].text_area("sol", value=row.get("solucao", ""), key=f"pa_sol_{i}", height=h, label_visibility="collapsed", disabled=read_only)
         else:
             cols[1].markdown("") # Em branco
             cols[2].markdown("") # Em branco
@@ -157,8 +171,46 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                     
                     rows.pop(i)
                     dirty = True
+                
+                if st.button("🤖", key=f"pa_ai_{rid}", help="A IA preencherá automaticamente campos de Ação (O que / Como) para esta solução!"):
+                    import coach_extensions
+                    c_txt = row.get("causa", "")
+                    s_txt = row.get("solucao", "")
+                    with st.spinner("Doutor Lean desdobrando ações..."):
+                        acoes_sugeridas = coach_extensions.suggest_acao_5w2h(project_state, c_txt, s_txt)
+                        if acoes_sugeridas:
+                            row["acao"] = acoes_sugeridas[0]
+                            # As próximas viram filhas em sequencia logo abaixo desta que foi clicada
+                            for idx_adic, ax in enumerate(acoes_sugeridas[1:]):
+                                nova_filha = {
+                                    "row_id": str(uuid.uuid4())[:12],
+                                    "sol_id": row.get("sol_id"),
+                                    "is_parent": False,
+                                    "id_display": row.get("id_display", "-"),
+                                    "causa": row.get("causa", ""),
+                                    "solucao": row.get("solucao", ""),
+                                    "acao": ax, "onde": "", "ini_prev": "", "fim_prev": "",
+                                    "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado"
+                                }
+                                rows.insert(i + 1 + idx_adic, nova_filha)
+                        dirty = True
+                        st.session_state["ai_generated_warning"] = "✨ ⚠️ Linhas criadas pela IA com sucesso!"
 
         st.markdown("---")
+
+    if not read_only:
+        if st.button("➕ Adicionar Nova Causa/Solução Manual"):
+            rows.append({
+                "row_id": str(uuid.uuid4())[:12],
+                "sol_id": str(uuid.uuid4())[:8],
+                "is_parent": True,
+                "id_display": "-",
+                "causa": "Causa Manual",
+                "solucao": "Solução Manual",
+                "acao": "", "onde": "", "ini_prev": "", "fim_prev": "",
+                "ini_real": "", "fim_real": "", "quem": "", "status": "Não Iniciado"
+            })
+            dirty = True
 
     if dirty:
         active_plano["rows"] = rows
