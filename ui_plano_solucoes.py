@@ -207,15 +207,15 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             st.markdown("### Soluções Eleitas (Global)")
             
             # Header Row
-            g_headers = st.columns([0.85, 1.0, 4, 1.5, 1.8, 1.5, 1.2])
+            g_headers = st.columns([0.85, 1.1, 4, 1.6, 2.2, 1.8, 0.8])
             g_labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total"]
             for hc, lab in zip(g_headers, g_labels):
-                hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 8px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; display: flex; align-items: center; justify-content: center; height: 100%;"><b>{lab}</b></div>', unsafe_allow_html=True)
+                hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; display: flex; align-items: center; justify-content: center; height: 100%;"><b>{lab}</b></div>', unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
             dirty_global = False
             for i, sol in enumerate(todas_solucoes_eleitas):
-                cols = st.columns([0.85, 1.0, 4, 1.5, 1.8, 1.5, 1.2])
+                cols = st.columns([0.85, 1.1, 4, 1.6, 2.2, 1.8, 0.8])
                 
                 # Checkbox interagível na primeira coluna
                 new_sel = cols[0].checkbox("V", value=sol.get("selecionada", True), key=f"globsel_{sol.get('id', i)}", label_visibility="collapsed")
@@ -352,10 +352,10 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
 
     # Header Row
     # Header Row
-    headers = st.columns([0.85, 1.1, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
+    headers = st.columns([0.85, 1.1, 4, 1.6, 2.2, 1.8, 0.8, 4, 0.8])
     labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total", "Análise / Prós e Contras", "Ação"]
     for hc, lab in zip(headers, labels):
-        hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 8px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; display: flex; align-items: center; justify-content: center; height: 100%;"><b>{lab}</b></div>', unsafe_allow_html=True)
+        hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; display: flex; align-items: center; justify-content: center; height: 100%;"><b>{lab}</b></div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     gen_ver = st.session_state.get("ps_gen_ver", 0)
@@ -363,7 +363,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     dirty = False
 
     for s_idx, sol in enumerate(solucoes):
-        cols = st.columns([0.85, 1.1, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
+        cols = st.columns([0.85, 1.1, 4, 1.6, 2.2, 1.8, 0.8, 4, 0.8])
         
         h = 100
         # Checkbox
