@@ -210,7 +210,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             g_headers = st.columns([0.85, 1.0, 4, 1.5, 1.8, 1.5, 1.2])
             g_labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total"]
             for hc, lab in zip(g_headers, g_labels):
-                hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; height: 100%; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
+                hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; min-height: 85px; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
             dirty_global = False
@@ -223,12 +223,12 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                     sol["selecionada"] = new_sel
                     dirty_global = True
                 
-                cols[1].markdown(f"**{sol.get('_display_id', '')}**")
+                cols[1].markdown(f"<div style='text-align:center;'><b>{sol.get('_display_id', '')}</b></div>", unsafe_allow_html=True)
                 cols[2].write(sol.get("desc", ""))
-                cols[3].write(f"**Custo:** {sol.get('c_score', 0)}")
-                cols[4].write(f"**Esforço:** {sol.get('e_score', 0)}")
-                cols[5].write(f"**Impacto:** {sol.get('i_score', 0)}")
-                cols[6].write(f"**Score:** {sol.get('final_score', 0)}")
+                cols[3].markdown(f"<div style='text-align:center;'>{sol.get('c_score', 0)}</div>", unsafe_allow_html=True)
+                cols[4].markdown(f"<div style='text-align:center;'>{sol.get('e_score', 0)}</div>", unsafe_allow_html=True)
+                cols[5].markdown(f"<div style='text-align:center;'>{sol.get('i_score', 0)}</div>", unsafe_allow_html=True)
+                cols[6].markdown(f"<div style='text-align:center;'><b>{sol.get('final_score', 0)}</b></div>", unsafe_allow_html=True)
                 st.caption(sol.get("comentario", ""))
                 st.markdown("---")
                 
@@ -338,12 +338,13 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                     st.error("Erro na resposta da IA.")
     
     # CSS Custom Grid (1400px scrollable) targeting only the main matrix Grid (blocks with at least 8 columns) to prevent blowing up the Weights Header
-    # Ocultar também os botões de + e - dos st.number_input dentro desse Grid.
+    # Ocultar também os botões de + e - e centralizar texto dos st.number_input dentro desse Grid.
     st.markdown(
         f'<style>'
         f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) {{ min-width: 1400px !important; }}'
         f'[data-testid="stColumn"] div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) {{ min-width: 0 !important; }}'
         f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) div[data-testid="stNumberInput"] button {{ display: none !important; }}'
+        f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) div[data-testid="stNumberInput"] input {{ text-align: center !important; }}'
         f'</style>'
         f'<div style="min-width:1400px; height:1px; visibility:hidden;"></div>',
         unsafe_allow_html=True
@@ -353,7 +354,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     headers = st.columns([0.85, 1.0, 4, 1.5, 1.8, 1.5, 1.2, 4, 0.8])
     labels = ["Eleger", "ID", "Solução", "Custo (5=Caro)", "Esforço (5=Difícil)", "Impacto (5=Alto)", "Score Total", "Análise / Prós e Contras", "Ação"]
     for hc, lab in zip(headers, labels):
-        hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; height: 100%; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
+        hc.markdown(f'<div style="background-color: #001C59; color: white; padding: 15px 5px; border-radius: 6px; text-align: center; font-size: 0.85em; min-height: 85px; display: flex; align-items: center; justify-content: center;"><b>{lab}</b></div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     gen_ver = st.session_state.get("ps_gen_ver", 0)
