@@ -30,6 +30,7 @@ def render_grafico_dispersao(solucoes_list):
         c_color = "🟢 Baixo Custo" if c >= 4 else ("🔴 Alto Custo" if c <= 2 else "🟡 Custo Médio")
         
         data.append({
+            "ID_Vis": s.get("_display_id", ""),
             "Solução": desc[:40] + ("..." if len(desc)>40 else ""),
             "Impacto": i,
             "Esforço": e,
@@ -43,18 +44,26 @@ def render_grafico_dispersao(solucoes_list):
     df = pd.DataFrame(data)
     
     # Domains 1 to 5
-    scatter = alt.Chart(df).mark_circle(size=250, opacity=0.8).encode(
+    base = alt.Chart(df).encode(
         x=alt.X('Esforço:Q', scale=alt.Scale(domain=[1, 5]), title="Esforço (1=Fácil, 5=Difícil)"),
-        y=alt.Y('Impacto:Q', scale=alt.Scale(domain=[1, 5]), title="Impacto (1=Baixo, 5=Alto)"),
+        y=alt.Y('Impacto:Q', scale=alt.Scale(domain=[1, 5]), title="Impacto (1=Baixo, 5=Alto)")
+    )
+    
+    scatter = base.mark_circle(size=400, opacity=0.8).encode(
         color=alt.Color('Custo Cor:N', scale=alt.Scale(domain=["🟢 Baixo Custo", "🟡 Custo Médio", "🔴 Alto Custo"], range=["green", "#d4af37", "red"])),
-        tooltip=['Solução', 'Impacto', 'Esforço', 'Custo Cor', 'Score', 'Desc Full']
-    ).interactive()
+        tooltip=['ID_Vis', 'Solução', 'Impacto', 'Esforço', 'Custo Cor', 'Score', 'Desc Full']
+    )
+    
+    text = base.mark_text(align='center', baseline='middle', color='white', fontSize=12, fontWeight='bold').encode(
+        text='ID_Vis:N'
+    )
     
     # Adding lines for quadrants
     line_x = alt.Chart(pd.DataFrame({'x': [3]})).mark_rule(strokeDash=[4, 4], color='gray').encode(x='x:Q')
     line_y = alt.Chart(pd.DataFrame({'y': [3]})).mark_rule(strokeDash=[4, 4], color='gray').encode(y='y:Q')
     
-    return (scatter + line_x + line_y).properties(width='container', height=400)
+    layer = scatter + text
+    return (layer + line_x + line_y).properties(width='container', height=400)
 
 def extract_valid_causes(plano_validacao_rows):
     """
@@ -181,10 +190,13 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     if selected_macro_id == "GLOBAL":
         st.info("Visão global das soluções ELEITAS (Flegadas) por todos os planos. Você pode desmarcar a caixa caso desista de uma solução prioritária.")
         todas_solucoes_eleitas = []
+        global_seq = 1
         for p in planos_sol:
             for c in p.get("causas", []):
                 for s in c.get("solucoes", []):
                     if s.get("selecionada") is True:
+                        s["_display_id"] = f"{global_seq} - {c.get('wbs', 'X')}"
+                        global_seq += 1
                         todas_solucoes_eleitas.append(s)
         
         grafico = render_grafico_dispersao(todas_solucoes_eleitas)
@@ -196,19 +208,20 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             
             dirty_global = False
             for i, sol in enumerate(todas_solucoes_eleitas):
-                cols = st.columns([1, 4, 1.5, 1.5, 1.5, 1.5])
+                cols = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5])
                 
                 # Checkbox interagível na primeira coluna
-                new_sel = cols[0].checkbox(f"#{i+1}", value=sol.get("selecionada", True), key=f"globsel_{sol.get('id', i)}")
+                new_sel = cols[0].checkbox("V", value=sol.get("selecionada", True), key=f"globsel_{sol.get('id', i)}", label_visibility="collapsed")
                 if new_sel != sol.get("selecionada"):
                     sol["selecionada"] = new_sel
                     dirty_global = True
-                    
-                cols[1].write(sol.get("desc", ""))
-                cols[2].write(f"**Custo:** {sol.get('c_score', 0)}")
-                cols[3].write(f"**Esforço:** {sol.get('e_score', 0)}")
-                cols[4].write(f"**Impacto:** {sol.get('i_score', 0)}")
-                cols[5].write(f"**Score:** {sol.get('final_score', 0)}")
+                
+                cols[1].markdown(f"**{sol.get('_display_id', '')}**")
+                cols[2].write(sol.get("desc", ""))
+                cols[3].write(f"**Custo:** {sol.get('c_score', 0)}")
+                cols[4].write(f"**Esforço:** {sol.get('e_score', 0)}")
+                cols[5].write(f"**Impacto:** {sol.get('i_score', 0)}")
+                cols[6].write(f"**Score:** {sol.get('final_score', 0)}")
                 st.caption(sol.get("comentario", ""))
                 st.markdown("---")
                 
@@ -238,6 +251,14 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     st.markdown("---")
 
     causas = active_macro.get("causas", [])
+    
+    # Gerar a numeração sequencial iterando em todas as causas do plano
+    local_seq = 1
+    for cx in causas:
+        for sx in cx.get("solucoes", []):
+            sx["_display_id"] = f"{local_seq} - {cx.get('wbs', 'X')}"
+            local_seq += 1
+            
     if not causas:
         st.info("Nenhuma causa mapeada neste plano.")
         if st.button("➕ Adicionar Causa Manual"):
@@ -323,6 +344,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
         '<div style="background-color: #001C59; color: white; padding: 15px 10px; border-radius: 6px;">'
         '<div style="display: flex; gap: 1rem; align-items: center; padding: 0 4px;">'
         '<div style="flex: 0.5; font-size: 0.85em;"><b>Eleger</b></div>'
+        '<div style="flex: 1.2; font-size: 0.85em;"><b>ID</b></div>'
         '<div style="flex: 4; font-size: 0.85em;"><b>Solução</b></div>'
         '<div style="flex: 1.5; font-size: 0.85em;"><b>Custo (5=Caro)</b></div>'
         '<div style="flex: 1.5; font-size: 0.85em;"><b>Esforço (5=Difícil)</b></div>'
@@ -339,19 +361,22 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
     dirty = False
 
     for s_idx, sol in enumerate(solucoes):
-        cols = st.columns([0.5, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
+        cols = st.columns([0.5, 1.2, 4, 1.5, 1.5, 1.5, 1.5, 4, 0.8])
         
-        # Checkbox
         h = 100
+        # Checkbox
         new_sel = cols[0].checkbox("V", value=sol.get("selecionada", False), key=f"sel_{selected_macro_id}_{sel_causa_idx}_{s_idx}", disabled=read_only, label_visibility="collapsed")
         
+        # ID Visual
+        cols[1].markdown(f"**{sol.get('_display_id', '')}**")
+        
         # Desc Text
-        new_desc = cols[1].text_area("desc", value=sol.get("desc", ""), key=f"dsc_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=read_only)
+        new_desc = cols[2].text_area("desc", value=sol.get("desc", ""), key=f"dsc_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=read_only)
         
         # Numeric Inputs
-        new_c = cols[2].number_input("C", min_value=1, max_value=5, value=sol.get("c_score", 3), key=f"c_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
-        new_e = cols[3].number_input("E", min_value=1, max_value=5, value=sol.get("e_score", 3), key=f"e_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
-        new_i = cols[4].number_input("I", min_value=1, max_value=5, value=sol.get("i_score", 3), key=f"i_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
+        new_c = cols[3].number_input("C", min_value=1, max_value=5, value=sol.get("c_score", 3), key=f"c_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
+        new_e = cols[4].number_input("E", min_value=1, max_value=5, value=sol.get("e_score", 3), key=f"e_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
+        new_i = cols[5].number_input("I", min_value=1, max_value=5, value=sol.get("i_score", 3), key=f"i_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", label_visibility="collapsed", disabled=read_only)
         
         # Total Score logic: Invert Cost and Effort for the Score.
         old_score = sol.get("final_score", 0)
@@ -359,14 +384,13 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
         e_inv = 6 - new_e
         calc_score = (c_inv * active_macro.get("p_c_peso", 1)) + (e_inv * active_macro.get("p_e_peso", 1)) + (new_i * active_macro.get("p_i_peso", 1))
         
-        # Adjusting color logic: max possible score is 15 * total weight. Assuming weight 1 for all = max 15. Wait, 5*1 + 5*1 + 5*1 = 15. If weight is 5 for all = 75.
-        # So we can't hardcode 30 as green. Let's make it proportional.
+        # Adjusting color logic
         max_possible = 5 * (active_macro.get("p_c_peso",1) + active_macro.get("p_e_peso",1) + active_macro.get("p_i_peso",1))
         color_score = "green" if calc_score >= (max_possible * 0.7) else ("orange" if calc_score >= (max_possible * 0.4) else "red")
-        cols[5].markdown(f"<div style='text-align:center; padding-top:20px; font-size:24px; color:{color_score}; font-weight:bold;' title='Esforço Invertido + Custo Invertido + Impacto'>{calc_score}</div>", unsafe_allow_html=True)
+        cols[6].markdown(f"<div style='text-align:center; padding-top:20px; font-size:24px; color:{color_score}; font-weight:bold;' title='Esforço Invertido + Custo Invertido + Impacto'>{calc_score}</div>", unsafe_allow_html=True)
         
         # Comentario Text
-        new_com = cols[6].text_area("com", value=sol.get("comentario", ""), key=f"com_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=read_only)
+        new_com = cols[7].text_area("com", value=sol.get("comentario", ""), key=f"com_{selected_macro_id}_{sel_causa_idx}_{s_idx}_v{gen_ver}", height=h, label_visibility="collapsed", disabled=read_only)
         
         if (new_sel != sol.get("selecionada") or 
             new_desc != sol.get("desc") or 
@@ -386,7 +410,7 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
             dirty = True
 
         # Botão de Ação / Lixeira
-        with cols[7]:
+        with cols[8]:
             if not read_only:
                 if st.button("🧠", key=f"bin1_{selected_macro_id}_{sel_causa_idx}_{s_idx}", help="Autocompletar Linha"):
                     from coach_extensions import suggest_1_solucao_basico
