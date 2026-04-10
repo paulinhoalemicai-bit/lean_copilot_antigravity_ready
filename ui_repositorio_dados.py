@@ -18,7 +18,7 @@ def render_repositorio_dados_ui(project_state, pid, db, read_only):
     st.markdown("### 1. Importar Base de Dados")
     st.info("💡 Cole seus dados na caixa de texto abaixo OU faça upload de um arquivo CSV/Excel.")
     
-    col_upload, col_paste = st.columns(2)
+    col_upload, col_paste = st.columns([1, 2])
     with col_upload:
         uploaded_file = st.file_uploader("Upload de Arquivo", type=["csv", "xlsx", "xls"], disabled=read_only)
     with col_paste:
@@ -139,7 +139,6 @@ def render_repositorio_dados_ui(project_state, pid, db, read_only):
                         "content": ans_text,
                         "vega_lite": v_lite
                     })
-                    st.rerun()
 
         # Botão de salvar relatório
         if st.session_state["data_chat_logs"]:

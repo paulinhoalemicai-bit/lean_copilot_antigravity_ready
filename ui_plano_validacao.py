@@ -76,7 +76,7 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
     st.markdown("Insira os dados coletados e converse com o Doutor Lean para obter análises estátisticas e gráficos para atestar esta causa.")
     
     # 1. Carregamento de Dados (Mini)
-    col_upload, col_paste = st.columns(2)
+    col_upload, col_paste = st.columns([1, 2])
     with col_upload:
         uploaded_file = st.file_uploader("Upload de CSV/Excel (Mínimo)", type=["csv", "xlsx"], disabled=read_only)
     with col_paste:
@@ -150,7 +150,6 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
                         "content": ans_text,
                         "vega_lite": v_lite
                     })
-                    st.rerun()
 
     # 3. Gravar Evidência
     if not read_only and st.session_state[chat_key]:
