@@ -73,75 +73,109 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
     row = plano_atual["rows"][row_idx]
     
     st.subheader(f"Validando: [{row['wbs']}] {row['causa']}")
-    st.markdown("Insira os dados coletados e peça para o Doutor Lean analisar. Se for uma avaliação qualitativa, descreva as observações.")
+    st.markdown("Insira os dados coletados e converse com o Doutor Lean para obter análises estátisticas e gráficos para atestar esta causa.")
     
-    gen_key = st.session_state.get(f"pv_modal_gen_{plano_atual['id']}_{row_idx}", 0)
-    
-    # Text Area para os Dados
-    novos_dados = st.text_area(
-        "Dados Coletados / Observações Práticas",
-        value=row.get("dados_coletados", ""),
-        height=150,
-        disabled=read_only,
-        key=f"dados_{plano_atual['id']}_{row_idx}_v{gen_key}"
-    )
-    
-    uploaded_file = st.file_uploader("Opcional: Anexar arquivo (Excel/CSV) para leitura de dados", type=["csv", "xlsx"])
-    
+    # 1. Carregamento de Dados (Mini)
+    col_upload, col_paste = st.columns(2)
+    with col_upload:
+        uploaded_file = st.file_uploader("Upload de CSV/Excel (Mínimo)", type=["csv", "xlsx"], disabled=read_only)
+    with col_paste:
+        novos_dados = st.text_area("Ou Cole Dados/Observações", value=row.get("dados_coletados", ""), height=100, disabled=read_only)
+        row["dados_coletados"] = novos_dados # Sync direto com session state virtual da pagina mestre
+
+    df = None
     arquivo_resumo = ""
-    if uploaded_file:
-        try:
-            import pandas as pd
-            if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
-            arquivo_resumo = f"\n\n[DADOS DO ARQUIVO ANEXADO]\n- Linhas: {len(df)}\n- Colunas: {list(df.columns)}\n- Amostra (head):\n{df.head().to_string()}\n"
-        except Exception as e:
-            st.error(f"Erro ao ler arquivo: {e}")
-
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        if st.button("🧠 Pedir Análise da IA", disabled=read_only or (not novos_dados.strip() and not arquivo_resumo)):
-            with st.spinner("Analisando dados..."):
-                from coach_extensions import analyze_validation_data
-                row["dados_coletados"] = novos_dados
-                ia_resp = analyze_validation_data(project_state, row["causa"], novos_dados + arquivo_resumo)
-                row["veredito_ia"] = ia_resp
-                st.session_state[f"pv_modal_gen_{plano_atual['id']}_{row_idx}"] = gen_key + 1
-                db_module.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-                st.rerun()
-                
-    with c2:
-        if st.button("🤔 Sugerir Interpretação (Aluno)", disabled=read_only or not row.get("veredito_ia")):
-            st.warning("Feature: Sugerir interpretação (em construção)")
-            # todo: implementar interação do aluno para interpretar a IA
-            
-
-    if row.get("veredito_ia"):
-        st.markdown("### Retorno do Doutor Lean:")
-        st.info(row["veredito_ia"])
+    try:
+        import pandas as pd
+        import io
+        if uploaded_file is not None:
+            if uploaded_file.name.endswith(".csv"): df = pd.read_csv(uploaded_file)
+            else: df = pd.read_excel(uploaded_file)
+        elif novos_dados.strip():
+            df = pd.read_csv(io.StringIO(novos_dados), sep="\t")
         
+        if df is not None:
+            if len(df) > 2000:
+                st.error("⚠️ Base com mais de 2.000 linhas. Use uma IA externa para resumir os dados.")
+                df = None
+            else:
+                arquivo_resumo = f"Resumo do DataFrame:\n{df.head(10).to_csv(index=False)}"
+    except Exception:
+        if novos_dados.strip(): arquivo_resumo = f"Observações Práticas: {novos_dados}"
+
+    st.markdown("---")
+    
+    # 2. Chat Analista Específico da Hipótese
+    chat_key = f"chat_pv_{plano_atual['id']}_{row_idx}"
+    if chat_key not in st.session_state:
+        st.session_state[chat_key] = []
+        
+    chat_container = st.container()
+    
+    for msg in st.session_state[chat_key]:
+        with chat_container.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if msg.get("vega_lite"):
+                try:
+                    import altair as alt
+                    st.altair_chart(alt.Chart.from_dict(msg["vega_lite"]), use_container_width=True)
+                except Exception as e:
+                    st.caption(f"Falha ao desenhar o gráfico: {str(e)}")
+
+    if not read_only:
+        query = st.chat_input(f"Peça uma análise específica sobre [{row['wbs']}]...")
+        if query:
+            st.session_state[chat_key].append({"role": "user", "content": query})
+            with chat_container.chat_message("user"): st.markdown(query)
+            
+            with chat_container.chat_message("assistant"):
+                with st.spinner("Analisando estatiscamente..."):
+                    from coach_extensions import analyze_measurement_data
+                    ctx = arquivo_resumo if arquivo_resumo else "O aluno não postou dados. Apenas converse e tente induzi-lo."
+                    resultado_json = analyze_measurement_data(project_state, ctx, query, st.session_state[chat_key][:-1])
+                    
+                    ans_text = resultado_json.get("resposta", "")
+                    v_lite = resultado_json.get("vega_lite", None)
+                    
+                    st.markdown(ans_text)
+                    if v_lite:
+                        try:
+                            import altair as alt
+                            st.altair_chart(alt.Chart.from_dict(v_lite), use_container_width=True)
+                        except Exception as e:
+                            pass
+                    
+                    st.session_state[chat_key].append({
+                        "role": "assistant",
+                        "content": ans_text,
+                        "vega_lite": v_lite
+                    })
+                    st.rerun()
+
+    # 3. Gravar Evidência
+    if not read_only and st.session_state[chat_key]:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("💾 Gravar Chat como Evidência de Validação", type="primary", use_container_width=True):
+            row["evidencia_chat"] = st.session_state[chat_key].copy()
+            row["veredito_ia"] = "Evidência Registrada no Laboratório."
+            db_module.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.success("Análise Gravada! Ela atestará ou refutará sua matriz principal.")
+
     st.markdown("---")
     res_c1, res_c2, res_c3 = st.columns(3)
     row_status = row.get("status", "pendente")
     
     def update_status(new_status):
-        row["dados_coletados"] = novos_dados
         row["status"] = new_status
         db_module.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
         st.rerun()
 
     with res_c1:
-        if st.button("✅ Considerar Validada", type="primary" if row_status=="validada" else "secondary", disabled=read_only):
-            update_status("validada")
+        if st.button("✅ Considerar Validada", type="primary" if row_status=="validada" else "secondary", disabled=read_only): update_status("validada")
     with res_c2:
-        if st.button("❌ Considerar Recusada", type="primary" if row_status=="recusada" else "secondary", disabled=read_only):
-            update_status("recusada")
+        if st.button("❌ Considerar Recusada", type="primary" if row_status=="recusada" else "secondary", disabled=read_only): update_status("recusada")
     with res_c3:
-        if st.button("⏳ Deixar Pendente", type="primary" if row_status=="pendente" else "secondary", disabled=read_only):
-            update_status("pendente")
-
+        if st.button("⏳ Deixar Pendente", type="primary" if row_status=="pendente" else "secondary", disabled=read_only): update_status("pendente")
 
 def render_plano_validacao_ui(project_state, pid, db, read_only):
     st.subheader("✅ Plano de Validação de Causas")
@@ -313,7 +347,8 @@ def render_plano_validacao_ui(project_state, pid, db, read_only):
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.rerun()
 
-                if st.button("🔬 Analisar", key=f"btn_mod_{selected_id}_{idx}"):
+                btn_label = "📊 Analisar (Evidência Salva)" if r.get("evidencia_chat") else "🔬 Analisar Dados"
+                if st.button(btn_label, key=f"btn_mod_{selected_id}_{idx}"):
                     modal_analise_causa(project_state, pid, db, active_plano_idx, idx, read_only)
             else:
                 if is_locked_by_parent:
