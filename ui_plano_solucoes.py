@@ -338,10 +338,12 @@ def render_plano_solucoes_ui(project_state, pid, db, read_only):
                     st.error("Erro na resposta da IA.")
     
     # CSS Custom Grid (1400px scrollable) targeting only the main matrix Grid (blocks with at least 8 columns) to prevent blowing up the Weights Header
+    # Ocultar também os botões de + e - dos st.number_input dentro desse Grid.
     st.markdown(
         f'<style>'
         f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) {{ min-width: 1400px !important; }}'
         f'[data-testid="stColumn"] div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) {{ min-width: 0 !important; }}'
+        f'div[data-testid="stHorizontalBlock"]:has(> div:nth-child(8)) div[data-testid="stNumberInput"] button {{ display: none !important; }}'
         f'</style>'
         f'<div style="min-width:1400px; height:1px; visibility:hidden;"></div>',
         unsafe_allow_html=True
