@@ -73,7 +73,9 @@ def render_plano_acao_ui(project_state, pid, db, read_only):
                     st.rerun()
 
     with colZ:
-        zoom_opt = st.selectbox("🔍 Zoom Visual da Tabela", ["50%", "65%", "70%", "80%", "90%", "100%"], index=5, help="Ajusta o tamanho visual temporário para enquadrar planos grandes na tela sem precisar usar as configurações do Chrome.")
+        z_c1, z_c2 = st.columns([1, 1.2])
+        z_c1.markdown("<div style='margin-top: 5px; text-align: right; font-size: 0.9em; color: #555;'><b>🔍 Zoom:</b></div>", unsafe_allow_html=True)
+        zoom_opt = z_c2.selectbox("Zoom", ["50%", "65%", "70%", "80%", "90%", "100%"], index=5, label_visibility="collapsed", help="Ajusta o tamanho visual temporário para enquadrar planos grandes na tela sem precisar usar as configurações do Chrome.")
 
     # Injeção de CSS para o Grid Dinâmico Gigante e Botões Inline
     z_val = zoom_opt.replace('%', '')
