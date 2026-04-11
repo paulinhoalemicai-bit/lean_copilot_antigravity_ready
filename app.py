@@ -425,11 +425,16 @@ new_text = ""
 # Garante que edições manuais em tabelas dinâmicas não sejam perdidas ao trocar de ferramentas
 # ou ao realizar importações em outras telas, capturando os valores atuais do st.session_state.
 def sync_dynamic_tables():
+    updated_ce = False
+    updated_pl = False
+    updated_ind = False
+    updated_pa = False
+    updated_qw = False
+
     # 1. Matriz Causa & Efeito
     if "causa_efeito" in project_state:
         ce_data = project_state["causa_efeito"]
         ce_id = project_state.get("causa_efeito_id", 0)
-        updated_ce = False
         for i, row in enumerate(ce_data):
             k_ind = f"ce_ind_{i}_{ce_id}"
             k_imp = f"ce_imp_{i}_{ce_id}"

@@ -17,11 +17,20 @@ ENV_PATH = Path(__file__).with_name(".env")
 load_dotenv(dotenv_path=ENV_PATH)
 
 api_key = os.getenv("OPENAI_API_KEY", "").strip()
+
+# Tenta ler das secrets do Streamlit Cloud caso não ache no ambiente
+if not api_key:
+    try:
+        import streamlit as st
+        api_key = st.secrets.get("OPENAI_API_KEY", "").strip()
+    except Exception:
+        pass
+
 if not api_key:
     raise RuntimeError(
-        "OPENAI_API_KEY não encontrado.\n"
-        "Crie o arquivo .env na mesma pasta e coloque:\n"
-        "OPENAI_API_KEY=sua_chave_aqui\n"
+        "OPENAI_API_KEY não encontrado no ambiente local (.env) nem no Streamlit Secrets.\n"
+        "Para testes locais: Crie o arquivo .env na mesma pasta e coloque OPENAI_API_KEY=sua_chave\n"
+        "Na Nuvem: Insira OPENAI_API_KEY no painel de Secrets do Streamlit Cloud."
     )
 
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
