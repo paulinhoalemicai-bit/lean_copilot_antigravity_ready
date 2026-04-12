@@ -34,6 +34,17 @@ if not api_key:
     )
 
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+
+analysis_model_env = os.getenv("OPENAI_ANALYSIS_MODEL", "").strip()
+if not analysis_model_env:
+    try:
+        import streamlit as st
+        analysis_model_env = st.secrets.get("OPENAI_ANALYSIS_MODEL", "").strip()
+    except Exception:
+        pass
+        
+ANALYSIS_MODEL = analysis_model_env if analysis_model_env else "gpt-4o"
+
 client = OpenAI(api_key=api_key)
 
 

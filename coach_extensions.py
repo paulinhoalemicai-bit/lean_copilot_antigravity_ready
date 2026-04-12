@@ -216,7 +216,7 @@ AMOSTRA: [sua sugestão de tamanho do N ou período de tempo]"""
 
 def analyze_measurement_data(project_state, data_sample, user_query, chat_history):
     import json
-    from coach import client
+    from coach import client, ANALYSIS_MODEL
 
     # Montar histórico em texto
     history_text = ""
@@ -272,7 +272,7 @@ Sua resposta deve ser EXATAMENTE um JSON válido atendendo ao schema abaixo. NÃ
             messages_payload = [{'role': 'user', 'content': prompt}]
 
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model=ANALYSIS_MODEL,
             messages=messages_payload,
             temperature=0.2,
             response_format={ "type": "json_object" }
