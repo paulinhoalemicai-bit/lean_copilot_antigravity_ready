@@ -513,13 +513,18 @@ if not pid:
                 for p in all_ps:
                     p_state = db.get_project_state(p["project_id"])
                     
+                    def safe_get(p_data, key, subkey):
+                        d = p_data.get(key)
+                        if isinstance(d, dict): return d.get(subkey)
+                        return None
+                        
                     # Calcular Tools Completed
                     tools_completed = 0
-                    if p_state.get("voc_vob", {}).get("voc"): tools_completed += 1
-                    if p_state.get("charter", {}).get("y"): tools_completed += 1
+                    if safe_get(p_state, "voc_vob", "voc"): tools_completed += 1
+                    if safe_get(p_state, "charter", "y"): tools_completed += 1
                     if p_state.get("raci"): tools_completed += 1
-                    if p_state.get("sipoc", {}).get("rows"): tools_completed += 1
-                    if p_state.get("saving_projetado", {}).get("hard"): tools_completed += 1
+                    if safe_get(p_state, "sipoc", "rows"): tools_completed += 1
+                    if safe_get(p_state, "saving_projetado", "hard"): tools_completed += 1
                     if p_state.get("matriz_indicadores"): tools_completed += 1
                     if p_state.get("causa_efeito"): tools_completed += 1
                     if p_state.get("planos_validacao"): tools_completed += 1
@@ -780,13 +785,18 @@ with tool_container:
         st.markdown("Bem-vindo! Documente a identidade oficial da sua iniciativa de melhoria.")
         
         # --- Lógica do KPI do Estudante ---
+        def safe_get(p_data, key, subkey):
+            d = p_data.get(key)
+            if isinstance(d, dict): return d.get(subkey)
+            return None
+
         tools_c = 0
         p_state = project_state
-        if p_state.get("voc_vob", {}).get("voc"): tools_c += 1
-        if p_state.get("charter", {}).get("y"): tools_c += 1
+        if safe_get(p_state, "voc_vob", "voc"): tools_c += 1
+        if safe_get(p_state, "charter", "y"): tools_c += 1
         if p_state.get("raci"): tools_c += 1
-        if p_state.get("sipoc", {}).get("rows"): tools_c += 1
-        if p_state.get("saving_projetado", {}).get("hard"): tools_c += 1
+        if safe_get(p_state, "sipoc", "rows"): tools_c += 1
+        if safe_get(p_state, "saving_projetado", "hard"): tools_c += 1
         if p_state.get("matriz_indicadores"): tools_c += 1
         if p_state.get("causa_efeito"): tools_c += 1
         if p_state.get("planos_validacao"): tools_c += 1
