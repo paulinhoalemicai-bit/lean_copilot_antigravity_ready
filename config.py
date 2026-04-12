@@ -15,6 +15,7 @@ TOOLS = [
     "Ishikawa",
     "5 Porquês",
     "Plano de Validação de Causas",
+    "Plano de Soluções",
     "Plano de Ação",
     "Quick Wins",
     "Plano de Controle",
