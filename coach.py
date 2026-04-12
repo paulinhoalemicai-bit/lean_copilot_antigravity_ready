@@ -996,3 +996,46 @@ def suggest_deep_5pq_tree(project_state: dict, efeito: str, existing_branches: l
 
     return result
 
+
+def suggest_plano_controle_row(state: Dict[str, Any], oq_checar: str) -> Dict[str, str]:
+    if not oq_checar.strip():
+        return {}
+    
+    charter_context = json.dumps(state.get("project_charter", {}), ensure_ascii=False)
+    
+    prompt = f"""Você é um Master Black Belt em Lean Six Sigma.
+O aluno precisa preencher uma linha do 'Plano de Controle' (Fase Control do DMAIC) para sustentar a melhoria de um indicador ou causa.
+Ele já forneceu o alvo a ser controlado: "{oq_checar}"
+
+Contexto do Projeto: {charter_context}
+
+Sugira o preenchimento das colunas restantes. Responda APENAS em JSON estruturado com os seguintes campos (retorne strings curtas e diretas):
+- "proc_chave": Processo chave onde isso ocorre
+- "resp_proc": Cargo responsável pelo processo
+- "metodo": Um entre ["Auditoria", "Gráfico", "Visual", "Outros"]
+- "formula": Fórmula do indicador (Ex: Qtd A / Total) ou N/A se aplicavel dependendo de oq_checar
+- "lim_min": Limite inferior numérico, ou N/A
+- "meta": A meta ou alvo numérico principal
+- "lim_max": Limite superior numérico, ou N/A
+- "fonte": De onde o dado vem (Ex: Sistema ERP, Planilha, Relatório Diário)
+- "tam_amostra": Ex: 100%, 30 peças, Diário, Amostragem Aleatória
+- "freq": Frequência da medição (Ex: Diário, Semanal, Mensal)
+- "resp_controle": Quem faz a medição operacionalmente
+- "local_armaz": Onde fica salvo o controle / evidência (Ex: Pasta de Rede, Sistema X)
+- "acao_corr": O que fazer imediatamente se sair da meta e dar errado (Ação Corretiva)
+- "acao_prev": Como evitar rotineiramente que saia da meta (Ação Preventiva)
+- "obs": Observações gerais da métrica
+"""
+    model_name = get_model()
+    try:
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "system", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.7
+        )
+        content = resp.choices[0].message.content
+        return json.loads(content)
+    except Exception as e:
+        print("Erro em suggest_plano_controle_row:", e)
+        return {}

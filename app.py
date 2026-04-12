@@ -1734,6 +1734,10 @@ with tool_container:
     elif tool == "Quick Wins":
         import ui_quick_wins
         ui_quick_wins.render_quick_wins_ui(project_state, pid, db, read_only)
+        
+    elif tool == "Plano de Controle":
+        import ui_plano_controle
+        ui_plano_controle.render_plano_controle_ui(project_state, pid, db, read_only)
 
     elif tool == "Repositório de Medições":
         import ui_repositorio_dados

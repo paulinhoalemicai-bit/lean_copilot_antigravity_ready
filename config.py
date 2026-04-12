@@ -17,6 +17,7 @@ TOOLS = [
     "Plano de Validação de Causas",
     "Plano de Ação",
     "Quick Wins",
+    "Plano de Controle",
     "Saving Realizado"
 ]
 
@@ -145,5 +146,12 @@ Objetivo:
 - Planejar detalhadamente como cada indicador ou causa prioritária será medido.
 - Definir Definição Operacional, Fonte, Amostra, Responsável, Frequência (Quando) e Método (Como).
 - Identificar como os dados serão utilizados para análise e como serão apresentados (gráficos).
+""",
+    "Plano de Controle": """
+Ferramenta Plano de Controle.
+Objetivo:
+- Garantir a sustentabilidade das melhorias a longo prazo (Fase Control)
+- Definir métodos de medição, responsáveis, metas e limites
+- Especificar ações preventivas e corretivas em caso de desvio dos indicadores e causas tratadas
 """
 }

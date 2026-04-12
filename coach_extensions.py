@@ -282,3 +282,39 @@ Sua resposta deve ser EXATAMENTE um JSON válido atendendo ao schema abaixo. NÃ
         return data
     except Exception as e:
         return {"resposta": f"Ops, enfrentei um problema ao analisar os dados: {str(e)}", "vega_lite": None}
+
+def suggest_plano_controle_eval(project_state: dict, pid: str, db_module, read_only: bool):
+    import streamlit as st
+    planos = project_state.get("plano_controle", [])
+    if not planos:
+        st.info("O Plano de Controle está vazio. Volte quando tiver itens para que o Doutor Lean possa avaliar.")
+        return
+
+    st.markdown("Clique abaixo para que a IA analise a coerência das metas, limites, amostras e métodos do seu Plano de Controle.")
+    
+    if st.button("🪄 Avaliar Plano de Controle", disabled=read_only):
+        from coach import client, get_model
+        
+        ctx_str = ""
+        for i, row in enumerate(planos):
+            ctx_str += f"\\nLinha {i+1}: Checar={row.get('oq_checar')}, Processo={row.get('proc_chave')}, Método={row.get('metodo')}, Meta/Limites={row.get('lim_min')} a {row.get('lim_max')} (Meta: {row.get('meta')}), Amostra={row.get('tam_amostra')}, Freq={row.get('freq')}, "
+            ctx_str += f"Ações={row.get('acao_corr')} / {row.get('acao_prev')}\\n"
+            
+        prompt = f"""Você é um Master Black Belt.
+Analise as linhas do Plano de Controle do aluno e aponte APENAS pontos fracos sistêmicos.
+Seja direto, profissional. Indique se limites são realistas, se a frequência bate com o tamanho de amostra, e se as ações corretivas/preventivas não são muito superficiais.
+Use Markdown para destacar pontos importantes.
+DADOS DO PLANO:
+{ctx_str}
+"""
+        with st.spinner("Analisando consistência dos controles..."):
+            try:
+                resp = client.chat.completions.create(
+                    model=get_model(),
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7
+                )
+                txt = resp.choices[0].message.content
+                st.markdown(txt)
+            except Exception as e:
+                st.error("Falha ao analisar o plano de controle.")
