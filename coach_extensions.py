@@ -1,7 +1,6 @@
 import json
-import os
 import traceback
-from coach import client
+from coach import client, get_model
 
 def suggest_ishikawa_eval(project_state, effect):
     prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico.
@@ -15,7 +14,7 @@ Retorne EXATAMENTE UM JSON em formato válido:
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_model(),
             temperature=0.3,
             response_format={"type": "json_object"},
             messages=[
@@ -42,7 +41,7 @@ Não use "eu recomendo" ou "eu sugiro", vá direto ao ponto com a ação que o u
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_model(),
             temperature=0.4,
             messages=[{"role":"user", "content": prompt}]
         )
@@ -65,7 +64,7 @@ Seja técnico e direto.
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_model(),
             temperature=0.2,
             messages=[{"role":"user", "content": prompt}]
         )
@@ -92,7 +91,7 @@ Apenas o JSON array e nada mais.
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_model(),
             messages=[{'role':'user', 'content': prompt}],
             temperature=0.4
         )
@@ -128,7 +127,7 @@ Apenas o JSON object e nada mais.
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_model(),
             messages=[{'role':'user', 'content': prompt}],
             temperature=0.5
         )
@@ -165,7 +164,7 @@ Apenas o JSON e nada mais.
 """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_model(),
             messages=[{'role':'user', 'content': prompt}],
             temperature=0.3
         )
@@ -193,7 +192,7 @@ AMOSTRA: [sua sugestão de tamanho do N ou período de tempo]"""
     try:
         from coach import client
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=get_model(),
             temperature=0.3,
             messages=[{"role":"user", "content": prompt}]
         )
@@ -216,7 +215,7 @@ AMOSTRA: [sua sugestão de tamanho do N ou período de tempo]"""
 
 def analyze_measurement_data(project_state, data_sample, user_query, chat_history):
     import json
-    from coach import client, ANALYSIS_MODEL
+    from coach import client, get_model
 
     # Montar histórico em texto
     history_text = ""
@@ -272,7 +271,7 @@ Sua resposta deve ser EXATAMENTE um JSON válido atendendo ao schema abaixo. NÃ
             messages_payload = [{'role': 'user', 'content': prompt}]
 
         response = client.chat.completions.create(
-            model=ANALYSIS_MODEL,
+            model=get_model("analysis"),
             messages=messages_payload,
             temperature=0.2,
             response_format={ "type": "json_object" }

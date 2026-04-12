@@ -2083,12 +2083,13 @@ with coach_container:
                         else:
                             try:
                                 import json
-                                from coach import client
+                                import coach
+                                client = coach.client
                                 prompt = f"""Atue como um Master Black Belt Lean Seis Sigma analítico. Contexto: {project_state.get('name')} - {project_state.get('charter', {}).get('problem', '')}. Problema Central (Cabeça do Peixe): {effect}.
 Você deve conduzir um brainstorming profundo e sugerir Causas Primárias criativas para este problema. Divida suas sugestões obrigatoriamente nas 6 categorias (Máquina, Método, Material, Mão de Obra, Meio Ambiente, Medida).
 Para CADA categoria, você deve apresentar no mínimo 3 a 5 hipóteses diferentes de causa! Não retorne apenas uma por categoria.
 Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", "causa": "..."}}, ...]}}"""
-                                res = client.chat.completions.create(model="gpt-4o-mini", temperature=0.3, response_format={"type": "json_object"}, messages=[{"role": "system", "content": prompt}, {"role": "user", "content": "Gere a matriz"}])
+                                res = client.chat.completions.create(model=coach.get_model(), temperature=0.3, response_format={"type": "json_object"}, messages=[{"role": "system", "content": prompt}, {"role": "user", "content": "Gere a matriz"}])
                                 data = json.loads(res.choices[0].message.content or "{}")
                                 sugestoes = data.get("rows", [{"categoria": "ERRO", "causa": "JSON vazio"}])
                             except Exception as fail_e:

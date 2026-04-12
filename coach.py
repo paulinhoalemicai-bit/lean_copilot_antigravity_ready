@@ -33,17 +33,18 @@ if not api_key:
         "Na Nuvem: Insira OPENAI_API_KEY no painel de Secrets do Streamlit Cloud."
     )
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
-
-analysis_model_env = os.getenv("OPENAI_ANALYSIS_MODEL", "").strip()
-if not analysis_model_env:
-    try:
-        import streamlit as st
-        analysis_model_env = st.secrets.get("OPENAI_ANALYSIS_MODEL", "").strip()
-    except Exception:
-        pass
+def get_model(style="standard"):
+    """
+    Retorna o modelo de IA a ser usado.
+    Prioridade: Escolha do Professor (DB) > Variável de Ambiente > Default.
+    """
+    if style == "analysis":
+        # Override opcional apenas para a ferramenta de medições
+        analysis_env = os.getenv("OPENAI_ANALYSIS_MODEL", "").strip()
+        if analysis_env: return analysis_env
         
-ANALYSIS_MODEL = analysis_model_env if analysis_model_env else "gpt-4o"
+    # Padrão: Pega do Banco de Dados (Configurada pelo Professor Admin)
+    return db.get_global_model()
 
 client = OpenAI(api_key=api_key)
 
@@ -93,7 +94,7 @@ def _parse_json_from_text(text: str) -> Dict[str, Any]:
 
 def _chat_json(system: str, user: str) -> Dict[str, Any]:
     response = client.chat.completions.create(
-        model=db.get_global_model(),
+        model=get_model(),
         temperature=0.2,
         response_format={"type": "json_object"},
         messages=[
@@ -406,7 +407,7 @@ Gere EXATAMENTE a frase final da Meta SMART.
 
     try:
         response = client.chat.completions.create(
-            model=db.get_global_model(),
+            model=get_model(),
             temperature=0.2,
             messages=[
                 {"role": "system", "content": system},
