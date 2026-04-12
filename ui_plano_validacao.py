@@ -80,12 +80,12 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
     with col_upload:
         uploaded_file = st.file_uploader("Upload de Documentos / Imagens", type=["csv", "xlsx", "xls", "pdf", "docx", "png", "jpg", "jpeg"], disabled=read_only)
     with col_paste:
-        novos_dados = st.text_area("Ou Cole Dados/Observações", value=row.get("dados_coletados", ""), height=100, disabled=read_only)
-        row["dados_coletados"] = novos_dados # Sync direto com session state virtual da pagina mestre
+        novos_dados = st.text_area("Ou Cole Dados/Observações", value="", height=100, disabled=read_only)
 
     df = None
     arquivo_resumo = ""
     vision_data = None
+    doc_text = ""
     try:
         import base64
         import pandas as pd
@@ -117,6 +117,23 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
                 st.image(uploaded_file, width=300)
         elif novos_dados.strip():
             df = pd.read_csv(io.StringIO(novos_dados), sep="\t")
+            
+        # Carregamentos salvos no banco local da linha
+        if df is None and not doc_text and not vision_data and not novos_dados.strip():
+            m_type = row.get("arquivos_salvos_tipo", "texto_plano")
+            saved_data = row.get("arquivos_salvos_dados", "")
+            if saved_data:
+                if m_type == "csv":
+                    try: df = pd.read_json(io.StringIO(saved_data), orient="records")
+                    except: pass
+                elif m_type == "doc":
+                    doc_text = saved_data
+                    arquivo_resumo = f"Documento Salvo:\n{doc_text[:3000]}..."
+                elif m_type == "vision":
+                    vision_data = ("IMAGE", saved_data)
+                    arquivo_resumo = vision_data
+                elif m_type == "texto_plano":
+                    arquivo_resumo = f"Observações Práticas Salvas: {saved_data}"
         
         if df is not None:
             if len(df) > 2000:
@@ -125,8 +142,30 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
             else:
                 arquivo_resumo = f"Resumo do DataFrame:\n{df.head(10).to_csv(index=False)}"
                 st.success(f"Tabela carregada: {len(df)} linhas.")
+                
     except Exception:
-        if novos_dados.strip(): arquivo_resumo = f"Observações Práticas: {novos_dados}"
+        if novos_dados.strip(): 
+            arquivo_resumo = f"Observações Práticas: {novos_dados}"
+
+    # Botão de Salvamento (Específico da linha/causa)
+    if not read_only and (df is not None or doc_text or vision_data or novos_dados.strip()):
+        if st.button("💾 Salvar Anexo na Causa", use_container_width=True):
+            if df is not None:
+                row["arquivos_salvos_tipo"] = "csv"
+                row["arquivos_salvos_dados"] = df.to_json(orient="records")
+            elif doc_text:
+                row["arquivos_salvos_tipo"] = "doc"
+                row["arquivos_salvos_dados"] = doc_text
+            elif vision_data:
+                row["arquivos_salvos_tipo"] = "vision"
+                row["arquivos_salvos_dados"] = vision_data[1]
+            elif novos_dados.strip():
+                row["arquivos_salvos_tipo"] = "texto_plano"
+                row["arquivos_salvos_dados"] = novos_dados.strip()
+            
+            row["dados_coletados"] = "Possui anexo multimodal" # Feedback visual
+            db_module.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.success("Anexo salvo no banco de dados para esta causa!")
 
     st.markdown("---")
     

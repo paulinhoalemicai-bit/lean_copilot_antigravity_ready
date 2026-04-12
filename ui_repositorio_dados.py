@@ -55,15 +55,20 @@ def render_repositorio_dados_ui(project_state, pid, db, read_only):
             df = pd.read_csv(io.StringIO(pasted_data), sep="\t")
             
         # Tenta carregar o que já estava salvo se não houver um novo input agora
-        if df is None and not doc_text and not vision_data and project_state.get("measurements_raw"):
-            try:
-                # Caso fosse tabela salva
-                df = pd.read_json(io.StringIO(project_state["measurements_raw"]), orient="records")
-            except:
-                pass
+        if df is None and not doc_text and not vision_data:
+            m_type = project_state.get("measurements_data_type", "csv") # Padrão antigo era csv (dataframe)
+            if m_type == "csv" and project_state.get("measurements_raw"):
+                try:
+                    df = pd.read_json(io.StringIO(project_state["measurements_raw"]), orient="records")
+                except:
+                    pass
+            elif m_type == "doc" and project_state.get("measurements_doc"):
+                doc_text = project_state["measurements_doc"]
+            elif m_type == "vision" and project_state.get("measurements_vision"):
+                vision_data = ("IMAGE", project_state["measurements_vision"])
 
     except Exception as e:
-        st.error(f"Erro ao processar o arquivo: {str(e)}")
+        st.error(f"Erro ao processar o arquivo/entrada: {str(e)}")
 
     if df is not None:
         if len(df) > 2000:
@@ -71,14 +76,33 @@ def render_repositorio_dados_ui(project_state, pid, db, read_only):
             df = None
         else:
             st.success(f"✅ Tabela estruturada (CSV/Excel) carregada: {len(df)} linhas.")
-            if not read_only:
-                project_state["measurements_raw"] = df.to_json(orient="records")
-                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
     elif doc_text:
         st.success(f"✅ Documento Texto importado ({len(doc_text)} caracteres).")
     elif vision_data:
         st.success("✅ Imagem importada para análise via Visão Computacional.")
-        st.image(uploaded_file, caption="Anexo da Mesa de Trabalho", width=300)
+        st.image(vision_data[1], caption="Anexo da Mesa de Trabalho", width=300)
+
+    # Botão de Salvamento Manual
+    if not read_only and (df is not None or doc_text or vision_data):
+        if st.button("💾 Salvar Arquivo/Dados no Projeto", use_container_width=True):
+            if df is not None:
+                project_state["measurements_data_type"] = "csv"
+                project_state["measurements_raw"] = df.to_json(orient="records")
+                project_state["measurements_doc"] = ""
+                project_state["measurements_vision"] = ""
+            elif doc_text:
+                project_state["measurements_data_type"] = "doc"
+                project_state["measurements_doc"] = doc_text
+                project_state["measurements_raw"] = ""
+                project_state["measurements_vision"] = ""
+            elif vision_data:
+                project_state["measurements_data_type"] = "vision"
+                project_state["measurements_vision"] = vision_data[1]
+                project_state["measurements_raw"] = ""
+                project_state["measurements_doc"] = ""
+            
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+            st.success("Dados salvos com sucesso na memória do projeto!")
 
     st.markdown("---")
     
