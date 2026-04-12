@@ -151,7 +151,7 @@ def handle_login():
     
     col1, col2, col3 = st.columns([1.5, 2, 1.5])
     with col2:
-        tab_login, tab_reg = st.tabs(["Entrar", "Criar Conta"])
+        tab_login, tab_reg, tab_forg = st.tabs(["Entrar", "Criar Conta", "Esqueci a Senha"])
         
         with tab_login:
             u_log = st.text_input("Usuário", key="log_u")
@@ -166,15 +166,32 @@ def handle_login():
                     st.error("Credenciais inválidas.")
                     
         with tab_reg:
-            st.info("Alunos podem criar conta livremente. Contas de professor são configuradas manualmente (usar padrão 'prof').")
-            u_reg = st.text_input("Novo Usuário", key="reg_u")
+            st.warning("O acesso é exclusivo para alunos matriculados usando um Código de Licença válido.")
+            r_name = st.text_input("Nome Completo", key="r_name")
+            r_email = st.text_input("E-mail Escolar/Corp", key="r_email")
+            r_code = st.text_input("Código de Licença (Token)", key="r_code")
+            u_reg = st.text_input("Novo Usuário (Login)", key="reg_u")
             p_reg = st.text_input("Nova Senha", type="password", key="reg_p")
             if st.button("Registrar Aluno", use_container_width=True):
-                if u_reg and p_reg:
-                    if db.create_user(u_reg, p_reg, role="aluno"):
-                        st.success("Conta criada com sucesso! Faça login ao lado.")
+                if u_reg and p_reg and r_name and r_email and r_code:
+                    import db_auth
+                    success, msg = db_auth.create_user_with_license(u_reg, p_reg, r_name, r_email, r_code)
+                    if success:
+                        st.success(msg + " Por favor, volte a tela de Entrar.")
                     else:
-                        st.error("Nome de usuário já existe.")
+                        st.error(msg)
+                else:
+                    st.error("Todos os campos devem ser preenchidos.")
+                    
+        with tab_forg:
+            st.info("Insira seu nome de usuário. Iremos notificar o Administrador para gerar uma nova credencial.")
+            f_user = st.text_input("Usuário", key="forg_u")
+            if st.button("Solicitar Reset", use_container_width=True):
+                if f_user:
+                    import db_auth
+                    succ, msg = db_auth.request_password_reset(f_user)
+                    st.success(msg) if succ else st.error(msg)
+
 
 
 if not st.session_state.user:
@@ -190,10 +207,31 @@ USERNAME = user["username"]
 with st.sidebar:
     st.markdown(f"### Olá, {USERNAME}!")
     st.markdown(f"Perfil: **{ROLE.title()}**")
-    if st.button("Sair (Logout)"):
-        st.session_state.user = None
-        st.session_state.active_project_id = None
-        st.rerun()
+    
+    col_out, col_pass = st.columns(2)
+    with col_out:
+        if st.button("Sair (Logout)", use_container_width=True):
+            st.session_state.user = None
+            st.session_state.active_project_id = None
+            st.rerun()
+    with col_pass:
+        @st.dialog("Trocar Minha Senha")
+        def change_password_dialog():
+            np = st.text_input("Nova Senha", type="password")
+            ncp = st.text_input("Confirme a Senha", type="password")
+            if st.button("Atualizar"):
+                if np and np == ncp:
+                    import db_auth
+                    if db_auth.change_password(USERNAME, np):
+                        st.success("Senha atualizada!")
+                    else:
+                        st.error("Erro.")
+                else:
+                    st.error("As senhas não coincidem ou estão vazias.")
+        
+        if st.button("Trocar Senha", use_container_width=True):
+            change_password_dialog()
+            
     st.markdown("---")
 
     if ROLE == "professor":
@@ -377,8 +415,177 @@ else:
 
 pid = st.session_state.get("active_project_id")
 if not pid:
-    st.title("Bem-vindo ao Lean Copilot")
-    st.write("Abra um projeto no menu para começar.")
+    if ROLE == "professor":
+        st.title("Gestão Corporativa & B2B")
+        t_cli, t_proj, t_req = st.tabs(["🏢 Clientes & Licenças", "🚀 Evolução dos Projetos", "🔐 Solicitações de Senha"])
+        
+        with t_cli:
+            st.subheader("Cadastro de Clientes e Geração de Códigos")
+            cc1, cc2 = st.columns([1, 1])
+            
+            with cc1:
+                with st.form("new_client_form", clear_on_submit=True):
+                    st.markdown("**Novo Cliente**")
+                    nc_name = st.text_input("Nome da Empresa/Cliente")
+                    nc_submit = st.form_submit_button("Criar Cliente")
+                    if nc_submit and nc_name:
+                        import db
+                        session = db.SessionLocal()
+                        try:
+                            if session.query(db.Client).filter(db.Client.name == nc_name).first():
+                                st.error("Cliente já existe.")
+                            else:
+                                c = db.Client(name=nc_name)
+                                session.add(c)
+                                session.commit()
+                                st.success("Cliente criado!")
+                        except Exception as e:
+                            st.error(f"Erro: {e}")
+                        finally:
+                            session.close()
+
+            with cc2:
+                with st.form("new_lic_form", clear_on_submit=True):
+                    st.markdown("**Gerar Licenças por Cliente**")
+                    import db
+                    session = db.SessionLocal()
+                    try:
+                        all_c = session.query(db.Client).all()
+                        c_dict = {c.name: c.id for c in all_c}
+                        
+                        sel_c = st.selectbox("Selecione o Cliente", list(c_dict.keys()) if c_dict else ["Nenhum"])
+                        qtd_lic = st.number_input("Quantidade de Códigos", min_value=1, max_value=500, value=1)
+                        nl_submit = st.form_submit_button("Gerar Códigos")
+                        
+                        if nl_submit and sel_c != "Nenhum":
+                            import uuid
+                            cid = c_dict[sel_c]
+                            new_codes = []
+                            for _ in range(qtd_lic):
+                                lcode = f"{sel_c[:3].upper()}-{str(uuid.uuid4())[:6].upper()}"
+                                session.add(db.LicenseKey(code=lcode, client_id=cid))
+                                new_codes.append(lcode)
+                            session.commit()
+                            st.success(f"{qtd_lic} código(s) gerados com sucesso!")
+                            with st.expander("Ver códigos novos", expanded=True):
+                                st.code("\\n".join(new_codes))
+                    finally:
+                        session.close()
+                        
+            st.divider()
+            st.subheader("Licenças Existentes")
+            session = db.SessionLocal()
+            try:
+                # Joining licenses with clients
+                raw_data = session.query(db.LicenseKey, db.Client.name).join(db.Client).all()
+                if raw_data:
+                    lic_df = pd.DataFrame([{
+                        "Cliente": r[1],
+                        "Código": r[0].code,
+                        "Status": "Usado" if r[0].is_used else "Livre",
+                        "Usado Por": r[0].used_by or "-",
+                        "Criado Em": r[0].created_at
+                    } for r in raw_data])
+                    fil_c = st.selectbox("Filtrar Tabela por Cliente", ["Todos"] + list(c_dict.keys()) if c_dict else ["Todos"])
+                    if fil_c != "Todos":
+                        lic_df = lic_df[lic_df["Cliente"] == fil_c]
+                    st.dataframe(lic_df, use_container_width=True)
+                else:
+                    st.info("Nenhuma licença gerada.")
+            finally:
+                session.close()
+
+        with t_proj:
+            st.subheader("Métricas Globais de Projetos")
+            st.info("Aqui você acompanha o % de Evolução (Ferramentas preenchidas) e o Status do Cronograma.")
+            
+            session = db.SessionLocal()
+            try:
+                # Listar todos os usuários da base e seus clientes
+                uv_data = session.query(db.User, db.Client.name).outerjoin(db.Client, db.User.client_id == db.Client.id).all()
+                u_map = {r[0].username: r[1] or "Sem Cliente" for r in uv_data}
+            finally:
+                session.close()
+                
+            all_ps = db.list_projects("professor", "admin") # get all
+            if all_ps:
+                metrics_data = []
+                for p in all_ps:
+                    p_state = db.get_project_state(p["project_id"])
+                    
+                    # Calcular Tools Completed
+                    tools_completed = 0
+                    if p_state.get("voc_vob", {}).get("voc"): tools_completed += 1
+                    if p_state.get("charter", {}).get("y"): tools_completed += 1
+                    if p_state.get("raci"): tools_completed += 1
+                    if p_state.get("sipoc", {}).get("rows"): tools_completed += 1
+                    if p_state.get("saving_projetado", {}).get("hard"): tools_completed += 1
+                    if p_state.get("matriz_indicadores"): tools_completed += 1
+                    if p_state.get("causa_efeito"): tools_completed += 1
+                    if p_state.get("planos_validacao"): tools_completed += 1
+                    if p_state.get("plano_solucoes"): tools_completed += 1
+                    if p_state.get("plano_acao"): tools_completed += 1
+                    if p_state.get("control_plan") or p_state.get("plano_controle"): tools_completed += 1
+                    if p_state.get("fluxograma_xml"): tools_completed += 1
+                    if p_state.get("ishikawas"): tools_completed += 1
+                    if p_state.get("cinco_pqs"): tools_completed += 1
+                    if p_state.get("metrics"): tools_completed += 1
+                    
+                    total_score = min(round((tools_completed / 17.0) * 100), 100)
+                    
+                    # Status Calculation
+                    status_prazo = "Dentro do Prazo"
+                    from datetime import datetime
+                    hoje = datetime.utcnow().date()
+                    
+                    # Tenta ler as semanas
+                    tw = p_state.get("charter", {}).get("timeline_weeks", {})
+                    
+                    c_name = u_map.get(p["user_id"], "Sem Cliente")
+                    metrics_data.append({
+                        "Cliente": c_name,
+                        "Aluno (Dono)": p["user_id"],
+                        "Projeto": p["name"],
+                        "Evolução %": total_score,
+                        "Status Prazo": status_prazo
+                    })
+                    
+                df_met = pd.DataFrame(metrics_data)
+                
+                cf = st.selectbox("Visualizar qual Cliente?", ["Todos"] + list(c_dict.keys()) if c_dict else ["Todos"])
+                if cf != "Todos":
+                    df_met = df_met[df_met["Cliente"] == cf]
+                    
+                st.dataframe(
+                    df_met.style.background_gradient(subset=['Evolução %'], cmap='Greens', vmin=0, vmax=100),
+                    use_container_width=True
+                )
+            else:
+                st.info("Nenhum projeto foi criado ainda por estudantes.")
+                
+        with t_req:
+            st.subheader("Solicitações de Nova Senha")
+            session = db.SessionLocal()
+            try:
+                users_req = session.query(db.User).filter(db.User.password_reset_req == True).all()
+                if users_req:
+                    for ur in users_req:
+                        with st.expander(f"🔴 Reset solicitado por: {ur.username} ({ur.full_name})", expanded=True):
+                            new_p = st.text_input(f"Digitar nova senha para {ur.username}", type="password", key=f"r_{ur.username}")
+                            if st.button("Gravar Alteração e Limpar Pedido", key=f"b_{ur.username}"):
+                                import db_auth
+                                db_auth.change_password(ur.username, new_p)
+                                st.success("Atualizado!")
+                                st.rerun()
+                else:
+                    st.success("Tudo tranquilo! Nenhum aluno reportou esquecimento de senha.")
+            finally:
+                session.close()
+
+    else:
+        st.title("Bem-vindo ao Lean Copilot")
+        st.write("Abra um projeto no menu esquerdo para começar a trabalhar.")
+        
     st.stop()
 
 project_state = db.get_project_state(pid)
@@ -571,6 +778,31 @@ with tool_container:
     if tool == "Capa do Projeto":
         st.subheader("Capa do Projeto")
         st.markdown("Bem-vindo! Documente a identidade oficial da sua iniciativa de melhoria.")
+        
+        # --- Lógica do KPI do Estudante ---
+        tools_c = 0
+        p_state = project_state
+        if p_state.get("voc_vob", {}).get("voc"): tools_c += 1
+        if p_state.get("charter", {}).get("y"): tools_c += 1
+        if p_state.get("raci"): tools_c += 1
+        if p_state.get("sipoc", {}).get("rows"): tools_c += 1
+        if p_state.get("saving_projetado", {}).get("hard"): tools_c += 1
+        if p_state.get("matriz_indicadores"): tools_c += 1
+        if p_state.get("causa_efeito"): tools_c += 1
+        if p_state.get("planos_validacao"): tools_c += 1
+        if p_state.get("plano_solucoes"): tools_c += 1
+        if p_state.get("plano_acao"): tools_c += 1
+        if p_state.get("control_plan") or p_state.get("plano_controle"): tools_c += 1
+        if p_state.get("fluxograma_xml"): tools_c += 1
+        if p_state.get("ishikawas"): tools_c += 1
+        if p_state.get("cinco_pqs"): tools_c += 1
+        if p_state.get("metrics"): tools_c += 1
+        
+        perc = min(round((tools_c / 17.0) * 100), 100)
+        
+        st.markdown(f"**Progresso de Ferramentas ({perc}%)** - *{tools_c} de 17 seções chaves preenchidas.*")
+        st.progress(perc / 100.0)
+        st.divider()
         
         with st.container(border=True):
             novo_nome = st.text_input("Nome Oficial do Projeto", value=project_state.get("name", ""), disabled=read_only)

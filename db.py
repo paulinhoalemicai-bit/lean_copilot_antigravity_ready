@@ -28,11 +28,30 @@ SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bi
 Base = declarative_base()
 
 
+class Client(Base):
+    __tablename__ = "clients"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class LicenseKey(Base):
+    __tablename__ = "license_keys"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(50), nullable=False, unique=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    is_used = Column(Boolean, default=False)
+    used_by = Column(String(50), ForeignKey("users.username"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class User(Base):
     __tablename__ = "users"
     username = Column(String(50), primary_key=True, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default="aluno") # "aluno" ou "professor"
+    full_name = Column(String(100), nullable=True) # made optional theoretically for legacy compatibility initially
+    email = Column(String(100), nullable=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
+    password_reset_req = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
