@@ -91,6 +91,21 @@ class SessionLog(Base):
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    
+    # Auto-migração raw para SQLite/Postgres (Nuvem usa banco pré-existente e Base.metadata não cria colunas novas em tabelas existentes)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try: conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR(100)"))
+        except Exception: pass
+        try: conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(100)"))
+        except Exception: pass
+        try: conn.execute(text("ALTER TABLE users ADD COLUMN client_id INTEGER"))
+        except Exception: pass
+        try: conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_req BOOLEAN DEFAULT False"))
+        except Exception: pass
+        try: conn.commit()
+        except: pass
+        
     # Criar um professor padrão se não existir na inicialização (somente para testes/MVP rápido)
     create_user("prof", "prof123", role="professor")
 
