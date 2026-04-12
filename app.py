@@ -562,8 +562,17 @@ if not pid:
                     df_met = df_met[df_met["Cliente"] == cf]
                     
                 st.dataframe(
-                    df_met.style.background_gradient(subset=['Evolução %'], cmap='Greens', vmin=0, vmax=100),
-                    use_container_width=True
+                    df_met,
+                    use_container_width=True,
+                    column_config={
+                        "Evolução %": st.column_config.ProgressColumn(
+                            "Evolução %",
+                            help="Percentual",
+                            format="%f%%",
+                            min_value=0,
+                            max_value=100,
+                        )
+                    }
                 )
             else:
                 st.info("Nenhum projeto foi criado ainda por estudantes.")
