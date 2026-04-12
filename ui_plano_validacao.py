@@ -76,7 +76,7 @@ def modal_analise_causa(project_state, pid, db_module, plano_idx, row_idx, read_
     st.markdown("Insira os dados coletados e converse com o Doutor Lean para obter análises estátisticas e gráficos para atestar esta causa.")
     
     # 1. Carregamento de Dados (Mini)
-    col_upload, col_paste = st.columns([1, 2])
+    col_upload, col_paste = st.columns(2, gap="medium")
     with col_upload:
         uploaded_file = st.file_uploader("Upload de Documentos / Imagens", type=["csv", "xlsx", "xls", "pdf", "docx", "png", "jpg", "jpeg"], disabled=read_only)
     with col_paste:

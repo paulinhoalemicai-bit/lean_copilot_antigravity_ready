@@ -18,7 +18,7 @@ def render_repositorio_dados_ui(project_state, pid, db, read_only):
     st.markdown("### 1. Importar Base de Dados / Documentação")
     st.info("💡 Cole seus dados na caixa de texto abaixo OU faça upload de um arquivo (CSV, Excel, PDF, Word, JPG, PNG).")
     
-    col_upload, col_paste = st.columns([1, 2])
+    col_upload, col_paste = st.columns(2, gap="medium")
     with col_upload:
         uploaded_file = st.file_uploader("Upload de Arquivo", type=["csv", "xlsx", "xls", "pdf", "docx", "png", "jpg", "jpeg"], disabled=read_only)
     with col_paste:
