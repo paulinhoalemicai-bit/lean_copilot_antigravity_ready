@@ -609,7 +609,7 @@ with tool_container:
         new_text = f"Nome do Projeto: {novo_nome}\nLíder: {lider}\nSponsor: {sponsor}\nInício: {start_date}\nResumo Executivo: {resumo}"
 
 
-    elif tool == "VOC/VOB":
+    elif tool == "D - VOC/VOB":
         st.subheader("VOC/VOB (Voz do Cliente e Negócio)")
 
         draft = db.load_draft(pid, tool) or {}
@@ -714,7 +714,7 @@ with tool_container:
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                 st.success("Salvo com sucesso!")
 
-    elif tool == "Project Charter":
+    elif tool == "D - Project Charter":
         st.subheader("Project Charter (Contrato de Melhoria)")
         storage_tool = tool
 
@@ -908,7 +908,7 @@ with tool_container:
             db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
             st.success("Charter salvo no sistema.")
 
-    elif tool == "SIPOC (por etapa)":
+    elif tool == "D - SIPOC (por etapa)":
         st.subheader("SIPOC (Mapeamento de Processo Nível Macro)")
         st.markdown("Preencha de *Dentro para Fora*: **Comece pela Etapa do Processo (P)** no centro. Depois, liste as múltiplas Entradas (I) e seus Fornecedores (S) de um lado, e as Saídas (O) e Clientes (C) do outro, clicando nos botões de ➕.")
         
@@ -1042,7 +1042,7 @@ with tool_container:
                 db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                 st.success("SIPOC salvo com sucesso!")
 
-    elif tool == "Matriz de Indicadores":
+    elif tool == "M - Matriz de Indicadores":
         st.subheader("Matriz de Indicadores (Métricas por Etapa do SIPOC)")
         st.info("💡 Liste as métricas e os indicadores associados a cada macro etapa mapeada.")
         
@@ -1214,7 +1214,7 @@ with tool_container:
                 db.save_draft(pid, tool, {"text": new_text})
                 st.success("Matriz de Indicadores salva!")
 
-    elif tool == "Causa & Efeito - Esforço Impacto":
+    elif tool == "M - Causa & Efeito - Esforço Impacto":
         st.subheader("📊 Causa & Efeito — Esforço × Impacto")
         st.info("💡 Liste os principais X's (causas) do problema. Pontue o Impacto [0-100] e o Esforço [0-100] de cada X. O Dr. Lean (abaixo, no Coach IA) gera uma lista consolidada automaticamente. O gráfico será atualizado automaticamente.")
 
@@ -1453,7 +1453,7 @@ with tool_container:
                 db.save_draft(pid, tool, {"text": new_text})
                 st.success("Causa & Efeito salva!")
 
-    elif tool == "Plano de Coleta de Dados":
+    elif tool == "M - Plano de Coleta de Dados":
         st.subheader("📊 Plano de Coleta de Dados")
         st.info("💡 Detalhe como cada indicador ou causa prioritária será medido para garantir dados confiáveis.")
         
@@ -1596,10 +1596,10 @@ with tool_container:
                 st.success("Plano de Coleta salvo!")
 
 
-    elif tool in ["Saving Projetado", "Saving Realizado"]:
+    elif tool in ["D - Saving Projetado", "C - Saving Realizado"]:
         st.subheader(f"Cálculo de {tool}")
         st.info("Desdobre o impacto financeiro. O 'Saving Total' será calculado automaticamente ao salvar.")
-        state_key = "saving_projetado" if tool == "Saving Projetado" else "saving_realizado"
+        state_key = "saving_projetado" if tool == "D - Saving Projetado" else "saving_realizado"
         sav = project_state.get(state_key) or {}
         
         c1, c2 = st.columns(2)
@@ -1648,7 +1648,7 @@ with tool_container:
                 st.success("Cálculo e racional salvos com sucesso!")
                 st.rerun()
 
-    elif tool == "Matriz RACI":
+    elif tool == "D - Matriz RACI":
         st.subheader("Matriz RACI (Papéis e Responsabilidades)")
         st.info("💡 Defina quem são as pessoas envolvidas em cada fase do seu projeto (DMAIC).")
         
@@ -1690,7 +1690,7 @@ with tool_container:
                 db.save_draft(pid, tool, {"text": str(edited_raci)})
                 st.success("Matriz RACI salva!")
 
-    elif tool == "Fluxograma":
+    elif tool == "M - Fluxograma":
         st.subheader("Modelador de Fluxograma BPMN (As-Is / To-Be)")
         st.info("💡 Desenhe o processo arrastando Swimlanes (Raias), Tarefas, Decisões e Conectores da paleta do Bizagi-JS (BPMN.io) à esquerda.")
         
@@ -1711,35 +1711,35 @@ with tool_container:
         else:
             st.error("Componente BPMN editor não carregado. Contate o administrador do sistema.")
 
-    elif tool == "Ishikawa":
+    elif tool == "M - Ishikawa":
         import ui_ishikawa_5pq
         ui_ishikawa_5pq.render_ishikawa_ui(project_state, pid, db, read_only)
         
-    elif tool == "5 Porquês":
+    elif tool == "A - 5 Porquês":
         import ui_ishikawa_5pq
         ui_ishikawa_5pq.render_5pqs_ui(project_state, pid, db, read_only)
 
-    elif tool == "Plano de Validação de Causas":
+    elif tool == "A - Plano de Validação de Causas":
         import ui_plano_validacao
         ui_plano_validacao.render_plano_validacao_ui(project_state, pid, db, read_only)
 
-    elif tool == "Plano de Soluções":
+    elif tool == "I - Plano de Soluções":
         import ui_plano_solucoes
         ui_plano_solucoes.render_plano_solucoes_ui(project_state, pid, db, read_only)
 
-    elif tool == "Plano de Ação":
+    elif tool == "I - Plano de Ação":
         import ui_plano_acao_5w2h
         ui_plano_acao_5w2h.render_plano_acao_ui(project_state, pid, db, read_only)
 
-    elif tool == "Quick Wins":
+    elif tool == "M - Quick Wins":
         import ui_quick_wins
         ui_quick_wins.render_quick_wins_ui(project_state, pid, db, read_only)
         
-    elif tool == "Plano de Controle":
+    elif tool == "C - Plano de Controle":
         import ui_plano_controle
         ui_plano_controle.render_plano_controle_ui(project_state, pid, db, read_only)
 
-    elif tool == "Repositório de Medições":
+    elif tool == "M - Repositório de Medições":
         import ui_repositorio_dados
         ui_repositorio_dados.render_repositorio_dados_ui(project_state, pid, db, read_only)
 
@@ -1753,7 +1753,7 @@ with tool_container:
             st.success("Salvo!")
 
 with coach_container:
-    if tool in ["Matriz RACI", "Fluxograma"]:
+    if tool in ["D - Matriz RACI", "M - Fluxograma"]:
         st.stop()
         
     st.markdown("<br><hr>", unsafe_allow_html=True)
@@ -1784,13 +1784,13 @@ with coach_container:
     q_desc = ""
     
     if ia_action == "Gere uma Sugestão de Preenchimento":
-        if tool == "VOC/VOB":
+        if tool == "D - VOC/VOB":
             st.info("💡 **Preenchimento Guiado VOC/VOB:** A IA vai gerar uma linha de referência para sua tabela baseada nas 3 respostas abaixo.")
             target_voc = st.radio("Gerar sugestão para:", ["Voz do Cliente (VOC)", "Voz do Negócio (VOB)"], disabled=read_only)
             q1 = st.text_input("Qual a necessidade do cliente (ou negócio)?", disabled=read_only)
             q2 = st.text_input("Qual é o valor atual / performance atual?", disabled=read_only)
             q3 = st.text_input("Qual é o valor limite entre a satisfação e a insatisfação?", disabled=read_only)
-        elif tool == "Project Charter":
+        elif tool == "D - Project Charter":
             target_charter = st.radio("O que o Doutor Lean deve estruturar?", ["Problema e Benefícios", "Objetivo SMART"], disabled=read_only)
             
             if target_charter == "Problema e Benefícios":
@@ -1807,7 +1807,7 @@ with coach_container:
                 st.info("💡 **Geração SMART:** O Doutor Lean reescreverá o que estiver importado na caixa do Objetivo do seu Charter transformando numa meta oficial de excelência.")
                 q_tempo = st.text_input("Prazo: Em quanto tempo atingiremos o objetivo? (Ex: até Dez/2024)", disabled=read_only)
                 q_meta = st.text_input("Meta: Qual o número a ser atingido? (Ex: Reduzir tempo para 15min)", disabled=read_only)
-        elif tool == "SIPOC (por etapa)":
+        elif tool == "D - SIPOC (por etapa)":
             st.info("💡 **Mapeamento Modular:** Diga qual parte do fluxo o Doutor Lean deve estruturar ativamente para você.")
             target_sipoc = st.radio("O que preencher automaticamente?", ["Etapas Mestre do Processo (P)", "Linhas de Entrada e Fornecedores (S/I)", "Linhas de Saídas e Clientes (O/C)"], disabled=read_only)
 
@@ -1818,7 +1818,7 @@ with coach_container:
                 st.info("💡 **Mapeamento de Esquerda:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todos os Fornecedores e Entradas lógicas atreladas a elas.")
             else:
                 st.info("💡 **Mapeamento de Direita:** A IA relerá as Etapas Centrais (P) que estão atualmente preenchidas e re-escreverá todas as Saídas e Clientes lógicas atreladas a elas.")
-        elif tool in ["Saving Projetado", "Saving Realizado"]:
+        elif tool in ["D - Saving Projetado", "C - Saving Realizado"]:
             st.info("💡 **Doutor Lean CFO:** Diga quais os ganhos imaginados neste projeto, e o Coach construirá um formato executivo guiando como precificar (e enquadrar em Hard/Soft) cada um deles.")
             
             # Garantir que a state session memorize as edições manuais
@@ -1830,16 +1830,16 @@ with coach_container:
                     del st.session_state["saving_coach_feedback"]
                 
             q_desc = st.text_area("Descreva os ganhos ou ideias (ou mantenha os importados do Project Charter da tela acima):", key="coach_saving_desc", height=250, disabled=read_only, on_change=clear_saving_feedback)
-        elif tool == "Repositório de Medições":
+        elif tool == "M - Repositório de Medições":
             st.info("💡 **Cientista de Dados Black Belt:** Cole ou faça o upload de tabelas de dados. O Doutor Lean ajudará na interpretação e vai te pedir para orientar a análise para montar os gráficos.")
             st.warning("⚠️ Lembre-se: O robô não sabe como é o Gemba. A interpretação humana dos padrões matemáticos listados aqui é VITAL.")
-        elif tool == "Causa & Efeito - Esforço Impacto":
+        elif tool == "M - Causa & Efeito - Esforço Impacto":
             st.info("💡 **Análise de Causa & Efeito:** O Doutor Lean analisará cada X e gerará só o **Impacto** ou só o **Esforço**, dependendo do botão escolhido abaixo.")
             st.warning("⚠️ Preencha os X's na tabela ao lado e certifique-se que o Problema está salvo no Project Charter.")
-        elif tool == "Plano de Coleta de Dados":
+        elif tool == "M - Plano de Coleta de Dados":
             st.info("💡 **Doutor Lean:** O robô analisará as causas prioritárias (Matriz C&E) ou indicadores mapeados para sugerir um plano de coleta robusto.")
             st.caption("Certifique-se de que a Matriz C&E possui itens marcados como 'Alta Prioridade' (Verde) para melhores sugestões.")
-        elif tool == "Plano de Ação":
+        elif tool == "I - Plano de Ação":
             st.info("💡 **Desdobramento de Ações:** O Coach analisará uma Solução específica e sugerirá as ações táticas (O que / Como) para alcançá-la.")
             st.caption("A IA preencherá apenas textos de ação; prazos e responsáveis continuam no seu controle.")
         else:
@@ -1852,7 +1852,7 @@ with coach_container:
             )
         st.warning("⚠️ **Atenção:** As informações geradas por Inteligência Artificial são exclusivas para direcionamento metodológico e devem obrigatoriamente ser revisadas e validadas na tabela ao lado antes do uso.")
         
-    if tool == "Causa & Efeito - Esforço Impacto" and not read_only:
+    if tool == "M - Causa & Efeito - Esforço Impacto" and not read_only:
         # Tres botoes separados para a ferramenta C&E
         ce_b1, ce_b2, ce_b3 = st.columns([1, 1, 1])
         ce_mode = None
@@ -1915,7 +1915,7 @@ with coach_container:
                         st.rerun()
 
         # --- Botão Dr. Lean (Consolidar X's) — aparece no Coach IA abaixo das avaliações IA ---
-        if tool == "Causa & Efeito - Esforço Impacto" and not read_only:
+        if tool == "M - Causa & Efeito - Esforço Impacto" and not read_only:
             st.markdown("---")
             st.markdown("#### 🤖 Dr. Lean — Consolidação Inteligente de X's")
             st.caption("Analisa **todos** os indicadores da Planilha de Indicadores e gera uma lista enxuta de X's primários, agrupando indicadores redundantes e evitando misturar causas profundas com causas de primeiro nível.")
@@ -1940,7 +1940,7 @@ with coach_container:
         mode_str = None  # default — only set to "review"/"generate" when button is clicked
         btn_label = "🔎 Iniciar Revisão" if ia_action == "Revisão do Coach IA" else "✨ Gerar Sugestão"
         
-        if tool == "5 Porquês" and ia_action != "Revisão do Coach IA":
+        if tool == "A - 5 Porquês" and ia_action != "Revisão do Coach IA":
             pop_5pq = st.popover("✨ Gerar Matriz Profunda", use_container_width=True)
             pop_5pq.warning("⚠️ **Alerta:** A Inteligência Artificial irá preencher todo o seu diagrama lendo o contexto já existente. Ela criará até 10 camadas principais preenchendo até o 4º nível! Tem certeza que deseja dar a ordem de geração macro?")
             if pop_5pq.button("🚀 Confirmar Arquitetura Profunda", disabled=read_only, use_container_width=True):
@@ -1953,7 +1953,7 @@ with coach_container:
         if mode_str is not None:
 
             # --- FLUXO ESPECIAL: Geração (Autocompletar) do VOC/VOB ---
-            if tool == "VOC/VOB" and mode_str == "generate":
+            if tool == "D - VOC/VOB" and mode_str == "generate":
                 with st.spinner(f"Doutor Lean gerando linha para {target_voc}..."):
                     new_row = suggest_vocvob_row(target_voc, q1, q2, q3, project_state)
                     t_key = "voc" if target_voc == "Voz do Cliente (VOC)" else "vob"
@@ -1967,7 +1967,7 @@ with coach_container:
                     st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (Problema) ---
-            elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Problema e Benefícios":
+            elif tool == "D - Project Charter" and mode_str == "generate" and target_charter == "Problema e Benefícios":
                 if not q_impact:
                     st.warning("Por favor, preencha o impacto percebido antes de gerar sugestões.")
                 else:
@@ -1985,13 +1985,13 @@ with coach_container:
                                 if y_v: indics.append(y_v)
                             if indics:
                                 project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
-                        db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (Problem)"})
+                        db.save_draft(pid, "D - Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (Problem)"})
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Problema e Benefícios gerados automaticamente associando o impacto da necessidade original transcrita do VOC/VOB! Releia e verifique se as premissas estão corretas."
                         st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Charter via VOC/VOB (SMART Goal) ---
-            elif tool == "Project Charter" and mode_str == "generate" and target_charter == "Objetivo SMART":
+            elif tool == "D - Project Charter" and mode_str == "generate" and target_charter == "Objetivo SMART":
                 if not q_tempo or not q_meta:
                     st.warning("Por favor, preencha o prazo e a meta numérica para construirmos o SMART!")
                 else:
@@ -2008,13 +2008,13 @@ with coach_container:
                                 if y_v: indics.append(y_v)
                             if indics:
                                 project_state["charter"]["main_indicator"] = " / ".join(list(dict.fromkeys(indics)))
-                        db.save_draft(pid, "Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (SMART Goal)"})
+                        db.save_draft(pid, "D - Project Charter", {"charter": project_state["charter"], "text": "AI Generated Charter (SMART Goal)"})
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Objetivo construído segundo o padrão SMART! Releia e edite se necessário."
                         st.rerun()
 
             # --- FLUXO ESPECIAL: Geração (Autocompletar) do SIPOC ---
-            elif tool == "SIPOC (por etapa)" and mode_str == "generate":
+            elif tool == "D - SIPOC (por etapa)" and mode_str == "generate":
                 if target_sipoc == "Etapas Mestre do Processo (P)":
                     if not q_desc.strip():
                         st.warning("Forneça pelo menos 1 frase ou passo-a-passo para a IA extrair a lógica macro!")
@@ -2045,7 +2045,7 @@ with coach_container:
                         st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Saving CFO ---
-            elif tool in ["Saving Projetado", "Saving Realizado"] and mode_str == "generate":
+            elif tool in ["D - Saving Projetado", "C - Saving Realizado"] and mode_str == "generate":
                 if not q_desc:
                     st.warning("Eita! Você precisa descrever algum benefício preliminar ou ideia na caixa de texto pro CFO conseguir criar o modelo financeiro de conversão.")
                 else:
@@ -2056,7 +2056,7 @@ with coach_container:
                         st.rerun()
 
             # --- FLUXO ESPECIAL: Geração (Autocompletar) de Matriz de Indicadores ---
-            elif tool == "Matriz de Indicadores" and mode_str == "generate":
+            elif tool == "M - Matriz de Indicadores" and mode_str == "generate":
                 with st.spinner("Doutor Lean processando etapas e criando árvore de indicadores..."):
                     new_matriz = suggest_matriz_indicadores(project_state)
                     if not new_matriz:
@@ -2070,7 +2070,7 @@ with coach_container:
                         st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Ishikawa ---
-            elif tool == "Ishikawa" and mode_str == "generate":
+            elif tool == "M - Ishikawa" and mode_str == "generate":
                 with st.spinner("Doutor Lean estruturando a lista de causas (6Ms) a partir do seu Efeito..."):
                     ishikawas = project_state.get("ishikawas", [])
                     if not ishikawas:
@@ -2156,7 +2156,7 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Plano de Coleta de Dados ---
-            elif tool == "Plano de Coleta de Dados" and mode_str == "generate":
+            elif tool == "M - Plano de Coleta de Dados" and mode_str == "generate":
                 with st.spinner("Doutor Lean estruturando o plano de medição metrológica..."):
                     # Pega as causas verdes como base se existirem
                     ce_data = project_state.get("causa_efeito", [])
@@ -2189,7 +2189,7 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
 
             # --- FLUXO ESPECIAL: Geração dos 5 Porquês ---
             # --- FLUXO ESPECIAL: Geração (Macro/Matrizes Arqueológicas) dos 5 Porquês ---
-            elif tool == "5 Porquês" and mode_str == "generate":
+            elif tool == "A - 5 Porquês" and mode_str == "generate":
                 with st.spinner("Doutor Lean atuando como Mestre Arquiteto de Árvores (Isso pode levar de 15 a 30 segundos)..."):
                     pqs = project_state.get("cinco_pqs", [])
                     if not pqs:
@@ -2215,7 +2215,7 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Plano de Ação (5W2H) ---
-            elif tool == "Plano de Ação" and mode_str == "generate":
+            elif tool == "I - Plano de Ação" and mode_str == "generate":
                 with st.spinner("Doutor Lean desdobrando ações operacionais..."):
                     # Precisamos saber se o aluno importou algo
                     planos_acao = project_state.get("planos_acao", [])
@@ -2260,7 +2260,7 @@ Retorne EXATAMENTE UM JSON em formato válido: {{"rows": [{{"categoria": "...", 
                                 st.rerun()
 
             # --- FLUXO ESPECIAL: Geração do Quick Wins ---
-            elif tool == "Quick Wins" and mode_str == "generate":
+            elif tool == "M - Quick Wins" and mode_str == "generate":
                 with st.spinner("Doutor Lean desdobrando Quick Wins..."):
                     qw_data = project_state.get("quick_wins", [])
                     if not qw_data or not qw_data[0].get("rows", []):

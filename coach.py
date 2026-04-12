@@ -1004,7 +1004,7 @@ def suggest_plano_controle_row(state: Dict[str, Any], oq_checar: str) -> Dict[st
     charter_context = json.dumps(state.get("project_charter", {}), ensure_ascii=False)
     
     prompt = f"""Você é um Master Black Belt em Lean Six Sigma.
-O aluno precisa preencher uma linha do 'Plano de Controle' (Fase Control do DMAIC) para sustentar a melhoria de um indicador ou causa.
+O aluno precisa preencher uma linha do 'C - Plano de Controle' (Fase Control do DMAIC) para sustentar a melhoria de um indicador ou causa.
 Ele já forneceu o alvo a ser controlado: "{oq_checar}"
 
 Contexto do Projeto: {charter_context}
