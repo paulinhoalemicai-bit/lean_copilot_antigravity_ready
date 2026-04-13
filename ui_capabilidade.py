@@ -36,8 +36,10 @@ def parse_data(file) -> pd.DataFrame:
             
         for col in df.columns:
             if df[col].dtype == 'object':
-                cleaned = df[col].astype(str).str.replace(',', '.')
+                # Remove pontos de milhar e converte virgula para ponto
+                cleaned = df[col].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
                 numeric_series = pd.to_numeric(cleaned, errors='coerce')
+                # Se mais de 30% for numero valido, assume que a coluna eh toda numerica
                 if numeric_series.notna().sum() >= (len(df) * 0.3):
                     df[col] = numeric_series
                     
@@ -142,48 +144,54 @@ def render_capabilidade_ui(project_state: dict, pid: str, db, read_only: bool, t
                         st.dataframe(df.head(), use_container_width=True)
                         st.caption(f"Tabela carregada: {df.shape[0]} linhas e {df.shape[1]} colunas.")
                         
-                        numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-                        if numeric_cols:
-                            st.markdown("#### Gerador Gráfico Nativo Seguro")
-                            
-                            c_col, c_chart = st.columns(2)
-                            with c_col:
-                                selected_col = st.selectbox("Selecione a Métrica/Variável Y", numeric_cols)
-                            with c_chart:
-                                chart_type = st.selectbox("Escolha o Tipo de Gráfico", ["Histograma (Distribuição)", "Boxplot (Variação)", "Ordem / Linha do Tempo"])
-                            
-                            if st.button("📈 Gerar e Salvar Gráfico na Galeria", type="secondary"):
-                                import altair as alt
-                                try:
-                                    if chart_type == "Histograma (Distribuição)":
-                                        chart = alt.Chart(df).mark_bar(color='#0083B8').encode(
-                                            alt.X(f"{selected_col}:Q", bin=alt.Bin(maxbins=30), title=selected_col),
-                                            alt.Y('count()', title='Frequência'),
-                                            tooltip=[alt.Tooltip(f"{selected_col}:Q", bin=True), 'count()']
-                                        ).properties(height=300)
-                                    elif chart_type == "Boxplot (Variação)":
-                                        chart = alt.Chart(df).mark_boxplot(extent='min-max', color='#0083B8').encode(
-                                            y=alt.Y(f"{selected_col}:Q", title=selected_col)
-                                        ).properties(height=300)
-                                    else:
-                                        chart = alt.Chart(df.reset_index()).mark_line(point=True, color='#0083B8').encode(
-                                            x=alt.X('index:Q', title='Amostra (Ordem Cronológica)'),
-                                            y=alt.Y(f"{selected_col}:Q", title=selected_col),
-                                            tooltip=['index', selected_col]
-                                        ).properties(height=300)
+                        # Mantém a listagem para QUALQUER coluna selecionada (sem ocultar a UI se a conversão falhar)
+                        cols = df.columns.tolist()
+                        
+                        st.markdown("#### Gerador Gráfico Nativo Seguro")
+                        
+                        c_col, c_chart = st.columns(2)
+                        with c_col:
+                            selected_col = st.selectbox("Selecione a Métrica/Variável Y", cols)
+                        with c_chart:
+                            chart_type = st.selectbox("Escolha o Tipo de Gráfico", ["Histograma (Distribuição)", "Boxplot (Variação)", "Ordem / Linha do Tempo"])
+                        
+                        if st.button("📈 Gerar e Salvar Gráfico na Galeria", type="secondary"):
+                            import altair as alt
+                            try:
+                                # Tentamos forçar numérico para o gráfico (Altair auto-detecta, mas forçamos pra garantir bins em str numéricos que escaparam do parser)
+                                plot_df = df.copy()
+                                if plot_df[selected_col].dtype == object:
+                                    plot_df[selected_col] = pd.to_numeric(plot_df[selected_col].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False), errors='coerce')
                                     
-                                    chart_dict = chart.to_dict()
-                                    state_charts_key = f"cap_saved_charts_{tool}"
-                                    if state_charts_key not in st.session_state:
-                                        st.session_state[state_charts_key] = []
-                                        
-                                    st.session_state[state_charts_key].append({
-                                        "title": f"{chart_type} - {selected_col}",
-                                        "spec": chart_dict
-                                    })
-                                    st.success(f"Gráfico '{chart_type}' gerado e anexado à Galeria abaixo!")
-                                except Exception as e:
-                                    st.warning(f"Erro ao renderizar gráfico nativo: {e}")
+                                if chart_type == "Histograma (Distribuição)":
+                                    chart = alt.Chart(plot_df).mark_bar(color='#0083B8').encode(
+                                        alt.X(f"{selected_col}:Q", bin=alt.Bin(maxbins=30), title=selected_col),
+                                        alt.Y('count()', title='Frequência'),
+                                        tooltip=[alt.Tooltip(f"{selected_col}:Q", bin=True), 'count()']
+                                    ).properties(height=300)
+                                elif chart_type == "Boxplot (Variação)":
+                                    chart = alt.Chart(plot_df).mark_boxplot(extent='min-max', color='#0083B8').encode(
+                                        y=alt.Y(f"{selected_col}:Q", title=selected_col)
+                                    ).properties(height=300)
+                                else:
+                                    chart = alt.Chart(plot_df.reset_index()).mark_line(point=True, color='#0083B8').encode(
+                                        x=alt.X('index:Q', title='Amostra (Ordem Cronológica)'),
+                                        y=alt.Y(f"{selected_col}:Q", title=selected_col),
+                                        tooltip=['index', selected_col]
+                                    ).properties(height=300)
+                                
+                                chart_dict = chart.to_dict()
+                                state_charts_key = f"cap_saved_charts_{tool}"
+                                if state_charts_key not in st.session_state:
+                                    st.session_state[state_charts_key] = []
+                                    
+                                st.session_state[state_charts_key].append({
+                                    "title": f"{chart_type} - {selected_col}",
+                                    "spec": chart_dict
+                                })
+                                st.success(f"Gráfico '{chart_type}' gerado e anexado à Galeria abaixo!")
+                            except Exception as e:
+                                st.warning(f"Erro ao renderizar gráfico nativo para os dados fornecidos. Eles podem ser puramente em texto. O erro interno foi: {e}")
                                     
                         # --- Espaço para Galeria ---
                         st.markdown("---")
