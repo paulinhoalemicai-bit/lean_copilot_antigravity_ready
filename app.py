@@ -319,6 +319,93 @@ def pretty_gap_id(gid: str) -> str:
         return mapping.get(last, f"Gap {last}")
     return gid
 
+def get_dmaic_metrics(p_state: dict) -> dict:
+    def safe_get(p_data, key, subkey):
+        d = p_data.get(key)
+        if isinstance(d, dict): return d.get(subkey)
+        return None
+
+    # CHECKLIST MAPPING: Retorna (Nome Ferramenta, Preenchido boolean)
+    checklist_d = [
+        ("VOC/VOB", bool(safe_get(p_state, "voc_vob", "voc"))),
+        ("Project Charter", bool(safe_get(p_state, "charter", "y"))),
+        ("Matriz RACI", bool(p_state.get("raci"))),
+        ("SIPOC (por etapa)", bool(safe_get(p_state, "sipoc", "rows"))),
+        ("Saving Projetado", bool(safe_get(p_state, "saving_projetado", "hard")))
+    ]
+    
+    checklist_m = [
+        ("Fluxograma", bool(p_state.get("fluxograma_xml"))),
+        ("Matriz de Indicadores", bool(p_state.get("matriz_indicadores"))),
+        ("Repositório de Medições", bool(p_state.get("metrics"))),
+        ("Causa & Efeito", bool(p_state.get("causa_efeito"))),
+        ("Plano de Coleta de Dados", bool(p_state.get("planos_validacao"))), # Nota: Em legado planos_validacao serve de repo (M/A overlap)
+        ("Quick Wins", bool(p_state.get("quick_wins"))), # Check se temos array
+        ("Ishikawa", bool(p_state.get("ishikawas")))
+    ]
+
+    checklist_a = [
+        ("5 Porquês", bool(p_state.get("cinco_pqs"))),
+        ("Plano de Validação de Causas", bool(p_state.get("planos_validacao"))) # Overlap lógico, se for True ambos
+    ]
+
+    checklist_i = [
+        ("Plano de Soluções", bool(p_state.get("plano_solucoes"))),
+        ("Plano de Ação", bool(p_state.get("plano_acao"))) # Ver se plano de acao existe global
+    ]
+
+    # Correção: O Lean Copilot salva plano_acao sob `planos_acao` com um ID
+    planos_acao_raw = p_state.get("planos_acao", [])
+    has_acao = False
+    total_acoes, concluidas = 0, 0
+    if isinstance(planos_acao_raw, list):
+        for pa in planos_acao_raw:
+            if isinstance(pa, dict) and pa.get("rows"):
+                has_acao = True
+                for row in pa["rows"]:
+                    total_acoes += 1
+                    if row.get("status") == "Concluído": concluidas += 1
+    checklist_i[1] = ("Plano de Ação", has_acao)
+
+    checklist_c = [
+        ("Saving Realizado", bool(safe_get(p_state, "saving_realizado", "hard"))),
+        ("Plano de Controle", bool(p_state.get("plano_controle") or p_state.get("control_plan")))
+    ]
+    
+    # % de preenchimento
+    def calc_perc(chk_list):
+        if not chk_list: return 0
+        return int(sum(1 for _, v in chk_list if v) / len(chk_list) * 100)
+
+    perc_d = calc_perc(checklist_d)
+    perc_m = calc_perc(checklist_m)
+    perc_a = calc_perc(checklist_a)
+    perc_i = calc_perc(checklist_i)
+    perc_c = calc_perc(checklist_c)
+
+    # Global Tools (Contando únicos validos de D+M+A+I+C)
+    all_chks = checklist_d + checklist_m + checklist_a + checklist_i + checklist_c
+    total_tools = len(all_chks)
+    completed_tools = sum(1 for _, v in all_chks if v)
+    total_perc = int((completed_tools / total_tools) * 100) if total_tools > 0 else 0
+    
+    # Progresso Ação
+    action_perc = int((concluidas / total_acoes) * 100) if total_acoes > 0 else 0
+
+    return {
+        "global_perc": total_perc,
+        "d_perc": perc_d, "m_perc": perc_m, "a_perc": perc_a, "i_perc": perc_i, "c_perc": perc_c,
+        "action_perc": action_perc,
+        "action_stats": (total_acoes, concluidas),
+        "checklist": {
+            "Define": checklist_d,
+            "Measure": checklist_m,
+            "Analyze": checklist_a,
+            "Improve": checklist_i,
+            "Control": checklist_c
+        }
+    }
+
 def default_project_state(name: str, uid: str) -> dict:
     return {
         "project_id": "",
@@ -513,46 +600,31 @@ if not pid:
                 for p in all_ps:
                     p_state = db.get_project_state(p["project_id"])
                     
-                    def safe_get(p_data, key, subkey):
-                        d = p_data.get(key)
-                        if isinstance(d, dict): return d.get(subkey)
-                        return None
-                        
-                    # Calcular Tools Completed
-                    tools_completed = 0
-                    if safe_get(p_state, "voc_vob", "voc"): tools_completed += 1
-                    if safe_get(p_state, "charter", "y"): tools_completed += 1
-                    if p_state.get("raci"): tools_completed += 1
-                    if safe_get(p_state, "sipoc", "rows"): tools_completed += 1
-                    if safe_get(p_state, "saving_projetado", "hard"): tools_completed += 1
-                    if p_state.get("matriz_indicadores"): tools_completed += 1
-                    if p_state.get("causa_efeito"): tools_completed += 1
-                    if p_state.get("planos_validacao"): tools_completed += 1
-                    if p_state.get("plano_solucoes"): tools_completed += 1
-                    if p_state.get("plano_acao"): tools_completed += 1
-                    if p_state.get("control_plan") or p_state.get("plano_controle"): tools_completed += 1
-                    if p_state.get("fluxograma_xml"): tools_completed += 1
-                    if p_state.get("ishikawas"): tools_completed += 1
-                    if p_state.get("cinco_pqs"): tools_completed += 1
-                    if p_state.get("metrics"): tools_completed += 1
-                    
-                    total_score = min(round((tools_completed / 17.0) * 100), 100)
+                    dmaic_metrics = get_dmaic_metrics(p_state)
+                    total_score = dmaic_metrics["global_perc"]
+                    action_exec = dmaic_metrics["action_perc"]
                     
                     # Status Calculation
                     status_prazo = "Dentro do Prazo"
                     from datetime import datetime
                     hoje = datetime.utcnow().date()
                     
-                    # Tenta ler as semanas
+                    # Tenta ler as semanas (Legado: deixaremos estático por ora se on track, para MVP)
                     tw = p_state.get("charter", {}).get("timeline_weeks", {})
                     
                     c_name = u_map.get(p["user_id"], "Sem Cliente")
                     metrics_data.append({
                         "Cliente": c_name,
                         "Aluno (Dono)": p["user_id"],
-                        "Projeto": p["name"],
                         "Evolução %": total_score,
-                        "Status Prazo": status_prazo
+                        "Define %": dmaic_metrics["d_perc"],
+                        "Measure %": dmaic_metrics["m_perc"],
+                        "Analyze %": dmaic_metrics["a_perc"],
+                        "Improve %": dmaic_metrics["i_perc"],
+                        "Control %": dmaic_metrics["c_perc"],
+                        "Ações Realizadas %": action_exec,
+                        "Status Prazo": status_prazo,
+                        "Projeto": p["name"],
                     })
                     
                 df_met = pd.DataFrame(metrics_data)
@@ -565,13 +637,13 @@ if not pid:
                     df_met,
                     use_container_width=True,
                     column_config={
-                        "Evolução %": st.column_config.ProgressColumn(
-                            "Evolução %",
-                            help="Percentual",
-                            format="%f%%",
-                            min_value=0,
-                            max_value=100,
-                        )
+                        "Evolução %": st.column_config.ProgressColumn("Evolução %", help="Global Ferramentas", format="%f%%", min_value=0, max_value=100),
+                        "Define %": st.column_config.ProgressColumn("Define %", format="%f%%", min_value=0, max_value=100),
+                        "Measure %": st.column_config.ProgressColumn("Measure %", format="%f%%", min_value=0, max_value=100),
+                        "Analyze %": st.column_config.ProgressColumn("Analyze %", format="%f%%", min_value=0, max_value=100),
+                        "Improve %": st.column_config.ProgressColumn("Improve %", format="%f%%", min_value=0, max_value=100),
+                        "Control %": st.column_config.ProgressColumn("Control %", format="%f%%", min_value=0, max_value=100),
+                        "Ações Realizadas %": st.column_config.ProgressColumn("Ações Realizadas %", format="%f%%", min_value=0, max_value=100)
                     }
                 )
             else:
@@ -793,34 +865,43 @@ with tool_container:
         st.subheader("Capa do Projeto")
         st.markdown("Bem-vindo! Documente a identidade oficial da sua iniciativa de melhoria.")
         
-        # --- Lógica do KPI do Estudante ---
-        def safe_get(p_data, key, subkey):
-            d = p_data.get(key)
-            if isinstance(d, dict): return d.get(subkey)
-            return None
-
-        tools_c = 0
-        p_state = project_state
-        if safe_get(p_state, "voc_vob", "voc"): tools_c += 1
-        if safe_get(p_state, "charter", "y"): tools_c += 1
-        if p_state.get("raci"): tools_c += 1
-        if safe_get(p_state, "sipoc", "rows"): tools_c += 1
-        if safe_get(p_state, "saving_projetado", "hard"): tools_c += 1
-        if p_state.get("matriz_indicadores"): tools_c += 1
-        if p_state.get("causa_efeito"): tools_c += 1
-        if p_state.get("planos_validacao"): tools_c += 1
-        if p_state.get("plano_solucoes"): tools_c += 1
-        if p_state.get("plano_acao"): tools_c += 1
-        if p_state.get("control_plan") or p_state.get("plano_controle"): tools_c += 1
-        if p_state.get("fluxograma_xml"): tools_c += 1
-        if p_state.get("ishikawas"): tools_c += 1
-        if p_state.get("cinco_pqs"): tools_c += 1
-        if p_state.get("metrics"): tools_c += 1
+        # --- Lógica do KPI do Estudante (Dashboard DMAIC) ---
+        d_metrics = get_dmaic_metrics(project_state)
         
-        perc = min(round((tools_c / 17.0) * 100), 100)
+        st.markdown("#### 🎯 Dashboard DMAIC")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric(label="Ferramentas (Global)", value=f"{d_metrics['global_perc']}%")
+        with c2:
+            st.metric(label="Execução do Plano de Ação", value=f"{d_metrics['action_perc']}%")
+        with c3:
+            s_acoes = d_metrics['action_stats']
+            st.metric(label="Ações Concluídas", value=f"{s_acoes[1]} / {s_acoes[0]}")
+            
+        st.markdown("---")
+        # Barras de Progresso por Fase
+        st.markdown("**Evolução por Fase**")
+        pcol1, pcol2, pcol3, pcol4, pcol5 = st.columns(5)
+        def draw_phase(col, phase_name, perc):
+            with col:
+                st.caption(f"**{phase_name}** ({perc}%)")
+                st.progress(perc / 100.0)
+                
+        draw_phase(pcol1, "Define", d_metrics["d_perc"])
+        draw_phase(pcol2, "Measure", d_metrics["m_perc"])
+        draw_phase(pcol3, "Analyze", d_metrics["a_perc"])
+        draw_phase(pcol4, "Improve", d_metrics["i_perc"])
+        draw_phase(pcol5, "Control", d_metrics["c_perc"])
         
-        st.markdown(f"**Progresso de Ferramentas ({perc}%)** - *{tools_c} de 17 seções chaves preenchidas.*")
-        st.progress(perc / 100.0)
+        st.write("")
+        with st.expander("Ver Checklist Completo de Ferramentas"):
+            for phase, items in d_metrics["checklist"].items():
+                st.markdown(f"**{phase}**")
+                for tool_name, is_checked in items:
+                    icon = "✅" if is_checked else "⚪"
+                    st.markdown(f"- {icon} {tool_name}")
+                st.divider()
+        
         st.divider()
         
         with st.container(border=True):
