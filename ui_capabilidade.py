@@ -350,6 +350,13 @@ def render_capabilidade_ui(project_state: dict, pid: str, db, read_only: bool, t
                             st.caption(f"Não foi possível renderizar o gráfico gerado: {str(e)}")
                             
             if not read_only:
+                if st.session_state[state_log_key]:
+                    if st.button("🚨 Apagar Histórico do Chat", use_container_width=True):
+                        st.session_state[state_log_key] = []
+                        project_state[st_key_db] = []
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"], project_state.get("allow_teacher_view", True))
+                        st.rerun()
+                
                 user_msg = st.chat_input("Dúvidas extras ou refinar valores das especificações...")
                 if user_msg:
                     st.session_state[state_log_key].append({"role": "user", "content": user_msg})
