@@ -137,19 +137,56 @@ def render_capabilidade_ui(project_state: dict, pid: str, db, read_only: bool, t
                     st.text_area("Preview do Documento", doc_text[:1000] + "...", height=150, disabled=True)
                     
             st.markdown("---")
-            coach_btn = st.button("✨ Orientar Cálculo de Capabilidade (IA)", disabled=read_only, use_container_width=True)
+            b_chat_1 = st.button("✨ 1. Orientar Quais Dados Coletar e Definir Limites (IA)", disabled=read_only, use_container_width=True)
+            b_chat_2 = st.button("📊 2. Calcular Distribuição / Nível Sigma (Requer Dados)", disabled=read_only or df is None, use_container_width=True)
+            
+            st.markdown("---")
+            st.markdown("### Salvar Módulo de Capabilidade Oficial")
+            if not read_only:
+                if st.button("💾 Resumir e Salvar Relatório de Capabilidade", type="primary", use_container_width=True):
+                    with st.spinner("Compilando e salvando relatório oficial na Biblioteca..."):
+                        import coach_extensions
+                        resume_payload = "Resuma detalhadamente seus últimos achados, foque nos limites operacionais, oportunidades e na métrica principal (Nível Sigma)."
+                        ans = coach_extensions.analyze_measurement_data(
+                            project_state, "Gerar Sumário Final", resume_payload, st.session_state.get(f"cap_chat_logs_{tool}", [])
+                        )
+                        final_msg = ans.get("resposta", "Análise salva com sucesso.")
+                        
+                        rel = {
+                            "id": f"cap_{len(project_state.get('measurement_reports', []))}",
+                            "title": f"Cálculo de Capabilidade ({tool.split(' - ')[0]})",
+                            "date": pd.Timestamp.now().strftime("%d/%m/%Y %H:%M"),
+                            "logs": st.session_state.get(f"cap_chat_logs_{tool}", []) + [{"role": "assistant", "content": final_msg}],
+                        }
+                        
+                        reports = project_state.get("measurement_reports", [])
+                        reports.append(rel)
+                        project_state["measurement_reports"] = reports
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"], project_state.get("allow_teacher_view", True))
+                        st.success("Relatório Salvo! Ele foi transferido para a Biblioteca de Relatórios em Repositório de Medições.")
+                        st.session_state[f"cap_chat_logs_{tool}"] = [] # Limpa a tela
+                        st.rerun()
                     
         with colChat:
             state_log_key = f"cap_chat_logs_{tool}"
             if state_log_key not in st.session_state:
                 st.session_state[state_log_key] = []
             
-            if coach_btn:
-                problem_stmt = project_state.get("charter", {}).get("problem", "Nenhum problema definido no Project Charter ainda.")
-                initial_query = f"Avalie as informações disponíveis e me guie em como calcular a Capabilidade do Processo (Cpk, Ppk, Z.Score). Use shift de 1.5 caso converta para Sigma. O Problema Central do meu projeto é: '{problem_stmt}'. Analise também se os dados (se enviados) estão corretos para isso e crie o gráfico de distribuição (Histograma) pelo Vega-Lite."
+            trigger_coach = False
+            initial_query = ""
+            
+            if b_chat_1:
+                problem_stmt = project_state.get("charter", {}).get("problem", "Nenhum problema foi definido ainda.")
+                initial_query = f"Sou o aluno Lean Seis Sigma. Baseando-se APENAS neste problema do Project Charter ['{problem_stmt}'], me oriente: Quais dados exatos eu deveria coletar para medir a capabilidade atual da minha operação contínua? Me explique de forma muito simples como eu posso determinar sozinho qual meu Limite Inferior (LSE) ou Limite Superior (LIE) (Limite entre o bom e o ruim), e diga por que essa linguagem é importante. Não calcule nada ainda."
+                st.session_state[state_log_key].append({"role": "user", "content": "Quais dados eu preciso coletar e como defino os limites do meu problema?"})
+                trigger_coach = True
                 
-                st.session_state[state_log_key].append({"role": "user", "content": "Me oriente e calcule a capabilidade."})
+            elif b_chat_2:
+                initial_query = f"Tenho dados inseridos. Analise-os para gerar a Capabilidade Contínua. IDENTIFIQUE qual é o meu Limite Superior ou Inferior baseado na nossa conversa prévia ou meta empírica e calcule o Cpk, Ppk e encontre o Nível Sigma nativo destes dados de acordo. Se tiver DPMO, explicite. Também crie um Histograma representativo (Distribuição dos Dados) pelo Vega-Lite."
+                st.session_state[state_log_key].append({"role": "user", "content": "Gere a Análise de Capabilidade Estatística e o Histograma."})
+                trigger_coach = True
                 
+            if trigger_coach:
                 with st.spinner("Analisando matematicamente os dados e o problema..."):
                     import coach_extensions
                     data_str_context = "Nenhuma tabela enviada."
