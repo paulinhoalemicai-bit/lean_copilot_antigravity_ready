@@ -1950,29 +1950,36 @@ with tool_container:
             ia_fb = st.session_state["saving_coach_feedback"]
             for k, v in ia_fb.items():
                 if v: sav[k] = v
+                
+        def safe_float(v):
+            try:
+                if isinstance(v, dict): return 0.0
+                return float(v)
+            except (ValueError, TypeError):
+                return 0.0
         
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("#### Hard Saving")
             st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Impacto Direto no DRE - Ex: Materiais, Faturado)</div>", unsafe_allow_html=True)
-            h_val = st.number_input("Valor (R$)", value=float(sav.get("hard", 0.0)), disabled=read_only, key=f"hard_{state_key}")
+            h_val = st.number_input("Valor (R$)", value=safe_float(sav.get("hard", 0.0)), disabled=read_only, key=f"hard_{state_key}")
             h_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("hard_racional", ""), height=150, disabled=read_only, key=f"hr_{state_key}")
         with c2:
             st.markdown("#### Soft Saving")
             st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Ganho Operacional / Liberação de Capacidade)</div>", unsafe_allow_html=True)
-            s_val = st.number_input("Valor (R$)", value=float(sav.get("soft", 0.0)), disabled=read_only, key=f"soft_{state_key}")
+            s_val = st.number_input("Valor (R$)", value=safe_float(sav.get("soft", 0.0)), disabled=read_only, key=f"soft_{state_key}")
             s_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("soft_racional", ""), height=150, disabled=read_only, key=f"sr_{state_key}")
         
         c3, c4 = st.columns(2)
         with c3:
             st.markdown("#### Cost Avoidance")
             st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Fuga de Custo - Ex: Evitou contratar, Multas)</div>", unsafe_allow_html=True)
-            a_val = st.number_input("Valor (R$)", value=float(sav.get("avoidance", 0.0)), disabled=read_only, key=f"avoid_{state_key}")
+            a_val = st.number_input("Valor (R$)", value=safe_float(sav.get("avoidance", 0.0)), disabled=read_only, key=f"avoid_{state_key}")
             a_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("avoidance_racional", ""), height=150, disabled=read_only, key=f"ar_{state_key}")
         with c4:
             st.markdown("#### Ganho de Faturamento")
             st.markdown("<div style='height:40px; font-size:13px; color:gray;'>(Novas Receitas - Ex: Aumento de Capacidade e Venda)</div>", unsafe_allow_html=True)
-            f_val = st.number_input("Valor (R$)", value=float(sav.get("faturamento", 0.0)), disabled=read_only, key=f"fatu_{state_key}")
+            f_val = st.number_input("Valor (R$)", value=safe_float(sav.get("faturamento", 0.0)), disabled=read_only, key=f"fatu_{state_key}")
             f_rac = st.text_area("Memorial de Cálculo (Como chegou no valor)", value=sav.get("faturamento_racional", ""), height=150, disabled=read_only, key=f"fr_{state_key}")
             
         total = h_val + s_val + a_val + f_val
@@ -2005,10 +2012,6 @@ with tool_container:
         if not raci_data:
             raci_data = [{"Nome": "", "Posição / Cargo": "", "Definição": "", "Medição": "", "Análise": "", "Melhoria": "", "Controle": ""}]
             
-        def save_raci_auto():
-            project_state["raci"] = st.session_state[f"raci_editor_{pid}"]
-            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
-
         edited_raci = st.data_editor(
             raci_data,
             num_rows="dynamic",
@@ -2022,10 +2025,15 @@ with tool_container:
                 "Melhoria": st.column_config.SelectboxColumn("Melhoria", options=["R", "A", "C", "I", ""]),
                 "Controle": st.column_config.SelectboxColumn("Controle", options=["R", "A", "C", "I", ""])
             },
-            disabled=read_only,
-            key=f"raci_editor_{pid}",
-            on_change=save_raci_auto
+            disabled=read_only
         )
+        
+        # Salvamento automático silencioso (Auto-save real on interaction)
+        if edited_raci != raci_data and not read_only:
+            # Proteção contra state bug do Streamlit (onde retorna dict de edicoes em vez de rows durante unmounts)
+            if isinstance(edited_raci, list):
+                project_state["raci"] = edited_raci
+                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
         
         with st.expander("❔ Entenda o que significa R, A, C, I", expanded=True):
             st.markdown("""
