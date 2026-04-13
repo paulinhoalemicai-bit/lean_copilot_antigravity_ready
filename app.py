@@ -2414,7 +2414,22 @@ with coach_container:
                 else:
                     with st.spinner("O CFO Virtual está analisando as possibilidades de ganhos..."):
                         new_sav = suggest_saving_rationale(project_state, q_desc)
-                        st.session_state["saving_coach_feedback"] = new_sav
+                        
+                        # Auto-save imediato no banco
+                        state_key = "saving_projetado" if tool == "D - Saving Projetado" else "saving_realizado"
+                        sav_atual = project_state.get(state_key) or {}
+                        for k, v in new_sav.items():
+                            if v: sav_atual[k] = v
+                        project_state[state_key] = sav_atual
+                        db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+                        
+                        # Injeta no state dos widgets nativos
+                        if new_sav.get("hard_racional"): st.session_state[f"hr_{state_key}"] = new_sav["hard_racional"]
+                        if new_sav.get("soft_racional"): st.session_state[f"sr_{state_key}"] = new_sav["soft_racional"]
+                        if new_sav.get("avoidance_racional"): st.session_state[f"ar_{state_key}"] = new_sav["avoidance_racional"]
+                        if new_sav.get("faturamento_racional"): st.session_state[f"fr_{state_key}"] = new_sav["faturamento_racional"]
+                        
+                        st.session_state["saving_coach_feedback"] = new_sav # Legado
                         st.session_state["ai_generated_warning"] = "✨ ⚠️ Análise Financeira Concluída. Veja a classificação das oportunidades logo abaixo!"
                         st.rerun()
 
