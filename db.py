@@ -61,7 +61,8 @@ class Project(Base):
     name = Column(String(255), nullable=False)
     state_json = Column(Text, nullable=False)
     user_id = Column(String(50), ForeignKey("users.username"), nullable=False)
-    allow_teacher_edit = Column(Boolean, default=False)
+    allow_teacher_edit = Column(Boolean, default=True)
+    allow_teacher_view = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -102,6 +103,8 @@ def init_db() -> None:
         try: conn.execute(text("ALTER TABLE users ADD COLUMN client_id INTEGER"))
         except Exception: pass
         try: conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_req BOOLEAN DEFAULT False"))
+        except Exception: pass
+        try: conn.execute(text("ALTER TABLE projects ADD COLUMN allow_teacher_view BOOLEAN DEFAULT 1"))
         except Exception: pass
         try: conn.commit()
         except: pass
@@ -144,8 +147,11 @@ def list_projects(user_role: str, username: str) -> List[Dict[str, Any]]:
     db = SessionLocal()
     try:
         if user_role == "professor":
-            # Professor vê todos (exceto a gaveta de configs)
-            projects = db.query(Project).filter(Project.project_id != "SYSTEM_CONFIG").order_by(Project.updated_at.desc()).all()
+            # Professor vê as que não são secretas e que permitem view
+            projects = db.query(Project).filter(
+                Project.project_id != "SYSTEM_CONFIG",
+                Project.allow_teacher_view == True
+            ).order_by(Project.updated_at.desc()).all()
         else:
             projects = db.query(Project).filter(Project.user_id == username, Project.project_id != "SYSTEM_CONFIG").order_by(Project.updated_at.desc()).all()
         
@@ -155,6 +161,7 @@ def list_projects(user_role: str, username: str) -> List[Dict[str, Any]]:
                 "name": p.name,
                 "user_id": p.user_id,
                 "allow_teacher_edit": p.allow_teacher_edit,
+                "allow_teacher_view": p.allow_teacher_view if hasattr(p, "allow_teacher_view") else True,
                 "updated_at": p.updated_at.isoformat() if p.updated_at else None
             }
             for p in projects
@@ -163,7 +170,7 @@ def list_projects(user_role: str, username: str) -> List[Dict[str, Any]]:
         db.close()
 
 
-def upsert_project(project_id: str, name: str, state: Dict[str, Any], user_id: str, allow_teacher_edit: bool = False) -> None:
+def upsert_project(project_id: str, name: str, state: Dict[str, Any], user_id: str, allow_teacher_edit: bool = True, allow_teacher_view: bool = True) -> None:
     db = SessionLocal()
     try:
         state_json = json.dumps(state, ensure_ascii=False)
@@ -173,6 +180,7 @@ def upsert_project(project_id: str, name: str, state: Dict[str, Any], user_id: s
             proj.state_json = state_json
             # Não atualiza o dono (user_id) de quem criou primeiro.
             proj.allow_teacher_edit = allow_teacher_edit
+            proj.allow_teacher_view = allow_teacher_view
             proj.updated_at = datetime.utcnow()
         else:
             new_proj = Project(
@@ -181,6 +189,7 @@ def upsert_project(project_id: str, name: str, state: Dict[str, Any], user_id: s
                 state_json=state_json,
                 user_id=user_id,
                 allow_teacher_edit=allow_teacher_edit,
+                allow_teacher_view=allow_teacher_view,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )
@@ -200,6 +209,7 @@ def get_project_state(project_id: str) -> Optional[Dict[str, Any]]:
         # Injeta as pemissões e autoria no state para a interface saber
         state["user_id"] = proj.user_id
         state["allow_teacher_edit"] = proj.allow_teacher_edit
+        state["allow_teacher_view"] = proj.allow_teacher_view if hasattr(proj, "allow_teacher_view") else True
         return state
     finally:
         db.close()

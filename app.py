@@ -342,7 +342,8 @@ def get_dmaic_metrics(p_state: dict) -> dict:
         ("Project Charter", bool(safe_get(p_state, "charter", "main_indicator") or safe_get(p_state, "charter", "problem"))),
         ("Matriz RACI", bool(p_state.get("raci"))),
         ("SIPOC (por etapa)", bool(p_state.get("sipoc"))), # SIPOC é uma lista direta
-        ("Saving Projetado", bool(p_state.get("saving_projetado")))
+        ("Saving Projetado", bool(p_state.get("saving_projetado"))),
+        ("Capabilidade (Baseline)", bool(p_state.get("cap_discrete_D - Capabilidade (Baseline)") or p_state.get("cap_chat_historico_D - Capabilidade (Baseline)")))
     ]
     
     checklist_m = [
@@ -362,7 +363,8 @@ def get_dmaic_metrics(p_state: dict) -> dict:
 
     checklist_i = [
         ("Plano de Soluções", bool(p_state.get("planos_solucoes"))), # Chave correta é planos_solucoes
-        ("Plano de Ação", bool(p_state.get("planos_acao"))) # Chave interna correta
+        ("Plano de Ação", bool(p_state.get("planos_acao"))), # Chave interna correta
+        ("Capabilidade (Melhoria)", bool(p_state.get("cap_discrete_I - Capabilidade (Melhoria)") or p_state.get("cap_chat_historico_I - Capabilidade (Melhoria)")))
     ]
 
     # Correção: O Lean Copilot salva plano_acao sob `planos_acao` com um ID
@@ -692,7 +694,8 @@ if not project_state:
 
 # --- Permissions Logic ---
 is_owner = (project_state.get("user_id") == USERNAME)
-allow_edit = project_state.get("allow_teacher_edit", False)
+allow_edit = project_state.get("allow_teacher_edit", True)
+allow_view = project_state.get("allow_teacher_view", True)
 
 # Se é professor e não tem permissão DE EDIÇÃO
 read_only = (ROLE == "professor" and not allow_edit)
@@ -706,11 +709,17 @@ with colA:
 with colB:
     if ROLE == "aluno":
         # Toggle permission
-        new_permit = st.toggle("Permitir edições do Professor", value=allow_edit)
-        if new_permit != allow_edit:
-            project_state["allow_teacher_edit"] = new_permit
-            db.upsert_project(pid, project_state['name'], project_state, USERNAME, new_permit)
-            st.success("Permissão atualizada!")
+        c_v, c_e = st.columns(2)
+        with c_v:
+            new_permit_view = st.toggle("Permitir visualização do Professor", value=allow_view)
+        with c_e:
+            new_permit_edit = st.toggle("Permitir edições do Professor", value=allow_edit, disabled=not new_permit_view)
+            
+        if new_permit_edit != allow_edit or new_permit_view != allow_view:
+            project_state["allow_teacher_edit"] = new_permit_edit
+            project_state["allow_teacher_view"] = new_permit_view
+            db.upsert_project(pid, project_state['name'], project_state, USERNAME, new_permit_edit, new_permit_view)
+            st.success("Permissões atualizadas!")
             st.rerun()
 
 tool_col1, tool_col2 = st.columns([1, 1])
@@ -2094,6 +2103,10 @@ with tool_container:
     elif tool == "A - Plano de Validação de Causas":
         import ui_plano_validacao
         ui_plano_validacao.render_plano_validacao_ui(project_state, pid, db, read_only)
+        
+    elif tool in ["D - Capabilidade (Baseline)", "I - Capabilidade (Melhoria)"]:
+        import ui_capabilidade
+        ui_capabilidade.render_capabilidade_ui(project_state, pid, db, read_only, tool)
 
     elif tool == "I - Plano de Soluções":
         import ui_plano_solucoes

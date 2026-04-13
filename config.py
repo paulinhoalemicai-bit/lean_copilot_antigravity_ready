@@ -7,6 +7,7 @@ TOOLS = [
     "D - Matriz RACI",
     "D - Saving Projetado",
     "D - Project Charter",
+    "D - Capabilidade (Baseline)",
     "M - Fluxograma",
     "M - Matriz de Indicadores",
     "M - Repositório de Medições",
@@ -18,6 +19,7 @@ TOOLS = [
     "A - Plano de Validação de Causas",
     "I - Plano de Soluções",
     "I - Plano de Ação",
+    "I - Capabilidade (Melhoria)",
     "C - Saving Realizado",
     "C - Plano de Controle"
 ]
@@ -154,5 +156,19 @@ Objetivo:
 - Garantir a sustentabilidade das melhorias a longo prazo (Fase Control)
 - Definir métodos de medição, responsáveis, metas e limites
 - Especificar ações preventivas e corretivas em caso de desvio dos indicadores e causas tratadas
+""",
+    "D - Capabilidade (Baseline)": """
+Ferramenta Capabilidade de Processo (Medição do Status Quo do Y).
+Objetivo:
+- Analisar a performance de dados discretos ou contínuos sobre as especificações.
+- Em dados discretos: Calcular Oportunidades, DPMO e Nível Sigma baseado nos defeitos atuais.
+- Em dados contínuos: Gerar gráfico de distribuição e calcular o Z.Score a partir de amostragens reais.
+- O Coach atua como Mestre Estatístico (Estatístico Black Belt), usando o Problema Central da fase de Definição (Charter) para instigar se o aluno possui as coletas necessárias e calcular a distribuição por ele caso solicitado (uso de CSV/XLSX).
+""",
+    "I - Capabilidade (Melhoria)": """
+Ferramenta Capabilidade de Processo (Após a Melhoria).
+Objetivo:
+- Validar estatisticamente as melhorias através do recálculo do Nível Sigma (Z.B/Z.L).
+- Os padrões seguem idênticos, porém visa confirmar a quebra de patamar na fase de Improve para ser levado ao Control.
 """
 }
