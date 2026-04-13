@@ -507,24 +507,23 @@ if ROLE == "aluno":
             st.rerun()
 
 projects = get_project_list()
-if projects:
-    st.sidebar.caption("Seus Projetos" if ROLE == "aluno" else "Projetos dos Alunos")
-    for p in projects:
-        owner_str = f" ({p['user_id']})" if ROLE == "professor" else ""
-        if st.sidebar.button(f"📁 {p['name']}{owner_str}", key=f"open_{p['project_id']}"):
-            st.session_state.active_project_id = p["project_id"]
-            st.rerun()
-else:
-    if ROLE == "aluno":
-        st.sidebar.info("Crie um projeto para começar.")
+if ROLE == "aluno":
+    if projects:
+        st.sidebar.caption("Seus Projetos")
+        for p in projects:
+            if st.sidebar.button(f"📁 {p['name']}", key=f"open_{p['project_id']}"):
+                st.session_state.active_project_id = p["project_id"]
+                st.rerun()
     else:
-        st.sidebar.info("Nenhum projeto de aluno encontrado no sistema.")
+        st.sidebar.info("Crie um projeto para começar.")
+else:
+    st.sidebar.caption("Painel do Professor - Área Corporativa")
 
 pid = st.session_state.get("active_project_id")
 if not pid:
     if ROLE == "professor":
         st.title("Gestão Corporativa & B2B")
-        t_cli, t_proj, t_req = st.tabs(["🏢 Clientes & Licenças", "🚀 Evolução dos Projetos", "🔐 Solicitações de Senha"])
+        t_cli, t_proj, t_req, t_acesso = st.tabs(["🏢 Clientes & Licenças", "🚀 Evolução dos Projetos", "🔐 Solicitações de Senha", "📂 Acesso a Projetos"])
         
         with t_cli:
             st.subheader("Cadastro de Clientes e Geração de Códigos")
@@ -685,6 +684,63 @@ if not pid:
                                 st.rerun()
                 else:
                     st.success("Tudo tranquilo! Nenhum aluno reportou esquecimento de senha.")
+            finally:
+                session.close()
+                
+        with t_acesso:
+            st.subheader("Entrar no Projeto como 'Aluno'")
+            
+            import db
+            session = db.SessionLocal()
+            try:
+                # Carregar usuários, clientes e montar mapeamento
+                users = session.query(db.User).all()
+                clients = session.query(db.Client).all()
+                
+                cl_dict = {c.id: c.name for c in clients}
+                user_client_name = {u.username: cl_dict.get(u.client_id, "Sem Cliente") for u in users}
+                
+                # Lista de clientes válidos que possuem projetos
+                projetos_prof = get_project_list()
+                if not projetos_prof:
+                    st.info("Nenhum projeto de aluno no sistema.")
+                else:
+                    # Enriquece projetos com informações do DB (leader) e cria map
+                    projetos_ricos = []
+                    clientes_existentes = set()
+                    
+                    for p in projetos_prof:
+                        p_state = db.get_project_state(p["project_id"])
+                        leader_name = p_state.get("leader", "Sem líder") if p_state else "Sem líder"
+                        cliente_do_aluno = user_client_name.get(p["user_id"], "Sem Cliente")
+                        
+                        clientes_existentes.add(cliente_do_aluno)
+                        
+                        projetos_ricos.append({
+                            "id": p["project_id"],
+                            "name": p["name"],
+                            "user": p["user_id"],
+                            "client": cliente_do_aluno,
+                            "leader": leader_name,
+                            "label": f"[{p['name']}] Líder: {leader_name} | Aluno Dono: {p['user_id']}"
+                        })
+                    
+                    # Interface 1: Escolher Cliente
+                    sel_cliente = st.selectbox("1. Filtrar por Cliente", ["Todos os Clientes"] + sorted(list(clientes_existentes)))
+                    
+                    # Filtrar projetos
+                    projetos_filtrados = projetos_ricos if sel_cliente == "Todos os Clientes" else [pr for pr in projetos_ricos if pr["client"] == sel_cliente]
+                    
+                    if not projetos_filtrados:
+                        st.info("Nenhum projeto neste cliente.")
+                    else:
+                        mapa_lbl_id = {pr["label"]: pr["id"] for pr in projetos_filtrados}
+                        # Interface 2: Escolher Projeto
+                        sel_projeto_lbl = st.selectbox("2. Selecione o Projeto", list(mapa_lbl_id.keys()))
+                        
+                        if st.button("🚀 Acessar o Projeto (Visão do Aluno)", type="primary"):
+                            st.session_state.active_project_id = mapa_lbl_id[sel_projeto_lbl]
+                            st.rerun()
             finally:
                 session.close()
 
