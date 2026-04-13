@@ -136,35 +136,64 @@ def render_capabilidade_ui(project_state: dict, pid: str, db, read_only: bool, t
                         numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
                         if numeric_cols:
                             st.markdown("#### Gerador Gráfico Nativo Seguro")
+                            
                             c_col, c_chart = st.columns(2)
                             with c_col:
                                 selected_col = st.selectbox("Selecione a Métrica/Variável Y", numeric_cols)
                             with c_chart:
-                                chart_type = st.selectbox("Tipo de Gráfico", ["Histograma (Distribuição)", "Boxplot (Variação)", "Ordem / Linha do Tempo"])
+                                chart_type = st.selectbox("Escolha o Tipo de Gráfico", ["Histograma (Distribuição)", "Boxplot (Variação)", "Ordem / Linha do Tempo"])
                             
-                            import altair as alt
-                            try:
-                                if chart_type == "Histograma (Distribuição)":
-                                    chart = alt.Chart(df).mark_bar(color='#0083B8').encode(
-                                        alt.X(f"{selected_col}:Q", bin=alt.Bin(maxbins=30), title=selected_col),
-                                        alt.Y('count()', title='Frequência'),
-                                        tooltip=[alt.Tooltip(f"{selected_col}:Q", bin=True), 'count()']
-                                    ).properties(height=300)
-                                    st.altair_chart(chart, use_container_width=True)
-                                elif chart_type == "Boxplot (Variação)":
-                                    chart = alt.Chart(df).mark_boxplot(extent='min-max', color='#0083B8').encode(
-                                        y=alt.Y(f"{selected_col}:Q", title=selected_col)
-                                    ).properties(height=300)
-                                    st.altair_chart(chart, use_container_width=True)
-                                else:
-                                    chart = alt.Chart(df.reset_index()).mark_line(point=True, color='#0083B8').encode(
-                                        x=alt.X('index:Q', title='Amostra (Ordem Cronológica)'),
-                                        y=alt.Y(f"{selected_col}:Q", title=selected_col),
-                                        tooltip=['index', selected_col]
-                                    ).properties(height=300)
-                                    st.altair_chart(chart, use_container_width=True)
-                            except Exception as e:
-                                st.warning(f"Erro ao renderizar gráfico nativo: {e}")
+                            if st.button("📈 Gerar e Salvar Gráfico na Galeria", type="secondary"):
+                                import altair as alt
+                                try:
+                                    if chart_type == "Histograma (Distribuição)":
+                                        chart = alt.Chart(df).mark_bar(color='#0083B8').encode(
+                                            alt.X(f"{selected_col}:Q", bin=alt.Bin(maxbins=30), title=selected_col),
+                                            alt.Y('count()', title='Frequência'),
+                                            tooltip=[alt.Tooltip(f"{selected_col}:Q", bin=True), 'count()']
+                                        ).properties(height=300)
+                                    elif chart_type == "Boxplot (Variação)":
+                                        chart = alt.Chart(df).mark_boxplot(extent='min-max', color='#0083B8').encode(
+                                            y=alt.Y(f"{selected_col}:Q", title=selected_col)
+                                        ).properties(height=300)
+                                    else:
+                                        chart = alt.Chart(df.reset_index()).mark_line(point=True, color='#0083B8').encode(
+                                            x=alt.X('index:Q', title='Amostra (Ordem Cronológica)'),
+                                            y=alt.Y(f"{selected_col}:Q", title=selected_col),
+                                            tooltip=['index', selected_col]
+                                        ).properties(height=300)
+                                    
+                                    chart_dict = chart.to_dict()
+                                    state_charts_key = f"cap_saved_charts_{tool}"
+                                    if state_charts_key not in st.session_state:
+                                        st.session_state[state_charts_key] = []
+                                        
+                                    st.session_state[state_charts_key].append({
+                                        "title": f"{chart_type} - {selected_col}",
+                                        "spec": chart_dict
+                                    })
+                                    st.success(f"Gráfico '{chart_type}' gerado e anexado à Galeria abaixo!")
+                                except Exception as e:
+                                    st.warning(f"Erro ao renderizar gráfico nativo: {e}")
+                                    
+                        # --- Espaço para Galeria ---
+                        st.markdown("---")
+                        st.markdown("### 🖼️ Painel de Gráficos Gerados")
+                        state_charts_key = f"cap_saved_charts_{tool}"
+                        
+                        if state_charts_key in st.session_state and st.session_state[state_charts_key]:
+                            for idx, c_data in enumerate(st.session_state[state_charts_key]):
+                                st.markdown(f"**{c_data['title']}**")
+                                import altair as alt
+                                try:
+                                    st.altair_chart(alt.Chart.from_dict(c_data['spec']), use_container_width=True)
+                                except: pass
+                                
+                                if st.button(f"🗑️ Remover Gráfico", key=f"btn_remove_chart_{idx}"):
+                                    st.session_state[state_charts_key].pop(idx)
+                                    st.rerun()
+                        else:
+                            st.info("Nenhum gráfico gerado ainda. Selecione e clique em Gerar acima.")
                 else:
                     doc_text = parse_doc(uploaded_file)
                     st.text_area("Preview do Documento", doc_text[:1000] + "...", height=150, disabled=True)
@@ -174,31 +203,68 @@ def render_capabilidade_ui(project_state: dict, pid: str, db, read_only: bool, t
             b_chat_2 = st.button("📊 2. Calcular Distribuição / Nível Sigma (Requer Dados)", disabled=read_only or df is None, use_container_width=True)
             
             st.markdown("---")
-            st.markdown("### Salvar Módulo de Capabilidade Oficial")
+            st.markdown("### 💾 Salvar Módulo de Capabilidade Oficial")
             if not read_only:
-                if st.button("💾 Resumir e Salvar Relatório de Capabilidade", type="primary", use_container_width=True):
-                    with st.spinner("Compilando e salvando relatório oficial na Biblioteca..."):
+                if st.button("Resumir a Análise e Salvar Todo o Estudo Científico", type="primary", use_container_width=True):
+                    with st.spinner("Compilando e salvando relatório consolidado (Conclusão + Gráficos)..."):
                         import coach_extensions
-                        resume_payload = "Resuma detalhadamente seus últimos achados, foque nos limites operacionais, oportunidades e na métrica principal (Nível Sigma)."
+                        resume_payload = "Aja como o Diretor Master Black Belt. Faça um laudo de fechamento conclusivo sobre nossa análise de capabilidade e nível de sigma da nossa conversa com base nos meus dados. Diga que agora ele será registrado oficialmente."
                         ans = coach_extensions.analyze_measurement_data(
-                            project_state, "Gerar Sumário Final", resume_payload, st.session_state.get(f"cap_chat_logs_{tool}", [])
+                            project_state, "Gerar Conclusão Definitiva", resume_payload, st.session_state.get(f"cap_chat_logs_{tool}", [])
                         )
-                        final_msg = ans.get("resposta", "Análise salva com sucesso.")
+                        final_msg = ans.get("resposta", "Análise salva com sucesso e sem ressalvas.")
+                        
+                        # Pack graphs if present
+                        saved_charts = st.session_state.get(f"cap_saved_charts_{tool}", [])
                         
                         rel = {
-                            "id": f"cap_{len(project_state.get('measurement_reports', []))}",
-                            "title": f"Cálculo de Capabilidade ({tool.split(' - ')[0]})",
+                            "id": f"cap_oficial_{tool.split(' - ')[0]}_{pd.Timestamp.now().strftime('%H%M%S')}",
+                            "title": f"Laudo de Capabilidade Oficial - {tool.split(' - ')[0]}",
                             "date": pd.Timestamp.now().strftime("%d/%m/%Y %H:%M"),
-                            "logs": st.session_state.get(f"cap_chat_logs_{tool}", []) + [{"role": "assistant", "content": final_msg}],
+                            "summary": final_msg,
+                            "charts": saved_charts
                         }
                         
-                        reports = project_state.get("measurement_reports", [])
-                        reports.append(rel)
-                        project_state["measurement_reports"] = reports
+                        reports_key = f"capabilidade_oficial_relatorios_{tool}"
+                        my_reports = project_state.get(reports_key, [])
+                        my_reports.append(rel)
+                        project_state[reports_key] = my_reports
+                        
                         db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"], project_state.get("allow_teacher_view", True))
-                        st.success("Relatório Salvo! Ele foi transferido para a Biblioteca de Relatórios em Repositório de Medições.")
-                        st.session_state[f"cap_chat_logs_{tool}"] = [] # Limpa a tela
+                        
+                        # Limpa sessão prosximos projetos
+                        st.session_state[f"cap_chat_logs_{tool}"] = []
+                        st.session_state[f"cap_saved_charts_{tool}"] = []
+                        
+                        st.success("Relatório Definitivo Gerado e Salvo com Sucesso! Leia abaixo.")
                         st.rerun()
+
+            st.markdown("---")
+            st.markdown("### 📋 Seus Laudos de Capabilidade Salvos")
+            reports_key = f"capabilidade_oficial_relatorios_{tool}"
+            laudos = project_state.get(reports_key, [])
+            
+            if not laudos:
+                st.caption("Ainda não há laudos de capabilidade gravados neste projeto.")
+            else:
+                for idx_laudo, laudo in enumerate(reversed(laudos)):
+                    with st.expander(f"{laudo['title']} - Criado em {laudo['date']}", expanded=(idx_laudo == 0)):
+                        st.markdown(laudo['summary'])
+                        if laudo.get('charts'):
+                            st.markdown("#### 🖼️ Gráficos Anexados ao Relatório")
+                            for c_data in laudo['charts']:
+                                import altair as alt
+                                try:
+                                    st.markdown(f"_{c_data['title']}_")
+                                    st.altair_chart(alt.Chart.from_dict(c_data['spec']), use_container_width=True)
+                                except: pass
+                        if not read_only:
+                            if st.button("Sinalizar Limpeza / Deletar", key=f"del_laudo_{laudo['id']}"):
+                                proj_reports = project_state.get(reports_key, [])
+                                proj_reports = [r for r in proj_reports if r['id'] != laudo['id']]
+                                project_state[reports_key] = proj_reports
+                                db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"], project_state.get("allow_teacher_view", True))
+                                st.rerun()
                     
         with colChat:
             state_log_key = f"cap_chat_logs_{tool}"
