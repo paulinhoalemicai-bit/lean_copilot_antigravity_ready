@@ -647,6 +647,27 @@ if not pid:
                 if cf != "Todos":
                     df_met = df_met[df_met["Cliente"] == cf]
                     
+                # Dashboard Global (KPIs)
+                st.markdown("---")
+                
+                # Regra: Evolução 100% = Realizado. < 100% = Em Realização (Vigente)
+                df_realizados = df_met[df_met["Evolução %"] >= 100]
+                df_vigentes = df_met[df_met["Evolução %"] < 100]
+                
+                qtd_realizados = len(df_realizados)
+                qtd_vigentes = len(df_vigentes)
+                
+                avg_evo_vigentes = df_vigentes["Evolução %"].mean() if qtd_vigentes > 0 else 0
+                avg_acoes_vigentes = df_vigentes["Ações Realizadas %"].mean() if qtd_vigentes > 0 else 0
+                
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Projetos Realizados (100%)", f"{qtd_realizados}")
+                c2.metric("Projetos em Andamento (Vigentes)", f"{qtd_vigentes}")
+                c3.metric("Média de Evolução (Vigentes)", f"{avg_evo_vigentes:.1f}%")
+                c4.metric("Média de Ações (Vigentes)", f"{avg_acoes_vigentes:.1f}%")
+                
+                st.markdown("---")
+                    
                 st.dataframe(
                     df_met,
                     use_container_width=True,
