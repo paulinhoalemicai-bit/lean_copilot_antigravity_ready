@@ -28,11 +28,20 @@ def parse_data(file) -> pd.DataFrame:
     ext = file.name.split('.')[-1].lower()
     try:
         if ext == 'csv':
-            return pd.read_csv(file)
+            df = pd.read_csv(file, sep=None, engine='python')
         elif ext in ['xls', 'xlsx']:
-            return pd.read_excel(file)
+            df = pd.read_excel(file)
         else:
             return None
+            
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                cleaned = df[col].astype(str).str.replace(',', '.')
+                numeric_series = pd.to_numeric(cleaned, errors='coerce')
+                if numeric_series.notna().sum() >= (len(df) * 0.3):
+                    df[col] = numeric_series
+                    
+        return df
     except:
         return None
 
