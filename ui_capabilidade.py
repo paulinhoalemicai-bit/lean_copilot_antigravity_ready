@@ -132,6 +132,39 @@ def render_capabilidade_ui(project_state: dict, pid: str, db, read_only: bool, t
                     if df is not None:
                         st.dataframe(df.head(), use_container_width=True)
                         st.caption(f"Tabela carregada: {df.shape[0]} linhas e {df.shape[1]} colunas.")
+                        
+                        numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+                        if numeric_cols:
+                            st.markdown("#### Gerador Gráfico Nativo Seguro")
+                            c_col, c_chart = st.columns(2)
+                            with c_col:
+                                selected_col = st.selectbox("Selecione a Métrica/Variável Y", numeric_cols)
+                            with c_chart:
+                                chart_type = st.selectbox("Tipo de Gráfico", ["Histograma (Distribuição)", "Boxplot (Variação)", "Ordem / Linha do Tempo"])
+                            
+                            import altair as alt
+                            try:
+                                if chart_type == "Histograma (Distribuição)":
+                                    chart = alt.Chart(df).mark_bar(color='#0083B8').encode(
+                                        alt.X(f"{selected_col}:Q", bin=alt.Bin(maxbins=30), title=selected_col),
+                                        alt.Y('count()', title='Frequência'),
+                                        tooltip=[alt.Tooltip(f"{selected_col}:Q", bin=True), 'count()']
+                                    ).properties(height=300)
+                                    st.altair_chart(chart, use_container_width=True)
+                                elif chart_type == "Boxplot (Variação)":
+                                    chart = alt.Chart(df).mark_boxplot(extent='min-max', color='#0083B8').encode(
+                                        y=alt.Y(f"{selected_col}:Q", title=selected_col)
+                                    ).properties(height=300)
+                                    st.altair_chart(chart, use_container_width=True)
+                                else:
+                                    chart = alt.Chart(df.reset_index()).mark_line(point=True, color='#0083B8').encode(
+                                        x=alt.X('index:Q', title='Amostra (Ordem Cronológica)'),
+                                        y=alt.Y(f"{selected_col}:Q", title=selected_col),
+                                        tooltip=['index', selected_col]
+                                    ).properties(height=300)
+                                    st.altair_chart(chart, use_container_width=True)
+                            except Exception as e:
+                                st.warning(f"Erro ao renderizar gráfico nativo: {e}")
                 else:
                     doc_text = parse_doc(uploaded_file)
                     st.text_area("Preview do Documento", doc_text[:1000] + "...", height=150, disabled=True)
