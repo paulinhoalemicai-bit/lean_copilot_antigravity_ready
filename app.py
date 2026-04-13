@@ -342,13 +342,13 @@ def get_dmaic_metrics(p_state: dict) -> dict:
         ("Project Charter", bool(safe_get(p_state, "charter", "main_indicator") or safe_get(p_state, "charter", "problem"))),
         ("Matriz RACI", bool(p_state.get("raci"))),
         ("SIPOC (por etapa)", bool(p_state.get("sipoc"))), # SIPOC é uma lista direta
-        ("Saving Projetado", bool(safe_get(p_state, "saving_projetado", "hard")))
+        ("Saving Projetado", bool(p_state.get("saving_projetado")))
     ]
     
     checklist_m = [
         ("Fluxograma", bool(p_state.get("fluxograma_xml"))),
         ("Matriz de Indicadores", bool(p_state.get("matriz_indicadores"))),
-        ("Repositório de Medições", bool(p_state.get("metrics") and len(p_state.get("metrics")) > 0)),
+        ("Repositório de Medições", bool(p_state.get("measurement_reports") or (p_state.get("metrics") and len(p_state.get("metrics")) > 0))),
         ("Causa & Efeito", bool(p_state.get("causa_efeito"))),
         ("Plano de Coleta de Dados", bool(p_state.get("planos_validacao"))),
         ("Quick Wins", bool(p_state.get("quick_wins"))),
