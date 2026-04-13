@@ -244,12 +244,19 @@ with st.sidebar:
     if ROLE == "professor":
         st.markdown("""
         <style>
-        /* Corrigir contraste do selectbox no painel admin */
+        /* Corrigir contraste do selectbox no painel admin (Dropdown e Texto Selecionado) */
         div[data-baseweb="select"] > div {
             color: #000000 !important;
+            background-color: #FFFFFF !important;
         }
-        div[role="listbox"] ul li {
+        /* Itens da lista suspensa */
+        li[role="option"] {
             color: #000000 !important;
+            background-color: #FFFFFF !important;
+        }
+        /* Garantir que o rótulo do selectbox não suma */
+        .stSelectbox label p {
+            color: #FFFFFF !important;
         }
         </style>
         """, unsafe_allow_html=True)
