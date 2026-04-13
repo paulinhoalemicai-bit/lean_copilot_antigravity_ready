@@ -785,13 +785,51 @@ with colB:
             st.success("Permissões atualizadas!")
             st.rerun()
 
-tool_col1, tool_col2 = st.columns([1, 1])
+@st.dialog("🎓 Mestre Lean - Sala de Aula", width="large")
+def mestre_lean_dialog():
+    st.markdown("### Bem-vindo à Sala de Aula Virtual")
+    st.write(f"Ferramenta em foco atual: **{st.session_state.get('active_tool', 'Nenhuma')}**")
+    
+    ferramenta_foco = st.selectbox(
+        "Sobre qual ferramenta você deseja aprender?",
+        TOOLS,
+        index=TOOLS.index(st.session_state.get('active_tool', TOOLS[0])) if st.session_state.get('active_tool') in TOOLS else 0
+    )
+    
+    col_t, col_m = st.columns(2)
+    with col_t:
+        btn_teoria = st.button("📚 Ensinar a Teoria", use_container_width=True)
+    with col_m:
+        btn_manual = st.button("⚙️ Como usar no App (Manual)", use_container_width=True)
+        
+    st.markdown("---")
+    
+    if btn_teoria:
+        with st.spinner("Mestre Lean preparando a aula..."):
+            import coach
+            prompt = f"Gere uma pequena aula teórica fascinante (1 a 3 parágrafos) sobre a ferramenta '{ferramenta_foco}' da metodologia Lean Seis Sigma. Explique para que serve, como funciona e por que é importante. Dê 1 exemplo focado em empresas."
+            st.session_state["mestre_resposta"] = coach._simple_text_llm_call(prompt)
+            
+    if btn_manual:
+        with st.spinner("Mestre Lean escrevendo o manual..."):
+            import coach
+            prompt = f"Escreva um curto passo a passo manual ensinando um aluno a mexer na ferramenta '{ferramenta_foco}' dentro do Lean Copilot. Diga explicitamente para ele primeiro preencher os blocos com o que ele já sabe e depois, se travar, invocar a IA Doutor Lean apertando nos botões de IA daquela tela para buscar orientações."
+            st.session_state["mestre_resposta"] = coach._simple_text_llm_call(prompt)
+            
+    if "mestre_resposta" in st.session_state:
+        st.info(st.session_state["mestre_resposta"])
+
+# Posicionamento do botão no canto superior direito do main
+tool_col1, tool_col2 = st.columns([3, 1])
 with tool_col1:
     default_tool = st.session_state.get("active_tool", TOOLS[0])
     tool = st.selectbox("Ferramenta Analítica", TOOLS, index=TOOLS.index(default_tool) if default_tool in TOOLS else 0)
     st.session_state.active_tool = tool
 with tool_col2:
-    st.empty() # Radio button removido daqui para ficar na lateral direita do Coach
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🎓 Mestre Lean (Ajuda)", type="primary", use_container_width=True):
+        st.session_state.pop("mestre_resposta", None) # limpa a ultima memoria da sala
+        mestre_lean_dialog()
 
 tool_container = st.container()
 coach_container = st.container()

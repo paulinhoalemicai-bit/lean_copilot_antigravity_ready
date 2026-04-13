@@ -107,6 +107,18 @@ def _chat_json(system: str, user: str) -> Dict[str, Any]:
     return _clean_json_payload(obj)
 
 
+def _simple_text_llm_call(prompt: str) -> str:
+    """Função para gerar texto puro e não JSON."""
+    response = client.chat.completions.create(
+        model=get_model(),
+        messages=[
+            {"role": "system", "content": "Você é o Mestre Lean, o professor definitivo de Lean Seis Sigma em um software de gestão acadêmico/corporativo."},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    return response.choices[0].message.content or ""
+
+
 def _base_system(tool: str) -> str:
     guidance = TOOL_GUIDANCE.get(tool, "")
     return f"""
