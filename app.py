@@ -107,6 +107,12 @@ def inject_custom_css(is_logged_in: bool):
             [data-testid="stSidebar"] * {
                 color: #FFFFFF !important;
             }
+            /* Exceção: Forçar texto do selectbox como preto para leitura */
+            [data-testid="stSidebar"] div[data-baseweb="select"] span,
+            [data-testid="stSidebar"] div[data-baseweb="select"] div,
+            div[role="listbox"] * {
+                color: #000000 !important;
+            }
             header { background-color: #F7F7F7 !important; }
             .stApp { background-color: #F7F7F7 !important; }
             
@@ -242,24 +248,6 @@ with st.sidebar:
         st.markdown("---")
 
     if ROLE == "professor":
-        st.markdown("""
-        <style>
-        /* Corrigir contraste do selectbox no painel admin (Dropdown e Texto Selecionado) */
-        div[data-baseweb="select"] > div {
-            color: #000000 !important;
-            background-color: #FFFFFF !important;
-        }
-        /* Itens da lista suspensa */
-        li[role="option"] {
-            color: #000000 !important;
-            background-color: #FFFFFF !important;
-        }
-        /* Garantir que o rótulo do selectbox não suma */
-        .stSelectbox label p {
-            color: #FFFFFF !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
         st.markdown("### 🛠️ Painel Admin")
         st.caption("Configurações Globais (Afeta todos os alunos)")
         current_ai = db.get_global_model()
