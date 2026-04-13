@@ -104,7 +104,7 @@ def init_db() -> None:
         except Exception: pass
         try: conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_req BOOLEAN DEFAULT False"))
         except Exception: pass
-        try: conn.execute(text("ALTER TABLE projects ADD COLUMN allow_teacher_view BOOLEAN DEFAULT 1"))
+        try: conn.execute(text("ALTER TABLE projects ADD COLUMN allow_teacher_view BOOLEAN DEFAULT TRUE"))
         except Exception: pass
         try: conn.commit()
         except: pass
