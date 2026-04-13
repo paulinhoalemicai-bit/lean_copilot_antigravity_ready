@@ -506,10 +506,10 @@ Caso algum balde não faça sentido pro relato, preencha com: "Nenhum fator mape
             return str(val).strip()
 
         return {
-            "hard": _fmt(out.get("hard_racional", "")),
-            "soft": _fmt(out.get("soft_racional", "")),
-            "avoidance": _fmt(out.get("avoidance_racional", "")),
-            "faturamento": _fmt(out.get("faturamento_racional", ""))
+            "hard_racional": _fmt(out.get("hard_racional", "")),
+            "soft_racional": _fmt(out.get("soft_racional", "")),
+            "avoidance_racional": _fmt(out.get("avoidance_racional", "")),
+            "faturamento_racional": _fmt(out.get("faturamento_racional", ""))
         }
     except Exception as e:
         return {"hard": f"Erro IA: {e}", "soft": "", "avoidance": "", "faturamento": ""}

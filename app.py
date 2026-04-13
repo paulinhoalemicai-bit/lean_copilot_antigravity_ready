@@ -235,6 +235,17 @@ with st.sidebar:
     st.markdown("---")
 
     if ROLE == "professor":
+        st.markdown("""
+        <style>
+        /* Corrigir contraste do selectbox no painel admin */
+        div[data-baseweb="select"] > div {
+            color: #000000 !important;
+        }
+        div[role="listbox"] ul li {
+            color: #000000 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         st.markdown("### 🛠️ Painel Admin")
         st.caption("Configurações Globais (Afeta todos os alunos)")
         current_ai = db.get_global_model()
@@ -328,30 +339,30 @@ def get_dmaic_metrics(p_state: dict) -> dict:
     # CHECKLIST MAPPING: Retorna (Nome Ferramenta, Preenchido boolean)
     checklist_d = [
         ("VOC/VOB", bool(safe_get(p_state, "voc_vob", "voc"))),
-        ("Project Charter", bool(safe_get(p_state, "charter", "y"))),
+        ("Project Charter", bool(safe_get(p_state, "charter", "main_indicator") or safe_get(p_state, "charter", "problem"))),
         ("Matriz RACI", bool(p_state.get("raci"))),
-        ("SIPOC (por etapa)", bool(safe_get(p_state, "sipoc", "rows"))),
+        ("SIPOC (por etapa)", bool(p_state.get("sipoc"))), # SIPOC é uma lista direta
         ("Saving Projetado", bool(safe_get(p_state, "saving_projetado", "hard")))
     ]
     
     checklist_m = [
         ("Fluxograma", bool(p_state.get("fluxograma_xml"))),
         ("Matriz de Indicadores", bool(p_state.get("matriz_indicadores"))),
-        ("Repositório de Medições", bool(p_state.get("metrics"))),
+        ("Repositório de Medições", bool(p_state.get("metrics") and len(p_state.get("metrics")) > 0)),
         ("Causa & Efeito", bool(p_state.get("causa_efeito"))),
-        ("Plano de Coleta de Dados", bool(p_state.get("planos_validacao"))), # Nota: Em legado planos_validacao serve de repo (M/A overlap)
-        ("Quick Wins", bool(p_state.get("quick_wins"))), # Check se temos array
+        ("Plano de Coleta de Dados", bool(p_state.get("planos_validacao"))),
+        ("Quick Wins", bool(p_state.get("quick_wins"))),
         ("Ishikawa", bool(p_state.get("ishikawas")))
     ]
 
     checklist_a = [
         ("5 Porquês", bool(p_state.get("cinco_pqs"))),
-        ("Plano de Validação de Causas", bool(p_state.get("planos_validacao"))) # Overlap lógico, se for True ambos
+        ("Plano de Validação de Causas", bool(p_state.get("planos_validacao")))
     ]
 
     checklist_i = [
-        ("Plano de Soluções", bool(p_state.get("plano_solucoes"))),
-        ("Plano de Ação", bool(p_state.get("plano_acao"))) # Ver se plano de acao existe global
+        ("Plano de Soluções", bool(p_state.get("planos_solucoes"))), # Chave correta é planos_solucoes
+        ("Plano de Ação", bool(p_state.get("planos_acao"))) # Chave interna correta
     ]
 
     # Correção: O Lean Copilot salva plano_acao sob `planos_acao` com um ID
@@ -1934,6 +1945,12 @@ with tool_container:
         state_key = "saving_projetado" if tool == "D - Saving Projetado" else "saving_realizado"
         sav = project_state.get(state_key) or {}
         
+        # Merge de dados sugeridos pela IA se houver
+        if "saving_coach_feedback" in st.session_state:
+            ia_fb = st.session_state["saving_coach_feedback"]
+            for k, v in ia_fb.items():
+                if v: sav[k] = v
+        
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("#### Hard Saving")
@@ -1988,6 +2005,10 @@ with tool_container:
         if not raci_data:
             raci_data = [{"Nome": "", "Posição / Cargo": "", "Definição": "", "Medição": "", "Análise": "", "Melhoria": "", "Controle": ""}]
             
+        def save_raci_auto():
+            project_state["raci"] = st.session_state[f"raci_editor_{pid}"]
+            db.upsert_project(pid, project_state["name"], project_state, project_state["user_id"], project_state["allow_teacher_edit"])
+
         edited_raci = st.data_editor(
             raci_data,
             num_rows="dynamic",
@@ -2001,7 +2022,9 @@ with tool_container:
                 "Melhoria": st.column_config.SelectboxColumn("Melhoria", options=["R", "A", "C", "I", ""]),
                 "Controle": st.column_config.SelectboxColumn("Controle", options=["R", "A", "C", "I", ""])
             },
-            disabled=read_only
+            disabled=read_only,
+            key=f"raci_editor_{pid}",
+            on_change=save_raci_auto
         )
         
         with st.expander("❔ Entenda o que significa R, A, C, I", expanded=True):
