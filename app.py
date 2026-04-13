@@ -233,6 +233,13 @@ with st.sidebar:
             change_password_dialog()
             
     st.markdown("---")
+    
+    # Se o professor está dentro de um projeto, dar opção para ele voltar ao painel Dashboard
+    if ROLE == "professor" and st.session_state.get("active_project_id"):
+        if st.button("⬅️ Voltar ao Painel Admin", type="primary", use_container_width=True):
+            st.session_state.active_project_id = None
+            st.rerun()
+        st.markdown("---")
 
     if ROLE == "professor":
         st.markdown("""

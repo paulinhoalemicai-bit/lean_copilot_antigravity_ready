@@ -148,9 +148,10 @@ def list_projects(user_role: str, username: str) -> List[Dict[str, Any]]:
     try:
         if user_role == "professor":
             # Professor vê as que não são secretas e que permitem view
+            from sqlalchemy import or_
             projects = db.query(Project).filter(
                 Project.project_id != "SYSTEM_CONFIG",
-                Project.allow_teacher_view == True
+                or_(Project.allow_teacher_view == True, Project.allow_teacher_view.is_(None))
             ).order_by(Project.updated_at.desc()).all()
         else:
             projects = db.query(Project).filter(Project.user_id == username, Project.project_id != "SYSTEM_CONFIG").order_by(Project.updated_at.desc()).all()
