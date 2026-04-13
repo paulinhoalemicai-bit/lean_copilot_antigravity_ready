@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import scipy.stats as stats
 import docx
-import pdfplumber
+from pypdf import PdfReader
 import io
 
 def parse_doc(file) -> str:
@@ -11,9 +11,9 @@ def parse_doc(file) -> str:
     text = ""
     try:
         if ext == 'pdf':
-            with pdfplumber.open(file) as pdf:
-                for page in pdf.pages:
-                    text += page.extract_text() + "\n"
+            pdf = PdfReader(file)
+            for page in pdf.pages:
+                text += page.extract_text() + "\n"
         elif ext == 'docx':
             doc = docx.Document(file)
             for paragraph in doc.paragraphs:
